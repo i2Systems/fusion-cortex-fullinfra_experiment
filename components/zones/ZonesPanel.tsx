@@ -17,7 +17,8 @@ interface Zone {
   name: string
   deviceCount: number
   description: string
-  colorVar: string // CSS variable name like '--color-primary'
+  colorVar?: string // CSS variable name like '--color-primary'
+  color?: string // Hex color (alternative to colorVar)
 }
 
 interface ZonesPanelProps {
@@ -30,15 +31,19 @@ export function ZonesPanel({ zones, selectedZoneId, onZoneSelect }: ZonesPanelPr
   const [colors, setColors] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    // Get CSS variable values
+    // Get CSS variable values or use direct color
     const root = document.documentElement
     const computedStyle = getComputedStyle(root)
     const colorMap: Record<string, string> = {}
     
     zones.forEach(zone => {
-      const colorValue = computedStyle.getPropertyValue(zone.colorVar).trim()
-      if (colorValue) {
-        colorMap[zone.id] = colorValue
+      if (zone.color) {
+        colorMap[zone.id] = zone.color
+      } else if (zone.colorVar) {
+        const colorValue = computedStyle.getPropertyValue(zone.colorVar).trim()
+        if (colorValue) {
+          colorMap[zone.id] = colorValue
+        }
       }
     })
     

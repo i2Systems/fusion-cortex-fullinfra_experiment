@@ -35,6 +35,9 @@ interface MapCanvasProps {
   mapImageUrl?: string | null
   devices?: DevicePoint[]
   highlightDeviceId?: string | null
+  mode?: 'select' | 'move'
+  onDeviceMove?: (deviceId: string, x: number, y: number) => void
+  onDeviceMoveEnd?: (deviceId: string, x: number, y: number) => void
 }
 
 function FloorPlanImage({ url, width, height }: { url: string; width: number; height: number }) {
@@ -59,12 +62,22 @@ function FloorPlanImage({ url, width, height }: { url: string; width: number; he
   ) : null
 }
 
-export function MapCanvas({ onDeviceSelect, selectedDeviceId, mapImageUrl, devices = [], highlightDeviceId }: MapCanvasProps) {
+export function MapCanvas({ 
+  onDeviceSelect, 
+  selectedDeviceId, 
+  mapImageUrl, 
+  devices = [], 
+  highlightDeviceId,
+  mode = 'select',
+  onDeviceMove,
+  onDeviceMoveEnd
+}: MapCanvasProps) {
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
   const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 })
   const [scale, setScale] = useState(1)
   const [hoveredDevice, setHoveredDevice] = useState<DevicePoint | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
+  const [draggedDevice, setDraggedDevice] = useState<{ id: string; startX: number; startY: number } | null>(null)
   const animationFrameRef = useRef<number | null>(null)
   const [colors, setColors] = useState({
     primary: '#4c7dff',
@@ -174,7 +187,7 @@ export function MapCanvas({ onDeviceSelect, selectedDeviceId, mapImageUrl, devic
         y={stagePosition.y}
         scaleX={scale}
         scaleY={scale}
-        draggable
+        draggable={mode === 'select'} // Only allow stage dragging in select mode
         onDragEnd={(e) => {
           setStagePosition({ x: e.target.x(), y: e.target.y() })
         }}
@@ -198,10 +211,43 @@ export function MapCanvas({ onDeviceSelect, selectedDeviceId, mapImageUrl, devic
             const isHovered = hoveredDevice?.id === device.id
             
             return (
-              <Group key={device.id}>
+              <Group 
+                key={device.id}
+                x={deviceX}
+                y={deviceY}
+                draggable={mode === 'move'}
+                onDragStart={(e) => {
+                  setDraggedDevice({ id: device.id, startX: device.x, startY: device.y })
+                  onDeviceSelect?.(device.id)
+                }}
+                onDragMove={(e) => {
+                  if (mode === 'move' && onDeviceMove) {
+                    // Convert stage coordinates to normalized 0-1 coordinates
+                    const stage = e.target.getStage()
+                    if (stage) {
+                      const pos = e.target.position()
+                      const normalizedX = Math.max(0, Math.min(1, pos.x / dimensions.width))
+                      const normalizedY = Math.max(0, Math.min(1, pos.y / dimensions.height))
+                      onDeviceMove(device.id, normalizedX, normalizedY)
+                    }
+                  }
+                }}
+                onDragEnd={(e) => {
+                  if (mode === 'move' && onDeviceMoveEnd) {
+                    const stage = e.target.getStage()
+                    if (stage) {
+                      const pos = e.target.position()
+                      const normalizedX = Math.max(0, Math.min(1, pos.x / dimensions.width))
+                      const normalizedY = Math.max(0, Math.min(1, pos.y / dimensions.height))
+                      onDeviceMoveEnd(device.id, normalizedX, normalizedY)
+                    }
+                  }
+                  setDraggedDevice(null)
+                }}
+              >
                 <Circle
-                  x={deviceX}
-                  y={deviceY}
+                  x={0}
+                  y={0}
                   radius={isSelected ? 8 : (isHovered ? 6 : 4)}
                   fill={getDeviceColor(device.type)}
                   stroke={isSelected ? colors.text : 'rgba(255,255,255,0.2)'}
@@ -209,11 +255,21 @@ export function MapCanvas({ onDeviceSelect, selectedDeviceId, mapImageUrl, devic
                   shadowBlur={isSelected ? 15 : (isHovered ? 8 : 3)}
                   shadowColor={isSelected ? colors.primary : 'black'}
                   opacity={isSelected ? 1 : (isHovered ? 0.8 : 0.6)}
-                  onClick={() => onDeviceSelect?.(device.id)}
-                  onTap={() => onDeviceSelect?.(device.id)}
+                  onClick={() => {
+                    if (mode === 'select') {
+                      onDeviceSelect?.(device.id)
+                    }
+                  }}
+                  onTap={() => {
+                    if (mode === 'select') {
+                      onDeviceSelect?.(device.id)
+                    }
+                  }}
                   onMouseEnter={(e) => {
                     const container = e.target.getStage()?.container()
-                    if (container) container.style.cursor = 'pointer'
+                    if (container) {
+                      container.style.cursor = mode === 'move' ? 'grab' : 'pointer'
+                    }
                     setHoveredDevice(device)
                     // Get mouse position relative to stage
                     const stage = e.target.getStage()
@@ -239,7 +295,7 @@ export function MapCanvas({ onDeviceSelect, selectedDeviceId, mapImageUrl, devic
                 />
                 {/* Tooltip - only render when hovered, positioned near cursor */}
                 {isHovered && (
-                  <Group x={tooltipPosition.x + 15} y={tooltipPosition.y - 15}>
+                  <Group x={tooltipPosition.x - deviceX + 15} y={tooltipPosition.y - deviceY - 15}>
                     {/* Tooltip background - uses theme tokens */}
                     <Rect
                       width={220}

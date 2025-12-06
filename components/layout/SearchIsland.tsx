@@ -9,7 +9,7 @@
 
 'use client'
 
-import { Search, ChevronDown, Layers, Filter } from 'lucide-react'
+import { Search, ChevronDown, Layers } from 'lucide-react'
 import { useState } from 'react'
 
 interface SearchIslandProps {
@@ -21,6 +21,8 @@ interface SearchIslandProps {
   subtitle?: string
   searchValue?: string
   onSearchChange?: (value: string) => void
+  onLayersClick?: () => void
+  filterCount?: number
 }
 
 const STORES = [
@@ -40,7 +42,9 @@ export function SearchIsland({
   title,
   subtitle,
   searchValue,
-  onSearchChange
+  onSearchChange,
+  onLayersClick,
+  filterCount = 0
 }: SearchIslandProps) {
   const [internalSearchQuery, setInternalSearchQuery] = useState('')
   const [currentSite, setCurrentSite] = useState(STORES[0])
@@ -84,14 +88,18 @@ export function SearchIsland({
 
             {/* Quick Actions */}
             {showActions && (
-              <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
-                <button className="px-4 py-2.5 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)] transition-all flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-shrink-0 ml-auto relative">
+                <button 
+                  onClick={onLayersClick}
+                  className="px-4 py-2.5 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)] transition-all flex items-center gap-2 relative"
+                >
                   <Layers size={16} />
                   Layers
-                </button>
-                <button className="px-4 py-2.5 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)] transition-all flex items-center gap-2">
-                  <Filter size={16} />
-                  Filter
+                  {filterCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[var(--color-primary)] text-[var(--color-text)] text-xs flex items-center justify-center font-semibold">
+                      {filterCount}
+                    </span>
+                  )}
                 </button>
               </div>
             )}

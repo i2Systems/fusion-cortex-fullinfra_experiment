@@ -3,6 +3,9 @@ import './globals.css'
 import { TRPCProvider } from '@/lib/trpc/Provider'
 import { AuthProvider } from '@/lib/auth'
 import { ThemeProvider } from '@/lib/theme'
+import { DeviceProvider } from '@/lib/DeviceContext'
+import { ZoneProvider } from '@/lib/ZoneContext'
+import { RuleProvider } from '@/lib/RuleContext'
 
 export const metadata: Metadata = {
   title: 'Fusion / Cortex — Commissioning & Configuration',
@@ -17,13 +20,19 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <TRPCProvider>
-          <ThemeProvider>
-            <AuthProvider>
-              {children}
-            </AuthProvider>
-          </ThemeProvider>
-        </TRPCProvider>
+                <TRPCProvider>
+                  <ThemeProvider>
+                    <AuthProvider>
+                      <DeviceProvider>
+                        <ZoneProvider>
+                          <RuleProvider>
+                            {children}
+                          </RuleProvider>
+                        </ZoneProvider>
+                      </DeviceProvider>
+                    </AuthProvider>
+                  </ThemeProvider>
+                </TRPCProvider>
       </body>
     </html>
   )
