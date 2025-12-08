@@ -20,6 +20,7 @@ import { ZoneToolbar, ZoneToolMode } from '@/components/zones/ZoneToolbar'
 import { MapFiltersPanel, type MapFilters } from '@/components/map/MapFiltersPanel'
 import { useDevices } from '@/lib/DeviceContext'
 import { useZones } from '@/lib/ZoneContext'
+import { useRole } from '@/lib/role'
 
 // Dynamically import ZoneCanvas to avoid SSR issues with Konva
 const ZoneCanvas = dynamic(() => import('@/components/map/ZoneCanvas').then(mod => ({ default: mod.ZoneCanvas })), {
@@ -43,6 +44,7 @@ const ZONE_COLORS = [
 export default function ZonesPage() {
   const { devices, updateMultipleDevices } = useDevices()
   const { zones, addZone, updateZone, deleteZone, getDevicesInZone } = useZones()
+  const { role } = useRole()
   const [selectedZone, setSelectedZone] = useState<string | null>(null)
   const [mapUploaded, setMapUploaded] = useState(false)
   const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
@@ -186,8 +188,8 @@ export default function ZonesPage() {
       <div className="flex-1 flex min-h-0 gap-4 px-[20px] pt-4 pb-4 overflow-visible">
         {/* Map Canvas - Left Side */}
         <div className="flex-1 relative min-w-0 rounded-2xl shadow-[var(--shadow-strong)] border border-[var(--color-border-subtle)]" style={{ overflow: 'visible' }}>
-          {/* Zone Toolbar - Top center */}
-          {mapUploaded && (
+          {/* Zone Toolbar - Top center (hidden for Manager and Technician) */}
+          {mapUploaded && role !== 'Manager' && role !== 'Technician' && (
             <ZoneToolbar
               mode={toolMode}
               onModeChange={setToolMode}
@@ -196,8 +198,8 @@ export default function ZonesPage() {
             />
           )}
           
-          {/* Clear button - Top right */}
-          {mapUploaded && (
+          {/* Clear button - Top right (hidden for Manager and Technician) */}
+          {mapUploaded && role !== 'Manager' && role !== 'Technician' && (
             <div className="absolute top-0 right-4 z-30 pointer-events-none" style={{ transform: 'translateY(-50%)' }}>
               <div className="pointer-events-auto">
                 <button

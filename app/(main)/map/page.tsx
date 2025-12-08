@@ -33,6 +33,7 @@ const MapCanvas = dynamic(() => import('@/components/map/MapCanvas').then(mod =>
 })
 
 import { useDevices } from '@/lib/DeviceContext'
+import { useRole } from '@/lib/role'
 
 export default function MapPage() {
   const { 
@@ -44,6 +45,7 @@ export default function MapPage() {
     canUndo,
     canRedo
   } = useDevices()
+  const { role } = useRole()
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null)
   const [mapUploaded, setMapUploaded] = useState(false)
   const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
@@ -250,8 +252,8 @@ export default function MapPage() {
       <div className="flex-1 flex min-h-0 gap-4 px-[20px] pt-4 pb-4 overflow-visible">
         {/* Map Canvas - Left Side */}
         <div className="flex-1 relative min-w-0" style={{ overflow: 'visible' }}>
-          {/* Map Toolbar - Top center */}
-          {mapUploaded && (
+          {/* Map Toolbar - Top center (hidden for Manager and Technician) */}
+          {mapUploaded && role !== 'Manager' && role !== 'Technician' && (
             <MapToolbar
               mode={toolMode}
               onModeChange={setToolMode}
@@ -263,8 +265,8 @@ export default function MapPage() {
             />
           )}
           
-          {/* Clear button - Top right */}
-          {mapUploaded && (
+          {/* Clear button - Top right (hidden for Manager and Technician) */}
+          {mapUploaded && role !== 'Manager' && role !== 'Technician' && (
             <div className="absolute top-0 right-4 z-30 pointer-events-none" style={{ transform: 'translateY(-50%)' }}>
               <div className="pointer-events-auto">
                 <button

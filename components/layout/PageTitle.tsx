@@ -11,6 +11,7 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
+import { useRole } from '@/lib/role'
 
 const pageTitles: Record<string, { primary: string; secondary?: string }> = {
   '/dashboard': { primary: 'Fusion', secondary: 'i2 Cloud' },
@@ -25,6 +26,7 @@ const pageTitles: Record<string, { primary: string; secondary?: string }> = {
 
 export function PageTitle() {
   const pathname = usePathname()
+  const { role } = useRole()
   const title = pageTitles[pathname || '/dashboard'] || { primary: 'Fusion', secondary: 'i2 Cloud' }
 
   return (
@@ -42,6 +44,10 @@ export function PageTitle() {
               </span>
             </>
           )}
+          <span className="text-xs text-[var(--color-text-soft)] opacity-15">/</span>
+          <span className="text-sm font-medium text-[var(--color-text-soft)] opacity-25">
+            {role}
+          </span>
         </div>
       </div>
     </div>

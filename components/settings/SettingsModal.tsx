@@ -15,6 +15,7 @@ import { useState } from 'react'
 import { X, Search, Settings, User, Bell, Shield, Palette, Database, Info } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { useTheme } from '@/lib/theme'
+import { useRole } from '@/lib/role'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -35,6 +36,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const { user, logout } = useAuth()
   const { theme, setTheme } = useTheme()
+  const { role, setRole } = useRole()
 
   if (!isOpen) return null
 
@@ -212,7 +214,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 )}
 
                 {activeSection === 'appearance' && (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     <div>
                       <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-3">
                         Theme
@@ -250,6 +252,46 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             className="rounded"
                           />
                           <span className="text-sm text-[var(--color-text)] font-semibold">High Contrast</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-3">
+                        Role
+                      </label>
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-3 p-3 bg-[var(--color-surface-subtle)] rounded-lg cursor-pointer hover:bg-[var(--color-surface)] transition-colors">
+                          <input
+                            type="radio"
+                            name="role"
+                            value="Admin"
+                            checked={role === 'Admin'}
+                            onChange={() => setRole('Admin')}
+                            className="rounded"
+                          />
+                          <span className="text-sm text-[var(--color-text)]">Admin</span>
+                        </label>
+                        <label className="flex items-center gap-3 p-3 bg-[var(--color-surface-subtle)] rounded-lg cursor-pointer hover:bg-[var(--color-surface)] transition-colors">
+                          <input
+                            type="radio"
+                            name="role"
+                            value="Manager"
+                            checked={role === 'Manager'}
+                            onChange={() => setRole('Manager')}
+                            className="rounded"
+                          />
+                          <span className="text-sm text-[var(--color-text)]">Manager</span>
+                        </label>
+                        <label className="flex items-center gap-3 p-3 bg-[var(--color-surface-subtle)] rounded-lg cursor-pointer hover:bg-[var(--color-surface)] transition-colors">
+                          <input
+                            type="radio"
+                            name="role"
+                            value="Technician"
+                            checked={role === 'Technician'}
+                            onChange={() => setRole('Technician')}
+                            className="rounded"
+                          />
+                          <span className="text-sm text-[var(--color-text)]">Technician</span>
                         </label>
                       </div>
                     </div>

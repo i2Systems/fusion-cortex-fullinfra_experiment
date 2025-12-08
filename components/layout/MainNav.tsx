@@ -25,6 +25,7 @@ import {
   User
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
+import { useRole } from '@/lib/role'
 import { LoginModal } from '@/components/auth/LoginModal'
 import { SettingsModal } from '@/components/settings/SettingsModal'
 
@@ -42,8 +43,19 @@ const navItems = [
 export function MainNav() {
   const pathname = usePathname()
   const { user, isAuthenticated } = useAuth()
+  const { role } = useRole()
   const [showLogin, setShowLogin] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+
+  // Filter nav items based on role
+  const visibleNavItems = navItems.filter(item => {
+    // Technician cannot see BACnet Mapping and Rules & Overrides
+    if (role === 'Technician') {
+      return item.href !== '/bacnet' && item.href !== '/rules'
+    }
+    // Admin and Manager see everything
+    return true
+  })
 
   return (
     <>
@@ -53,7 +65,7 @@ export function MainNav() {
     >
         {/* Navigation Items */}
         <div className="flex-1 flex flex-col items-center py-4 gap-2">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
             

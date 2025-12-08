@@ -3,6 +3,7 @@ import './globals.css'
 import { TRPCProvider } from '@/lib/trpc/Provider'
 import { AuthProvider } from '@/lib/auth'
 import { ThemeProvider } from '@/lib/theme'
+import { RoleProvider } from '@/lib/role'
 import { DeviceProvider } from '@/lib/DeviceContext'
 import { ZoneProvider } from '@/lib/ZoneContext'
 import { RuleProvider } from '@/lib/RuleContext'
@@ -22,15 +23,17 @@ export default function RootLayout({
       <body>
                 <TRPCProvider>
                   <ThemeProvider>
-                    <AuthProvider>
-                      <DeviceProvider>
-                        <ZoneProvider>
-                          <RuleProvider>
-                            {children}
-                          </RuleProvider>
-                        </ZoneProvider>
-                      </DeviceProvider>
-                    </AuthProvider>
+                    <RoleProvider>
+                      <AuthProvider>
+                        <DeviceProvider>
+                          <ZoneProvider>
+                            <RuleProvider>
+                              {children}
+                            </RuleProvider>
+                          </ZoneProvider>
+                        </DeviceProvider>
+                      </AuthProvider>
+                    </RoleProvider>
                   </ThemeProvider>
                 </TRPCProvider>
       </body>
