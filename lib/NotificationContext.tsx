@@ -33,9 +33,129 @@ interface NotificationContextType {
   markAsUnread: (id: string) => void
   markAllAsRead: () => void
   dismissNotification: (id: string) => void
+  addNotification: (notification: Notification) => void
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined)
+
+// Generate a single random notification
+function generateRandomNotification(): Notification {
+  const now = new Date()
+  const types: NotificationType[] = ['discovery', 'fault', 'zone', 'bacnet', 'rule', 'device', 'system']
+  const type = types[Math.floor(Math.random() * types.length)]
+  
+  const notifications: Record<NotificationType, { titles: string[], messages: string[], links: string[] }> = {
+    discovery: {
+      titles: [
+        'Discovery Scan Completed',
+        'New Devices Detected',
+        'Background Scan Finished',
+        'Network Discovery Update',
+      ],
+      messages: [
+        'New devices discovered in the network. Review and map devices.',
+        'Devices found during background scan. Map them to zones.',
+        'Network scan completed. Review discovered devices.',
+        'Additional devices detected. Update device inventory.',
+      ],
+      links: ['/discovery', '/map'],
+    },
+    fault: {
+      titles: [
+        'Device Offline Detected',
+        'Device Signal Weak',
+        'Battery Low Warning',
+        'Connection Issue Detected',
+      ],
+      messages: [
+        'Devices are currently offline. Check device health and connectivity.',
+        'Device has low signal strength. Consider repositioning or checking network.',
+        'Device battery is below 20%. Schedule replacement soon.',
+        'Device connection unstable. Review network settings.',
+      ],
+      links: ['/faults', '/lookup'],
+    },
+    zone: {
+      titles: [
+        'Zone Configuration Updated',
+        'Zone Devices Changed',
+        'Zone Mapping Modified',
+      ],
+      messages: [
+        'Zone has been modified. Review zone settings.',
+        'Devices in zone have changed. Update zone configuration.',
+        'Zone boundaries updated. Verify device assignments.',
+      ],
+      links: ['/zones', '/map'],
+    },
+    bacnet: {
+      titles: [
+        'BACnet Connection Error',
+        'BACnet Sync Completed',
+        'BMS Integration Update',
+      ],
+      messages: [
+        'Zone BACnet connection failed. Check BMS integration settings.',
+        'BACnet synchronization completed successfully.',
+        'Building Management System integration updated.',
+      ],
+      links: ['/bacnet'],
+    },
+    rule: {
+      titles: [
+        'Rule Triggered',
+        'Rule Condition Met',
+        'Automation Activated',
+      ],
+      messages: [
+        'Motion Activation rule activated. View rule details.',
+        'Rule condition satisfied. Automation executed.',
+        'Scheduled rule triggered. Check zone status.',
+      ],
+      links: ['/rules'],
+    },
+    device: {
+      titles: [
+        'Device Signal Weak',
+        'Device Status Changed',
+        'Device Configuration Updated',
+      ],
+      messages: [
+        'Device has low signal strength. Consider repositioning.',
+        'Device status has changed. Review device details.',
+        'Device configuration modified. Verify settings.',
+      ],
+      links: ['/lookup', '/map'],
+    },
+    system: {
+      titles: [
+        'System Health Check',
+        'System Update Available',
+        'Maintenance Reminder',
+      ],
+      messages: [
+        'System health check completed. Some devices require attention.',
+        'System update available. Review changelog.',
+        'Scheduled maintenance window approaching.',
+      ],
+      links: ['/dashboard'],
+    },
+  }
+  
+  const templates = notifications[type]
+  const titleIndex = Math.floor(Math.random() * templates.titles.length)
+  const linkIndex = Math.floor(Math.random() * templates.links.length)
+  
+  return {
+    id: `auto-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    type,
+    title: templates.titles[titleIndex],
+    message: templates.messages[titleIndex],
+    timestamp: now,
+    read: false,
+    link: templates.links[linkIndex],
+  }
+}
 
 // Generate fake notifications
 function generateFakeNotifications(): Notification[] {
@@ -153,6 +273,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, [notifications])
 
+  // Auto-generate notifications periodically (every 30-60 seconds)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    
+    const interval = setInterval(() => {
+      // 30% chance to generate a new notification each interval
+      if (Math.random() < 0.3) {
+        const newNotification = generateRandomNotification()
+        setNotifications(prev => [newNotification, ...prev])
+      }
+    }, 30000 + Math.random() * 30000) // 30-60 seconds
+
+    return () => clearInterval(interval)
+  }, [])
+
   const unreadCount = notifications.filter(n => !n.read).length
 
   const markAsRead = (id: string) => {
@@ -177,6 +312,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setNotifications(prev => prev.filter(n => n.id !== id))
   }
 
+  const addNotification = (notification: Notification) => {
+    setNotifications(prev => [notification, ...prev])
+  }
+
   return (
     <NotificationContext.Provider value={{
       notifications,
@@ -185,6 +324,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       markAsUnread,
       markAllAsRead,
       dismissNotification,
+      addNotification,
     }}>
       {children}
     </NotificationContext.Provider>
