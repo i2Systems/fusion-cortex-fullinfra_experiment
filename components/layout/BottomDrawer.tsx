@@ -12,7 +12,7 @@
 
 'use client'
 
-import { ChevronUp, ChevronDown, Radar, AlertTriangle, Layers, Network, Settings, Search, Home, X } from 'lucide-react'
+import { ChevronUp, ChevronDown, Radar, AlertTriangle, Layers, Network, Workflow, Search, Home, X } from 'lucide-react'
 import { useState } from 'react'
 import { useNotifications } from '@/lib/NotificationContext'
 import { useRouter } from 'next/navigation'
@@ -27,7 +27,7 @@ const typeIcons: Record<string, any> = {
   fault: AlertTriangle,
   zone: Layers,
   bacnet: Network,
-  rule: Settings,
+  rule: Workflow,
   device: Search,
   system: Home,
 }

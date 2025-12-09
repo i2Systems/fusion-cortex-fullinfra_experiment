@@ -11,7 +11,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { X, Search, Settings, User, Bell, Shield, Palette, Database, Info } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { useTheme } from '@/lib/theme'
@@ -32,19 +32,39 @@ const settingsSections = [
 ]
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const [activeSection, setActiveSection] = useState('profile')
-  const [searchQuery, setSearchQuery] = useState('')
-  const { user, logout } = useAuth()
+  const { user, logout, isAuthenticated } = useAuth()
   const { theme, setTheme } = useTheme()
   const { role, setRole } = useRole()
+  const [activeSection, setActiveSection] = useState(isAuthenticated ? 'profile' : 'appearance')
+  const [searchQuery, setSearchQuery] = useState('')
+
+  // Filter sections based on authentication status
+  const availableSections = useMemo(() => {
+    return settingsSections.filter(section => {
+      // Hide Profile and Security when not authenticated
+      if (!isAuthenticated && (section.id === 'profile' || section.id === 'security')) {
+        return false
+      }
+      return true
+    })
+  }, [isAuthenticated])
+
+  // If current section is not available, switch to appearance
+  useEffect(() => {
+    // Check if current section should be hidden based on auth status
+    const shouldHideSection = !isAuthenticated && (activeSection === 'profile' || activeSection === 'security')
+    if (shouldHideSection) {
+      setActiveSection('appearance')
+    }
+  }, [isAuthenticated, activeSection])
 
   if (!isOpen) return null
 
-  const filteredSections = settingsSections.filter(section =>
+  const filteredSections = availableSections.filter(section =>
     section.label.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const activeSectionData = settingsSections.find(s => s.id === activeSection)
+  const activeSectionData = availableSections.find(s => s.id === activeSection)
 
   return (
     <div
@@ -137,34 +157,44 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 {/* Section Content */}
                 {activeSection === 'profile' && (
                   <div className="space-y-6">
-                    <div>
-                      <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-2">
-                        Name
-                      </label>
-                      <input
-                        type="text"
-                        defaultValue={user?.name || ''}
-                        className="w-full px-4 py-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-2">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        defaultValue={user?.email || ''}
-                        className="w-full px-4 py-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-2">
-                        Role
-                      </label>
-                      <div className="px-4 py-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-[var(--color-text-muted)]">
-                        {user?.role || 'N/A'}
+                    {isAuthenticated ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-2">
+                            Name
+                          </label>
+                          <input
+                            type="text"
+                            defaultValue={user?.name || ''}
+                            className="w-full px-4 py-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-2">
+                            Email
+                          </label>
+                          <input
+                            type="email"
+                            defaultValue={user?.email || ''}
+                            className="w-full px-4 py-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-2">
+                            Role
+                          </label>
+                          <div className="px-4 py-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-[var(--color-text-muted)]">
+                            {user?.role || 'N/A'}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="p-6 bg-[var(--color-surface-subtle)] rounded-lg text-center">
+                        <p className="text-sm text-[var(--color-text-muted)]">
+                          Please sign in to view your profile
+                        </p>
                       </div>
-                    </div>
+                    )}
                   </div>
                 )}
 
@@ -189,27 +219,37 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                 {activeSection === 'security' && (
                   <div className="space-y-6">
-                    <div>
-                      <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-2">
-                        Current Password
-                      </label>
-                      <input
-                        type="password"
-                        className="w-full px-4 py-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-2">
-                        New Password
-                      </label>
-                      <input
-                        type="password"
-                        className="w-full px-4 py-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
-                      />
-                    </div>
-                    <button className="fusion-button fusion-button-primary">
-                      Update Password
-                    </button>
+                    {isAuthenticated ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-2">
+                            Current Password
+                          </label>
+                          <input
+                            type="password"
+                            className="w-full px-4 py-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-2">
+                            New Password
+                          </label>
+                          <input
+                            type="password"
+                            className="w-full px-4 py-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
+                          />
+                        </div>
+                        <button className="fusion-button fusion-button-primary">
+                          Update Password
+                        </button>
+                      </>
+                    ) : (
+                      <div className="p-6 bg-[var(--color-surface-subtle)] rounded-lg text-center">
+                        <p className="text-sm text-[var(--color-text-muted)]">
+                          Please sign in to access security settings
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -297,6 +337,28 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           />
                           <span className="text-sm text-[var(--color-text)]">Business Fluent</span>
                         </label>
+                        <label className="flex items-center gap-3 p-3 bg-[var(--color-surface-subtle)] rounded-lg cursor-pointer hover:bg-[var(--color-surface)] transition-colors">
+                          <input
+                            type="radio"
+                            name="theme"
+                            value="on-brand"
+                            checked={theme === 'on-brand'}
+                            onChange={() => setTheme('on-brand')}
+                            className="rounded"
+                          />
+                          <span className="text-sm text-[var(--color-text)]">On Brand</span>
+                        </label>
+                        <label className="flex items-center gap-3 p-3 bg-[var(--color-surface-subtle)] rounded-lg cursor-pointer hover:bg-[var(--color-surface)] transition-colors">
+                          <input
+                            type="radio"
+                            name="theme"
+                            value="on-brand-glass"
+                            checked={theme === 'on-brand-glass'}
+                            onChange={() => setTheme('on-brand-glass')}
+                            className="rounded"
+                          />
+                          <span className="text-sm text-[var(--color-text)]">On Brand Glass</span>
+                        </label>
                       </div>
                     </div>
                     <div>
@@ -366,16 +428,18 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     <div className="text-sm text-[var(--color-text-muted)]">
                       Commissioning & Configuration UI for large-scale retail lighting deployments.
                     </div>
-                    <button
-                      onClick={() => {
-                        logout()
-                        onClose()
-                      }}
-                      className="fusion-button mt-6"
-                      style={{ background: 'var(--color-danger)', color: 'var(--color-text-on-primary)' }}
-                    >
-                      Sign Out
-                    </button>
+                    {isAuthenticated && (
+                      <button
+                        onClick={() => {
+                          logout()
+                          onClose()
+                        }}
+                        className="fusion-button mt-6"
+                        style={{ background: 'var(--color-danger)', color: 'var(--color-text-on-primary)' }}
+                      >
+                        Sign Out
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

@@ -23,7 +23,8 @@ import {
   Search,
   AlertTriangle,
   User,
-  Bell
+  Bell,
+  Workflow
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { useRole } from '@/lib/role'
@@ -46,7 +47,7 @@ const navGroups = [
   // Group 3: Configuration & Management
   [
     { href: '/bacnet', label: 'BACnet Mapping', icon: Network },
-    { href: '/rules', label: 'Rules & Overrides', icon: Settings },
+    { href: '/rules', label: 'Rules & Overrides', icon: Workflow },
     { href: '/faults', label: 'Faults / Health', icon: AlertTriangle },
   ],
 ]
@@ -152,16 +153,14 @@ export function MainNav() {
             )}
           </button>
 
-          {/* Settings Icon */}
-          {isAuthenticated && (
-            <button
-              onClick={() => setShowSettings(true)}
-              className="w-14 h-14 flex items-center justify-center rounded-lg text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-text)] transition-all duration-200"
-              title="Settings"
-            >
-              <Settings size={22} />
-            </button>
-          )}
+          {/* Settings Icon - Always visible */}
+          <button
+            onClick={() => setShowSettings(true)}
+            className="w-14 h-14 flex items-center justify-center rounded-lg text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-text)] transition-all duration-200"
+            title="Settings"
+          >
+            <Settings size={22} />
+          </button>
         </div>
       </nav>
 

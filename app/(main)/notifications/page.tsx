@@ -12,7 +12,7 @@
 import { useState, useMemo } from 'react'
 import { useNotifications, NotificationType } from '@/lib/NotificationContext'
 import { useRouter } from 'next/navigation'
-import { Radar, AlertTriangle, Layers, Network, Settings, Search, Home, X, CheckCheck, Mail, ArrowUpDown, Clock, Filter, Sparkles } from 'lucide-react'
+import { Radar, AlertTriangle, Layers, Network, Workflow, Search, Home, X, CheckCheck, Mail, ArrowUpDown, Clock, Filter, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 
 const typeIcons: Record<string, any> = {
@@ -20,7 +20,7 @@ const typeIcons: Record<string, any> = {
   fault: AlertTriangle,
   zone: Layers,
   bacnet: Network,
-  rule: Settings,
+  rule: Workflow,
   device: Search,
   system: Home,
 }
