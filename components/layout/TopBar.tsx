@@ -13,12 +13,16 @@
 
 'use client'
 
-import { Search, ChevronDown, User } from 'lucide-react'
+import { Search, ChevronDown, User, Bell } from 'lucide-react'
 import { useState } from 'react'
+import { useNotifications } from '@/lib/NotificationContext'
+import { useRouter } from 'next/navigation'
 
 export function TopBar() {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentSite, setCurrentSite] = useState('Store #1234 - Main St')
+  const { unreadCount } = useNotifications()
+  const router = useRouter()
 
   return (
     <header 
@@ -54,7 +58,19 @@ export function TopBar() {
 
       {/* Right side - User menu, notifications, etc. */}
       <div className="flex items-center gap-3">
-        {/* Optional: Notifications icon */}
+        {/* Notifications icon */}
+        <button
+          onClick={() => router.push('/notifications')}
+          className="relative p-2 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+          title="Notifications"
+        >
+          <Bell size={20} />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[var(--color-primary)] text-white text-xs flex items-center justify-center font-semibold">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
         
         {/* User Menu - Shows user name if logged in */}
         <div className="flex items-center gap-2">

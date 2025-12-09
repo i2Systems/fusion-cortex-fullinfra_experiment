@@ -56,12 +56,12 @@ export function ZonesPanel({ zones, selectedZoneId, onZoneSelect }: ZonesPanelPr
       <div className="p-4 border-b border-[var(--color-border-subtle)]">
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h3 className="text-lg font-semibold text-[var(--color-text)] mb-1">
-              Zones
-            </h3>
-            <p className="text-sm text-[var(--color-text-muted)]">
-              {zones.length} zones configured
-            </p>
+        <h3 className="text-lg font-semibold text-[var(--color-text)] mb-1">
+          Zones
+        </h3>
+        <p className="text-sm text-[var(--color-text-muted)]">
+          {zones.length} zones configured
+        </p>
           </div>
         </div>
         {/* Create Zone Button - Moved to top */}

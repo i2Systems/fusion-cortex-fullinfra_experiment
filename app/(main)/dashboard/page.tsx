@@ -99,14 +99,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Bottom Search Island with Title */}
-      <div className="fixed bottom-6 left-[80px] right-4 z-50">
-        <SearchIsland 
-          position="bottom" 
-          fullWidth={true}
-          title="Dashboard"
-          subtitle="Overview of your lighting system"
-          placeholder="Search, input a task, or ask a question..."
-        />
+      <div className="fixed bottom-10 left-[80px] right-4 z-50">
+      <SearchIsland 
+        position="bottom" 
+        fullWidth={true}
+        title="Dashboard"
+        subtitle="Overview of your lighting system"
+        placeholder="Search, input a task, or ask a question..."
+      />
       </div>
     </div>
   )

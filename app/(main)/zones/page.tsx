@@ -250,7 +250,7 @@ export default function ZonesPage() {
       </div>
 
       {/* Bottom Search Island */}
-      <div className="fixed bottom-6 left-[80px] right-4 z-50">
+      <div className="fixed bottom-10 left-[80px] right-4 z-50">
         <div className="relative">
           <SearchIsland 
             position="bottom" 

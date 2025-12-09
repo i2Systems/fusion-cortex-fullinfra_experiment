@@ -22,7 +22,8 @@ import {
   Settings, 
   Search,
   AlertTriangle,
-  User
+  User,
+  Bell
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { useRole } from '@/lib/role'
@@ -38,6 +39,7 @@ const navItems = [
   { href: '/rules', label: 'Rules & Overrides', icon: Settings },
   { href: '/lookup', label: 'Device Lookup', icon: Search },
   { href: '/faults', label: 'Faults / Health', icon: AlertTriangle },
+  { href: '/notifications', label: 'Notifications', icon: Bell },
 ]
 
 export function MainNav() {

@@ -7,6 +7,7 @@ import { RoleProvider } from '@/lib/role'
 import { DeviceProvider } from '@/lib/DeviceContext'
 import { ZoneProvider } from '@/lib/ZoneContext'
 import { RuleProvider } from '@/lib/RuleContext'
+import { NotificationProvider } from '@/lib/NotificationContext'
 
 export const metadata: Metadata = {
   title: 'Fusion / Cortex — Commissioning & Configuration',
@@ -28,7 +29,9 @@ export default function RootLayout({
                         <DeviceProvider>
                           <ZoneProvider>
                             <RuleProvider>
-                              {children}
+                              <NotificationProvider>
+                                {children}
+                              </NotificationProvider>
                             </RuleProvider>
                           </ZoneProvider>
                         </DeviceProvider>

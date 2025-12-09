@@ -353,7 +353,7 @@ export default function MapPage() {
       </div>
 
       {/* Bottom Search Island - Always visible, same position as other pages */}
-      <div className="fixed bottom-6 left-[80px] right-4 z-50">
+      <div className="fixed bottom-10 left-[80px] right-4 z-50">
         <div className="relative">
           <SearchIsland 
             position="bottom" 

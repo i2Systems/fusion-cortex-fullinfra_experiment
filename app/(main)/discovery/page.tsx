@@ -308,13 +308,13 @@ export default function DiscoveryPage() {
       />
 
       {/* Bottom Search Island */}
-      <div className="fixed bottom-6 left-[80px] right-4 z-50">
-        <SearchIsland 
-          position="bottom" 
-          fullWidth={true}
-          title="Device Discovery"
-          subtitle="Discover and map all lighting devices in your network"
-        />
+      <div className="fixed bottom-10 left-[80px] right-4 z-50">
+      <SearchIsland 
+        position="bottom" 
+        fullWidth={true}
+        title="Device Discovery"
+        subtitle="Discover and map all lighting devices in your network"
+      />
       </div>
     </div>
   )
