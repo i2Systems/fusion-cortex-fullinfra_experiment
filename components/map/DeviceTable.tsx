@@ -141,14 +141,14 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect }: Devic
                 </p>
               </div>
               {/* Quick Stats */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5">Serial</div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Serial</div>
                   <div className="text-xs font-mono font-semibold text-[var(--color-text)] truncate">{selectedDevice.serialNumber}</div>
                 </div>
                 {selectedDevice.location && (
-                  <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                    <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1">
+                  <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                    <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1 whitespace-nowrap">
                       <MapPin size={10} />
                       Location
                     </div>
@@ -156,13 +156,13 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect }: Devic
                   </div>
                 )}
                 {selectedDevice.zone && (
-                  <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                    <div className="text-xs text-[var(--color-text-soft)] mb-0.5">Zone</div>
+                  <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                    <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Zone</div>
                     <div className="text-xs font-semibold text-[var(--color-text)] truncate">{selectedDevice.zone}</div>
                   </div>
                 )}
-                <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1">
+                <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1 whitespace-nowrap">
                     {selectedDevice.signal > 0 ? (
                       <Wifi size={10} className={getSignalColor(selectedDevice.signal)} />
                     ) : (
@@ -173,16 +173,16 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect }: Devic
                   <div className={`text-xs font-semibold ${getSignalColor(selectedDevice.signal)}`}>{selectedDevice.signal}%</div>
                 </div>
                 {selectedDevice.battery !== undefined && (
-                  <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                    <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1">
+                  <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                    <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1 whitespace-nowrap">
                       <Battery size={10} className={selectedDevice.battery > 20 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'} />
                       Battery
                     </div>
                     <div className={`text-xs font-semibold ${selectedDevice.battery > 20 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'}`}>{selectedDevice.battery}%</div>
                   </div>
                 )}
-                <div className={`px-2 py-1 rounded border ${getStatusColor(selectedDevice.status)} bg-[var(--color-surface)]/50`}>
-                  <div className="text-xs opacity-80 mb-0.5">Status</div>
+                <div className={`px-2.5 py-1.5 rounded border ${getStatusColor(selectedDevice.status)} bg-[var(--color-surface)]/50 min-w-0`}>
+                  <div className="text-xs opacity-80 mb-0.5 whitespace-nowrap">Status</div>
                   <div className="text-xs font-semibold capitalize">{selectedDevice.status}</div>
                 </div>
               </div>

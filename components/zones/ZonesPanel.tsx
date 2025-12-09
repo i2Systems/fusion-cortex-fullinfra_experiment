@@ -100,16 +100,16 @@ export function ZonesPanel({ zones, selectedZoneId, onZoneSelect }: ZonesPanelPr
                 </div>
               </div>
               {/* Quick Stats */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5">Devices</div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Devices</div>
                   <div className="text-sm font-semibold text-[var(--color-text)]">{selectedZone.deviceCount}</div>
                 </div>
                 <div 
-                  className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]"
+                  className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0"
                   style={{ borderColor: colors[selectedZone.id] ? `${colors[selectedZone.id]}40` : undefined }}
                 >
-                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5">Color</div>
+                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Color</div>
                   <div className="flex items-center gap-1.5">
                     <div 
                       className="w-3 h-3 rounded-full flex-shrink-0"
@@ -121,8 +121,8 @@ export function ZonesPanel({ zones, selectedZoneId, onZoneSelect }: ZonesPanelPr
                   </div>
                 </div>
                 {selectedZone.description && (
-                  <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] col-span-2">
-                    <div className="text-xs text-[var(--color-text-soft)] mb-0.5">Description</div>
+                  <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] col-span-2 min-w-0">
+                    <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Description</div>
                     <div className="text-xs font-semibold text-[var(--color-text)] line-clamp-2">{selectedZone.description}</div>
                   </div>
                 )}

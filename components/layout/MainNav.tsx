@@ -30,17 +30,29 @@ import { useRole } from '@/lib/role'
 import { LoginModal } from '@/components/auth/LoginModal'
 import { SettingsModal } from '@/components/settings/SettingsModal'
 
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: Home },
-  { href: '/discovery', label: 'Discovery', icon: Radar },
-  { href: '/map', label: 'Map & Devices', icon: Map },
-  { href: '/zones', label: 'Zones', icon: Layers },
-  { href: '/bacnet', label: 'BACnet Mapping', icon: Network },
-  { href: '/rules', label: 'Rules & Overrides', icon: Settings },
-  { href: '/lookup', label: 'Device Lookup', icon: Search },
-  { href: '/faults', label: 'Faults / Health', icon: AlertTriangle },
-  { href: '/notifications', label: 'Notifications', icon: Bell },
+// Navigation groups with subtle gestalt grouping
+const navGroups = [
+  // Group 1: Overview & Discovery
+  [
+    { href: '/dashboard', label: 'Dashboard', icon: Home },
+    { href: '/discovery', label: 'Discovery', icon: Radar },
+  ],
+  // Group 2: Mapping & Organization
+  [
+    { href: '/map', label: 'Map & Devices', icon: Map },
+    { href: '/zones', label: 'Zones', icon: Layers },
+    { href: '/lookup', label: 'Device Lookup', icon: Search },
+  ],
+  // Group 3: Configuration & Management
+  [
+    { href: '/bacnet', label: 'BACnet Mapping', icon: Network },
+    { href: '/rules', label: 'Rules & Overrides', icon: Settings },
+    { href: '/faults', label: 'Faults / Health', icon: AlertTriangle },
+  ],
 ]
+
+// Notifications (moved to bottom)
+const notificationsItem = { href: '/notifications', label: 'Notifications', icon: Bell }
 
 export function MainNav() {
   const pathname = usePathname()
@@ -50,14 +62,17 @@ export function MainNav() {
   const [showSettings, setShowSettings] = useState(false)
 
   // Filter nav items based on role
-  const visibleNavItems = navItems.filter(item => {
-    // Technician cannot see BACnet Mapping and Rules & Overrides
-    if (role === 'Technician') {
-      return item.href !== '/bacnet' && item.href !== '/rules'
-    }
-    // Admin and Manager see everything
-    return true
-  })
+  const filterNavItems = (items: typeof navGroups[0]) => {
+    return items.filter(item => {
+      // Technician cannot see BACnet Mapping and Rules & Overrides
+      if (role === 'Technician') {
+        return item.href !== '/bacnet' && item.href !== '/rules'
+      }
+      return true
+    })
+  }
+
+  const visibleNavGroups = navGroups.map(group => filterNavItems(group)).filter(group => group.length > 0)
 
   return (
     <>
@@ -65,34 +80,61 @@ export function MainNav() {
       className="flex flex-col w-20 bg-[var(--color-bg-elevated)] backdrop-blur-xl border-r border-[var(--color-border-subtle)]"
       style={{ zIndex: 'var(--z-nav)' }}
     >
-        {/* Navigation Items */}
-        <div className="flex-1 flex flex-col items-center py-4 gap-2">
-          {visibleNavItems.map((item) => {
-            const Icon = item.icon
-            const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
-            
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-              className={`
-                w-14 h-14 flex items-center justify-center rounded-lg
-                transition-all duration-200
-                ${isActive 
-                  ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)] shadow-[var(--shadow-glow-primary)]' 
-                  : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-primary)] hover:shadow-[0_0_15px_rgba(0,217,255,0.3)]'
-                }
-              `}
-                title={item.label}
-              >
-                <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
-              </Link>
-            )
-          })}
+        {/* Navigation Items with Gestalt Grouping */}
+        <div className="flex-1 flex flex-col items-center py-4">
+          {visibleNavGroups.map((group, groupIndex) => (
+            <div key={groupIndex} className="flex flex-col items-center gap-2">
+              {group.map((item) => {
+                const Icon = item.icon
+                const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+                
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`
+                      w-14 h-14 flex items-center justify-center rounded-lg
+                      transition-all duration-200
+                      ${isActive 
+                        ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)] shadow-[var(--shadow-glow-primary)]' 
+                        : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-primary)] hover:shadow-[0_0_15px_rgba(0,217,255,0.3)]'
+                      }
+                    `}
+                    title={item.label}
+                  >
+                    <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                  </Link>
+                )
+              })}
+              {/* Subtle separator between groups (except last) */}
+              {groupIndex < visibleNavGroups.length - 1 && (
+                <div className="w-8 h-px bg-[var(--color-border-subtle)] my-1 opacity-30" />
+              )}
+            </div>
+          ))}
         </div>
 
-        {/* Bottom: Profile & Settings */}
+        {/* Bottom: Notifications, Profile & Settings */}
         <div className="p-4 flex flex-col items-center gap-2 border-t border-[var(--color-border-subtle)]">
+          {/* Notifications Icon */}
+          <Link
+            href={notificationsItem.href}
+            className={`
+              w-14 h-14 flex items-center justify-center rounded-lg
+              transition-all duration-200
+              ${pathname === notificationsItem.href || pathname?.startsWith(notificationsItem.href + '/')
+                ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)] shadow-[var(--shadow-glow-primary)]' 
+                : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-primary)] hover:shadow-[0_0_15px_rgba(0,217,255,0.3)]'
+              }
+            `}
+            title={notificationsItem.label}
+          >
+            <Bell size={22} strokeWidth={pathname === notificationsItem.href || pathname?.startsWith(notificationsItem.href + '/') ? 2.5 : 2} />
+          </Link>
+
+          {/* Subtle separator */}
+          <div className="w-8 h-px bg-[var(--color-border-subtle)] my-1 opacity-30" />
+
           {/* Profile Icon */}
           <button
             onClick={() => isAuthenticated ? setShowSettings(true) : setShowLogin(true)}

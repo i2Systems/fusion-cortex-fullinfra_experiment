@@ -50,18 +50,24 @@ export function SearchIsland({
   const [currentSite, setCurrentSite] = useState(STORES[0])
   const [showStoreDropdown, setShowStoreDropdown] = useState(false)
   
-  // Load collapsed state from localStorage on mount
-  const [isCollapsed, setIsCollapsed] = useState(() => {
+  // Start with false to match server render, then sync with localStorage after mount
+  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+
+  // Load collapsed state from localStorage after mount to avoid hydration mismatch
+  useEffect(() => {
+    setIsMounted(true)
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('fusion_search_island_collapsed')
-      return saved === 'true'
+      if (saved === 'true') {
+        setIsCollapsed(true)
+      }
     }
-    return false
-  })
+  }, [])
 
   // Save collapsed state to localStorage and set data attribute whenever it changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && isMounted) {
       localStorage.setItem('fusion_search_island_collapsed', String(isCollapsed))
       // Set data attribute on document for CSS targeting
       if (isCollapsed) {
@@ -70,7 +76,7 @@ export function SearchIsland({
         document.documentElement.removeAttribute('data-search-collapsed')
       }
     }
-  }, [isCollapsed])
+  }, [isCollapsed, isMounted])
   
   // Use controlled value if provided, otherwise use internal state
   const searchQuery = searchValue !== undefined ? searchValue : internalSearchQuery

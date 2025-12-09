@@ -193,7 +193,7 @@ export function MapToolbar({
                 title={tool.description}
               >
                 <Icon size={16} className={isActive ? 'opacity-100' : 'opacity-70'} />
-                <span className="text-sm font-medium">{tool.label}</span>
+                <span className="text-sm font-medium whitespace-nowrap">{tool.label}</span>
               </button>
             )
           })}

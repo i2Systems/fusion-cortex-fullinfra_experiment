@@ -116,14 +116,14 @@ export function DeviceProfilePanel({ device }: DeviceProfilePanelProps) {
               </div>
             </div>
             {/* Quick Stats */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                <div className="text-xs text-[var(--color-text-soft)] mb-0.5">Serial</div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Serial</div>
                 <div className="text-xs font-mono font-semibold text-[var(--color-text)] truncate">{device.serialNumber}</div>
               </div>
               {device.location && (
-                <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1">
+                <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1 whitespace-nowrap">
                     <MapPin size={10} />
                     Location
                   </div>
@@ -131,13 +131,13 @@ export function DeviceProfilePanel({ device }: DeviceProfilePanelProps) {
                 </div>
               )}
               {device.zone && (
-                <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5">Zone</div>
+                <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Zone</div>
                   <div className="text-xs font-semibold text-[var(--color-text)] truncate">{device.zone}</div>
                 </div>
               )}
-              <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1">
+              <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1 whitespace-nowrap">
                   {device.signal > 0 ? (
                     <Wifi size={10} className={getSignalColor(device.signal)} />
                   ) : (
@@ -148,8 +148,8 @@ export function DeviceProfilePanel({ device }: DeviceProfilePanelProps) {
                 <div className={`text-xs font-semibold ${getSignalColor(device.signal)}`}>{device.signal}%</div>
               </div>
               {device.battery !== undefined && (
-                <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1">
+                <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1 whitespace-nowrap">
                     <Battery size={10} className={device.battery > 20 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'} />
                     Battery
                   </div>

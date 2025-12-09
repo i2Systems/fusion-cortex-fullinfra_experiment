@@ -209,27 +209,27 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
                   </div>
                 </div>
                 {/* Quick Stats */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className={`px-2 py-1 rounded border ${selectedRule.enabled ? 'bg-[var(--color-success)]/20 text-[var(--color-success)] border-[var(--color-success)]/30' : 'bg-[var(--color-surface)]/50 border-[var(--color-border-subtle)]'}`}>
-                    <div className="text-xs opacity-80 mb-0.5">Status</div>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className={`px-2.5 py-1.5 rounded border ${selectedRule.enabled ? 'bg-[var(--color-success)]/20 text-[var(--color-success)] border-[var(--color-success)]/30' : 'bg-[var(--color-surface)]/50 border-[var(--color-border-subtle)]'} min-w-0`}>
+                    <div className="text-xs opacity-80 mb-0.5 whitespace-nowrap">Status</div>
                     <div className="text-sm font-semibold">{selectedRule.enabled ? 'Active' : 'Disabled'}</div>
                   </div>
-                  <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                    <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1">
+                  <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                    <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1 whitespace-nowrap">
                       <Clock size={10} />
                       Last Triggered
                     </div>
-                    <div className="text-xs font-semibold text-[var(--color-text)]">{formatLastTriggered(selectedRule.lastTriggered)}</div>
+                    <div className="text-xs font-semibold text-[var(--color-text)] truncate">{formatLastTriggered(selectedRule.lastTriggered)}</div>
                   </div>
                   {selectedRule.action.zones.length > 0 && (
-                    <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                      <div className="text-xs text-[var(--color-text-soft)] mb-0.5">Zones</div>
+                    <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                      <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Zones</div>
                       <div className="text-xs font-semibold text-[var(--color-text)] truncate">{selectedRule.action.zones.length} zone{selectedRule.action.zones.length !== 1 ? 's' : ''}</div>
                     </div>
                   )}
                   {selectedRule.overrideBMS && (
-                    <div className="px-2 py-1 rounded bg-[var(--color-warning)]/20 text-[var(--color-warning)] border-[var(--color-warning)]/30">
-                      <div className="text-xs opacity-80 mb-0.5">BMS Override</div>
+                    <div className="px-2.5 py-1.5 rounded bg-[var(--color-warning)]/20 text-[var(--color-warning)] border-[var(--color-warning)]/30 min-w-0">
+                      <div className="text-xs opacity-80 mb-0.5 whitespace-nowrap">BMS Override</div>
                       <div className="text-xs font-semibold">Enabled</div>
                     </div>
                   )}

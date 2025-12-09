@@ -179,29 +179,29 @@ export function BACnetDetailsPanel({
               </div>
             </div>
             {/* Quick Stats */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2.5">
               {mapping.deviceCount !== undefined && (
-                <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5">Devices</div>
+                <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Devices</div>
                   <div className="text-sm font-semibold text-[var(--color-text)]">{mapping.deviceCount}</div>
                 </div>
               )}
-              <div className={`px-2 py-1 rounded border ${getStatusColor(mapping.status)}`}>
-                <div className="text-xs opacity-80 mb-0.5">Status</div>
+              <div className={`px-2.5 py-1.5 rounded border ${getStatusColor(mapping.status)} min-w-0`}>
+                <div className="text-xs opacity-80 mb-0.5 whitespace-nowrap">Status</div>
                 <div className="text-sm font-semibold capitalize flex items-center gap-1">
                   {getStatusIcon(mapping.status)}
-                  <span>{mapping.status === 'not-assigned' ? 'Not Assigned' : mapping.status}</span>
+                  <span className="truncate">{mapping.status === 'not-assigned' ? 'Not Assigned' : mapping.status}</span>
                 </div>
               </div>
               {mapping.bacnetObjectId && (
-                <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] col-span-2">
-                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5">Object ID</div>
+                <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] col-span-2 min-w-0">
+                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Object ID</div>
                   <div className="text-sm font-mono font-semibold text-[var(--color-text)] truncate">{mapping.bacnetObjectId}</div>
                 </div>
               )}
               {mapping.networkAddress && (
-                <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] col-span-2">
-                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5">Network</div>
+                <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] col-span-2 min-w-0">
+                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Network</div>
                   <div className="text-sm font-mono font-semibold text-[var(--color-text)] truncate">{mapping.networkAddress}</div>
                 </div>
               )}

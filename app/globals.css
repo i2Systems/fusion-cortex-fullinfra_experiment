@@ -930,9 +930,9 @@ body {
    SEARCH ISLAND COLLAPSED STATE
    ============================================ */
 /* When search island is collapsed, reduce bottom padding on main content areas */
-/* Target main content containers that have pb-32 class */
+/* Account for collapsed search island (~50px) + bottom drawer (48px) + buffer */
 [data-search-collapsed="true"] .main-content-area {
-  padding-bottom: 4rem !important; /* 64px instead of 128px */
+  padding-bottom: 7rem !important; /* 112px - enough for collapsed island + drawer + buffer */
 }
 
 /* Smooth transition for padding changes */

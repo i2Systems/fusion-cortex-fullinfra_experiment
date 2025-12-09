@@ -249,7 +249,7 @@ export default function MapPage() {
   return (
     <div className="h-full flex flex-col min-h-0 pb-2 overflow-visible">
       {/* Main Content: Map + Table Panel */}
-      <div className="main-content-area flex-1 flex min-h-0 gap-4 px-[20px] pt-4 pb-32 overflow-visible">
+      <div className="main-content-area flex-1 flex min-h-0 gap-4 px-[20px] pt-4 pb-48 overflow-visible">
         {/* Map Canvas - Left Side */}
         <div className="flex-1 relative min-w-0" style={{ overflow: 'visible' }}>
           {/* Map Toolbar - Top center (hidden for Manager and Technician) */}

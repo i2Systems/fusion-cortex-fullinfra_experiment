@@ -201,7 +201,7 @@ export default function DiscoveryPage() {
   }
 
   return (
-    <div className="main-content-area h-full p-8 relative pb-32">
+    <div className="main-content-area h-full p-8 relative pb-48">
       <div className="max-w-6xl mx-auto">
         {/* Discovery Controls */}
         <DiscoveryControls

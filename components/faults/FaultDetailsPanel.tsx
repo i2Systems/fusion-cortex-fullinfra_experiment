@@ -159,14 +159,14 @@ export function FaultDetailsPanel({ fault }: FaultDetailsPanelProps) {
               </p>
             </div>
             {/* Quick Stats */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                <div className="text-xs text-[var(--color-text-soft)] mb-0.5">Serial</div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Serial</div>
                 <div className="text-xs font-mono font-semibold text-[var(--color-text)] truncate">{fault.device.serialNumber}</div>
               </div>
               {fault.device.location && (
-                <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1">
+                <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1 whitespace-nowrap">
                     <MapPin size={10} />
                     Location
                   </div>
@@ -174,21 +174,21 @@ export function FaultDetailsPanel({ fault }: FaultDetailsPanelProps) {
                 </div>
               )}
               {fault.device.zone && (
-                <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5">Zone</div>
+                <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Zone</div>
                   <div className="text-xs font-semibold text-[var(--color-text)] truncate">{fault.device.zone}</div>
                 </div>
               )}
-              <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1">
+              <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1 whitespace-nowrap">
                   <Clock size={10} />
                   Detected
                 </div>
-                <div className="text-xs font-semibold text-[var(--color-text)]">{formatTimeAgo(fault.detectedAt)}</div>
+                <div className="text-xs font-semibold text-[var(--color-text)] truncate">{formatTimeAgo(fault.detectedAt)}</div>
               </div>
               {fault.device.signal > 0 && (
-                <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1">
+                <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1 whitespace-nowrap">
                     <Radio size={10} />
                     Signal
                   </div>
@@ -196,8 +196,8 @@ export function FaultDetailsPanel({ fault }: FaultDetailsPanelProps) {
                 </div>
               )}
               {fault.device.battery !== undefined && (
-                <div className="px-2 py-1 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)]">
-                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1">
+                <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
+                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1 whitespace-nowrap">
                     <Battery size={10} />
                     Battery
                   </div>
