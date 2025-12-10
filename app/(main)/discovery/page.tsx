@@ -33,6 +33,7 @@ export default function DiscoveryPage() {
   const [scanDuration, setScanDuration] = useState(0)
   const [zonesCreated, setZonesCreated] = useState(0)
   const [isCreatingZones, setIsCreatingZones] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   
   // Use devices from context as discovered devices
   const discoveredDevices = devices
@@ -295,6 +296,7 @@ export default function DiscoveryPage() {
               devices={devices}
               onDeviceSelect={setSelectedDevice}
               selectedDeviceId={selectedDevice?.id || null}
+              searchQuery={searchQuery}
             />
           </div>
         </div>
@@ -314,6 +316,16 @@ export default function DiscoveryPage() {
         fullWidth={true}
         title="Device Discovery"
         subtitle="Discover and map all lighting devices in your network"
+        placeholder="Search devices or type 'start scan' or 'add device'..."
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        onActionDetected={(action) => {
+          if (action.id === 'start-scan' && !isScanning) {
+            handleStartScan()
+          } else if (action.id === 'add-manual') {
+            setShowManualEntry(true)
+          }
+        }}
       />
       </div>
     </div>

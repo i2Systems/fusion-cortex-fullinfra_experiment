@@ -258,9 +258,17 @@ export default function ZonesPage() {
             showActions={mapUploaded}
             title="Zones"
             subtitle="Create and manage control zones for your lighting system"
-            placeholder={mapUploaded ? "Search zones or devices..." : "Upload a map to manage zones..."}
+            placeholder={mapUploaded ? "Search zones, devices, or type 'create zone'..." : "Upload a map to manage zones..."}
             onLayersClick={() => setShowFilters(!showFilters)}
             filterCount={filters.selectedZones.length > 0 || !filters.showFixtures || !filters.showMotion || !filters.showLightSensors ? 1 : 0}
+            onActionDetected={(action) => {
+              if (action.id === 'create-zone' && mapUploaded) {
+                setToolMode('draw-polygon')
+              } else if (action.id === 'upload-map' && !mapUploaded) {
+                // Focus on map upload area
+                document.querySelector('[data-map-upload]')?.scrollIntoView({ behavior: 'smooth' })
+              }
+            }}
           />
           {mapUploaded && showFilters && (
             <div className="absolute bottom-full right-0 mb-2">

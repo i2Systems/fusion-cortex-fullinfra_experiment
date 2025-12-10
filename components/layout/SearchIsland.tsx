@@ -9,8 +9,9 @@
 
 'use client'
 
-import { Search, ChevronDown, Layers, ChevronUp } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { Search, ChevronDown, Layers, ChevronUp, Sparkles } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { useSearch } from '@/lib/SearchContext'
 
 interface SearchIslandProps {
   position?: 'top' | 'bottom'
@@ -23,6 +24,7 @@ interface SearchIslandProps {
   onSearchChange?: (value: string) => void
   onLayersClick?: () => void
   filterCount?: number
+  onActionDetected?: (action: { id: string; label: string }) => void
 }
 
 const STORES = [
@@ -44,11 +46,13 @@ export function SearchIsland({
   searchValue,
   onSearchChange,
   onLayersClick,
-  filterCount = 0
+  filterCount = 0,
+  onActionDetected
 }: SearchIslandProps) {
   const [internalSearchQuery, setInternalSearchQuery] = useState('')
   const [currentSite, setCurrentSite] = useState(STORES[0])
   const [showStoreDropdown, setShowStoreDropdown] = useState(false)
+  const { detectAction, getPageActions } = useSearch()
   
   // Start with false to match server render, then sync with localStorage after mount
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -81,6 +85,19 @@ export function SearchIsland({
   // Use controlled value if provided, otherwise use internal state
   const searchQuery = searchValue !== undefined ? searchValue : internalSearchQuery
   const setSearchQuery = onSearchChange || setInternalSearchQuery
+
+  // Detect actions from search query
+  const detectedAction = useMemo(() => {
+    if (!searchQuery.trim()) return null
+    return detectAction(searchQuery)
+  }, [searchQuery, detectAction])
+
+  // Notify parent when action is detected
+  useEffect(() => {
+    if (detectedAction && onActionDetected) {
+      onActionDetected(detectedAction)
+    }
+  }, [detectedAction, onActionDetected])
 
   const containerClass = position === 'top' 
     ? 'max-w-3xl mx-auto mb-12'
@@ -208,12 +225,30 @@ export function SearchIsland({
               size={18} 
               className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" 
             />
+            {detectedAction && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                <Sparkles size={14} className="text-[var(--color-primary)] animate-pulse" />
+                <span className="text-xs text-[var(--color-primary)] font-medium bg-[var(--color-primary-soft)] px-2 py-0.5 rounded">
+                  {detectedAction.label}
+                </span>
+              </div>
+            )}
             <input
               type="text"
               placeholder={placeholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-soft)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && detectedAction) {
+                  detectedAction.action()
+                  setSearchQuery('')
+                }
+              }}
+              className={`w-full pl-10 pr-4 py-2.5 bg-[var(--color-bg-elevated)] border rounded-lg text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-soft)] focus:outline-none focus:shadow-[var(--shadow-glow-primary)] transition-all ${
+                detectedAction 
+                  ? 'border-[var(--color-primary)] pr-32' 
+                  : 'border-[var(--color-border-subtle)] focus:border-[var(--color-primary)]'
+              }`}
             />
           </div>
         </div>

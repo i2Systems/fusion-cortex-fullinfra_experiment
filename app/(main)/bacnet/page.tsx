@@ -533,6 +533,12 @@ export default function BACnetPage() {
         fullWidth={true}
         title="BACnet Mapping"
         subtitle="Map zones to BACnet objects for BMS integration"
+        placeholder="Search mappings or type 'add mapping'..."
+        onActionDetected={(action) => {
+          if (action.id === 'add-mapping') {
+            handleAddNew()
+          }
+        }}
       />
       </div>
     </div>

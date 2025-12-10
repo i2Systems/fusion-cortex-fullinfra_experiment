@@ -16,20 +16,37 @@ interface DiscoveredDevicesListProps {
   devices: Device[]
   onDeviceSelect?: (device: Device) => void
   selectedDeviceId?: string | null
+  searchQuery?: string
 }
 
 export function DiscoveredDevicesList({
   devices,
   onDeviceSelect,
   selectedDeviceId,
+  searchQuery = '',
 }: DiscoveredDevicesListProps) {
   const [filterType, setFilterType] = useState<'all' | 'fixture' | 'motion' | 'light-sensor'>('all')
   const [filterStatus, setFilterStatus] = useState<'all' | 'online' | 'offline' | 'missing'>('all')
   const [showFilters, setShowFilters] = useState(false)
 
   const filteredDevices = devices.filter(device => {
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      const matchesSearch = 
+        device.deviceId.toLowerCase().includes(query) ||
+        device.serialNumber.toLowerCase().includes(query) ||
+        device.type.toLowerCase().includes(query) ||
+        (device.location && device.location.toLowerCase().includes(query))
+      if (!matchesSearch) return false
+    }
+    
+    // Type filter
     if (filterType !== 'all' && device.type !== filterType) return false
+    
+    // Status filter
     if (filterStatus !== 'all' && device.status !== filterStatus) return false
+    
     return true
   })
 

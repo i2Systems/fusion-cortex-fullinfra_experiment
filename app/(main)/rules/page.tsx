@@ -93,9 +93,14 @@ export default function RulesPage() {
           fullWidth={true}
           title="Rules & Overrides"
           subtitle="Create automation rules for lighting control"
-          placeholder="Search rules..."
+          placeholder="Search rules or type 'create rule'..."
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
+          onActionDetected={(action) => {
+            if (action.id === 'create-rule') {
+              setSelectedRuleId(null) // This will show the create form in RulesPanel
+            }
+          }}
         />
       </div>
     </div>
