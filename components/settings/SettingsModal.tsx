@@ -17,6 +17,7 @@ import { useAuth } from '@/lib/auth'
 import { useTheme } from '@/lib/theme'
 import { useRole } from '@/lib/role'
 import { useFont, FontFamily, FontSize } from '@/lib/FontContext'
+import { useI18n, languageNames, Language } from '@/lib/i18n'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -24,12 +25,12 @@ interface SettingsModalProps {
 }
 
 const settingsSections = [
-  { id: 'profile', label: 'Profile', icon: User },
-  { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'security', label: 'Security', icon: Shield },
-  { id: 'appearance', label: 'Appearance', icon: Palette },
-  { id: 'data', label: 'Data & Storage', icon: Database },
-  { id: 'about', label: 'About', icon: Info },
+  { id: 'profile', labelKey: 'profile', icon: User },
+  { id: 'notifications', labelKey: 'notifications', icon: Bell },
+  { id: 'security', labelKey: 'security', icon: Shield },
+  { id: 'appearance', labelKey: 'appearance', icon: Palette },
+  { id: 'data', labelKey: 'data', icon: Database },
+  { id: 'about', labelKey: 'about', icon: Info },
 ]
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
@@ -37,6 +38,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { theme, setTheme } = useTheme()
   const { role, setRole } = useRole()
   const { fontFamily, fontSize, setFontFamily, setFontSize } = useFont()
+  const { language, setLanguage, t } = useI18n()
   const [activeSection, setActiveSection] = useState(isAuthenticated ? 'profile' : 'appearance')
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -63,7 +65,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   if (!isOpen) return null
 
   const filteredSections = availableSections.filter(section =>
-    section.label.toLowerCase().includes(searchQuery.toLowerCase())
+    t(section.labelKey).toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const activeSectionData = availableSections.find(s => s.id === activeSection)
@@ -85,8 +87,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               <span className="text-white font-bold text-xl">F</span>
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-[var(--color-text)]">Settings</h2>
-              <p className="text-xs text-[var(--color-text-muted)]">Fusion</p>
+            <h2 className="text-2xl font-bold text-[var(--color-text)]">{t('settings')}</h2>
+                      <p className="text-xs text-[var(--color-text-muted)]">Fusion</p>
             </div>
           </div>
           <button
@@ -106,7 +108,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             />
             <input
               type="text"
-              placeholder="Search settings..."
+              placeholder={t('search') + '...'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-soft)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
@@ -135,7 +137,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     `}
                   >
                     <Icon size={18} />
-                    <span className="text-sm font-medium">{section.label}</span>
+                    <span className="text-sm font-medium">{t(section.labelKey)}</span>
                   </button>
                 )
               })}
@@ -151,9 +153,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     const Icon = activeSectionData.icon
                     return <Icon size={24} className="text-[var(--color-primary)]" />
                   })()}
-                  <h3 className="text-xl font-semibold text-[var(--color-text)]">
-                    {activeSectionData.label}
-                  </h3>
+                          <h3 className="text-xl font-semibold text-[var(--color-text)]">
+                            {t(activeSectionData.labelKey)}
+                          </h3>
                 </div>
 
                 {/* Section Content */}
@@ -259,7 +261,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <div className="space-y-6">
                     <div>
                       <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-3">
-                        Theme
+                        {t('theme')}
                       </label>
                       <div className="space-y-2">
                         <label className="flex items-center gap-3 p-3 bg-[var(--color-surface-subtle)] rounded-lg cursor-pointer hover:bg-[var(--color-surface)] transition-colors">
@@ -368,7 +370,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     <div>
                       <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-3 flex items-center gap-2">
                         <Type size={16} />
-                        Font Family
+                        {t('fontFamily')}
                       </label>
                       <select
                         value={fontFamily}
@@ -385,6 +387,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         <option value="work-sans" style={{ fontFamily: '"Work Sans", sans-serif' }}>Work Sans</option>
                         <option value="manrope" style={{ fontFamily: '"Manrope", sans-serif' }}>Manrope</option>
                         <option value="outfit" style={{ fontFamily: '"Outfit", sans-serif' }}>Outfit</option>
+                        <option value="lexend" style={{ fontFamily: '"Lexend", sans-serif' }}>Lexend (Dyslexic-friendly)</option>
+                        <option value="atkinson-hyperlegible" style={{ fontFamily: '"Atkinson Hyperlegible", sans-serif' }}>Atkinson Hyperlegible (Dyslexic-friendly)</option>
                       </select>
                       <p className="text-xs text-[var(--color-text-muted)] mt-2" style={{ fontFamily: 'var(--font-family-primary)' }}>
                         Preview: The quick brown fox jumps over the lazy dog
@@ -394,25 +398,44 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     {/* Font Size */}
                     <div>
                       <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-3">
-                        Font Size
+                        {t('fontSize')}
                       </label>
                       <select
                         value={fontSize}
                         onChange={(e) => setFontSize(e.target.value as FontSize)}
                         className="w-full px-4 py-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
                       >
-                        <option value="normal">Normal (16px)</option>
-                        <option value="medium">Medium (18px) - Default</option>
-                        <option value="large">Large (20px)</option>
+                        <option value="normal">{t('normal')} (16px) - {t('default')}</option>
+                        <option value="medium">{t('medium')} (18px)</option>
+                        <option value="large">{t('large')} (20px)</option>
                       </select>
                       <p className="text-xs text-[var(--color-text-muted)] mt-2">
                         Affects text size and spacing throughout the application
                       </p>
                     </div>
                     
+                    {/* Language */}
                     <div>
                       <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-3">
-                        Role
+                        {t('language')}
+                      </label>
+                      <select
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value as Language)}
+                        className="w-full px-4 py-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
+                      >
+                        <option value="en">{languageNames.en}</option>
+                        <option value="es">{languageNames.es}</option>
+                        <option value="fr">{languageNames.fr}</option>
+                      </select>
+                      <p className="text-xs text-[var(--color-text-muted)] mt-2">
+                        Changes the language of the interface
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-3">
+                        {t('role')}
                       </label>
                       <div className="space-y-2">
                         <label className="flex items-center gap-3 p-3 bg-[var(--color-surface-subtle)] rounded-lg cursor-pointer hover:bg-[var(--color-surface)] transition-colors">

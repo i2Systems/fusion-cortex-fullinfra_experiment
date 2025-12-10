@@ -11,7 +11,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 
-export type FontFamily = 'system' | 'syne' | 'ibm-plex' | 'inter' | 'poppins' | 'space-grotesk' | 'work-sans' | 'manrope' | 'outfit'
+export type FontFamily = 'system' | 'syne' | 'ibm-plex' | 'inter' | 'poppins' | 'space-grotesk' | 'work-sans' | 'manrope' | 'outfit' | 'lexend' | 'atkinson-hyperlegible'
 export type FontSize = 'normal' | 'medium' | 'large'
 
 interface FontContextType {
@@ -34,6 +34,8 @@ const fontFamilies: Record<FontFamily, string> = {
   'work-sans': '"Work Sans", system-ui, -apple-system, sans-serif',
   'manrope': '"Manrope", system-ui, -apple-system, sans-serif',
   'outfit': '"Outfit", system-ui, -apple-system, sans-serif',
+  'lexend': '"Lexend", system-ui, -apple-system, sans-serif',
+  'atkinson-hyperlegible': '"Atkinson Hyperlegible", system-ui, -apple-system, sans-serif',
 }
 
 // Font size multipliers
@@ -45,7 +47,7 @@ const fontSizeMultipliers: Record<FontSize, number> = {
 
 export function FontProvider({ children }: { children: ReactNode }) {
   const [fontFamily, setFontFamilyState] = useState<FontFamily>('system')
-  const [fontSize, setFontSizeState] = useState<FontSize>('medium') // Default to medium (mildly bigger)
+  const [fontSize, setFontSizeState] = useState<FontSize>('normal') // Default to normal (16px)
   const [mounted, setMounted] = useState(false)
 
   // Load preferences from localStorage on mount and apply immediately
@@ -56,7 +58,7 @@ export function FontProvider({ children }: { children: ReactNode }) {
       const savedSize = localStorage.getItem('fusion_font_size') as FontSize | null
       
       const initialFont = (savedFont && Object.keys(fontFamilies).includes(savedFont)) ? savedFont : 'system'
-      const initialSize = (savedSize && Object.keys(fontSizeMultipliers).includes(savedSize)) ? savedSize : 'medium'
+      const initialSize = (savedSize && Object.keys(fontSizeMultipliers).includes(savedSize)) ? savedSize : 'normal'
       
       setFontFamilyState(initialFont)
       setFontSizeState(initialSize)

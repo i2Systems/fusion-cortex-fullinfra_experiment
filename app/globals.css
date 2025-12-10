@@ -110,9 +110,9 @@
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   
-  /* Base font size - will be overridden by FontContext (default: 18px for medium) */
-  --font-size-base: 18px;
-  --font-size-multiplier: 1.125;
+  /* Base font size - will be overridden by FontContext (default: 16px for normal) */
+  --font-size-base: 16px;
+  --font-size-multiplier: 1.0;
   
   /* Font sizes scale with base size */
   --font-size-xs: calc(0.75 * var(--font-size-base));
