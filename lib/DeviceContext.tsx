@@ -46,18 +46,41 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       if (savedDevices) {
         try {
           const parsed = JSON.parse(savedDevices)
+          // Restore Date objects for components (they get serialized as strings)
+          const restored = parsed.map((device: Device) => {
+            if (device.components) {
+              return {
+                ...device,
+                components: device.components.map((comp: any) => ({
+                  ...comp,
+                  warrantyExpiry: comp.warrantyExpiry ? new Date(comp.warrantyExpiry) : undefined,
+                  buildDate: comp.buildDate ? new Date(comp.buildDate) : undefined,
+                })),
+                warrantyExpiry: device.warrantyExpiry ? new Date(device.warrantyExpiry as any) : undefined,
+              }
+            }
+            return device
+          })
           // Ensure the fault story device (FLX-3158) is always present
           const faultDeviceId = 'device-fault-grocery-001'
-          const faultDeviceExists = parsed.some((d: Device) => d.id === faultDeviceId || d.deviceId === 'FLX-3158')
+          const faultDeviceExists = restored.some((d: Device) => d.id === faultDeviceId || d.deviceId === 'FLX-3158')
           if (!faultDeviceExists) {
             // Add the fault device if it doesn't exist
             const faultDevice = initialDevices.find(d => d.id === faultDeviceId)
             if (faultDevice) {
-              parsed.push(faultDevice)
+              restored.push(faultDevice)
             }
           }
-          setDevices(parsed)
-          setHistory([parsed])
+          // Merge with fresh mock data to ensure all devices have components
+          const merged = restored.map((saved: Device) => {
+            const fresh = initialDevices.find(d => d.id === saved.id || d.deviceId === saved.deviceId)
+            if (fresh && fresh.components && (!saved.components || saved.components.length === 0)) {
+              return { ...saved, components: fresh.components, warrantyStatus: fresh.warrantyStatus, warrantyExpiry: fresh.warrantyExpiry }
+            }
+            return saved
+          })
+          setDevices(merged)
+          setHistory([merged])
           setHistoryIndex(0)
           return
         } catch (e) {

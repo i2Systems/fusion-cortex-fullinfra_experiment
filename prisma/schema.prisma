@@ -51,7 +51,17 @@ model Device {
   buildDate     DateTime?
   cct           Int?     // Color temperature
   warrantyStatus String?
+  warrantyExpiry DateTime? // Warranty expiration date
   partsList     Json?    // Parts list as JSON
+  
+  // Parent-child relationships (for components)
+  parentId      String?  // Parent device ID (null for top-level devices like fixtures)
+  parent        Device?  @relation("DeviceComponents", fields: [parentId], references: [id], onDelete: Cascade)
+  components    Device[] @relation("DeviceComponents")
+  
+  // Component-specific fields
+  componentType String?  // e.g., "LED Module", "Driver", "Lens", "Mounting Bracket"
+  componentSerialNumber String? // Serial number for the component itself
   
   // Relationships
   siteId        String
@@ -64,6 +74,7 @@ model Device {
   @@index([siteId])
   @@index([serialNumber])
   @@index([deviceId])
+  @@index([parentId])
 }
 
 enum DeviceType {

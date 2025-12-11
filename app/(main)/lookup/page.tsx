@@ -15,15 +15,29 @@ import { SearchIsland } from '@/components/layout/SearchIsland'
 import { DeviceList } from '@/components/lookup/DeviceList'
 import { DeviceProfilePanel } from '@/components/lookup/DeviceProfilePanel'
 import { useDevices } from '@/lib/DeviceContext'
+import { ComponentModal } from '@/components/shared/ComponentModal'
+import { Component, Device } from '@/lib/mockData'
 
 export default function LookupPage() {
   const { devices } = useDevices()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
+  const [selectedComponent, setSelectedComponent] = useState<Component | null>(null)
+  const [componentParentDevice, setComponentParentDevice] = useState<Device | null>(null)
 
   const selectedDevice = useMemo(() => {
     return devices.find(d => d.id === selectedDeviceId) || null
   }, [devices, selectedDeviceId])
+
+  const handleComponentClick = (component: Component, parentDevice: Device) => {
+    setSelectedComponent(component)
+    setComponentParentDevice(parentDevice)
+  }
+
+  const handleCloseComponentModal = () => {
+    setSelectedComponent(null)
+    setComponentParentDevice(null)
+  }
 
   return (
     <div className="h-full flex flex-col min-h-0 overflow-hidden">
@@ -55,8 +69,19 @@ export default function LookupPage() {
         </div>
 
         {/* Device Profile Panel - Right Side */}
-        <DeviceProfilePanel device={selectedDevice} />
+        <DeviceProfilePanel 
+          device={selectedDevice} 
+          onComponentClick={handleComponentClick}
+        />
       </div>
+
+      {/* Component Modal */}
+      <ComponentModal
+        component={selectedComponent}
+        parentDevice={componentParentDevice}
+        isOpen={selectedComponent !== null}
+        onClose={handleCloseComponentModal}
+      />
     </div>
   )
 }

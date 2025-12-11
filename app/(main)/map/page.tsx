@@ -21,6 +21,8 @@ import { MapUpload } from '@/components/map/MapUpload'
 import { MapToolbar } from '@/components/map/MapToolbar'
 import type { MapToolMode } from '@/components/map/MapToolbar'
 import { MapFiltersPanel, type MapFilters } from '@/components/map/MapFiltersPanel'
+import { ComponentModal } from '@/components/shared/ComponentModal'
+import type { Component, Device } from '@/lib/mockData'
 
 // Dynamically import MapCanvas to avoid SSR issues with Konva
 const MapCanvas = dynamic(() => import('@/components/map/MapCanvas').then(mod => ({ default: mod.MapCanvas })), {
@@ -47,6 +49,35 @@ export default function MapPage() {
   } = useDevices()
   const { role } = useRole()
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null)
+  const [expandedComponents, setExpandedComponents] = useState<Set<string>>(new Set())
+  const [selectedComponent, setSelectedComponent] = useState<Component | null>(null)
+  const [componentParentDevice, setComponentParentDevice] = useState<Device | null>(null)
+  
+  // Handle device selection with paste position support
+  const handleDeviceSelect = (deviceId: string | null) => {
+    if (deviceId && typeof window !== 'undefined') {
+      const copiedPos = sessionStorage.getItem('copiedDevicePosition')
+      if (copiedPos) {
+        try {
+          const { x: copiedX, y: copiedY } = JSON.parse(copiedPos)
+          const device = devices.find(d => d.id === deviceId)
+          if (device && !device.locked) {
+            // Paste the copied position
+            updateMultipleDevices([{
+              deviceId,
+              updates: { x: copiedX, y: copiedY }
+            }])
+            sessionStorage.removeItem('copiedDevicePosition')
+            setSelectedDevice(deviceId)
+            return
+          }
+        } catch (e) {
+          // Invalid copied position, continue with normal selection
+        }
+      }
+    }
+    setSelectedDevice(deviceId)
+  }
   const [mapUploaded, setMapUploaded] = useState(false)
   const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
   const [toolMode, setToolMode] = useState<MapToolMode>('select')
@@ -91,10 +122,34 @@ export default function MapPage() {
   }
 
   const handleDeviceMove = (deviceId: string, x: number, y: number) => {
+    const device = devices.find(d => d.id === deviceId)
+    // Don't move locked devices
+    if (device?.locked) return
     updateDevicePosition(deviceId, x, y)
   }
 
   const handleDeviceMoveEnd = (deviceId: string, x: number, y: number) => {
+    const device = devices.find(d => d.id === deviceId)
+    // Don't save position for locked devices
+    if (device?.locked) return
+    // Check if we should paste copied position
+    if (typeof window !== 'undefined') {
+      const copiedPos = sessionStorage.getItem('copiedDevicePosition')
+      if (copiedPos) {
+        try {
+          const { x: copiedX, y: copiedY } = JSON.parse(copiedPos)
+          // Use copied position instead
+          updateMultipleDevices([{
+            deviceId,
+            updates: { x: copiedX, y: copiedY }
+          }])
+          sessionStorage.removeItem('copiedDevicePosition')
+          return
+        } catch (e) {
+          // Invalid copied position, continue with normal save
+        }
+      }
+    }
     // Save to history when drag ends
     updateMultipleDevices([{
       deviceId,
@@ -103,8 +158,36 @@ export default function MapPage() {
   }
 
   const handleToolAction = (action: MapToolMode) => {
+    // Actions that don't require a selected device
+    if (action === 'reset') {
+      // Reset to original positions from mockData
+      import('@/lib/mockData').then(({ mockDevices }) => {
+        const updates = devices.map(d => {
+          const original = mockDevices.find(m => m.id === d.id)
+          return {
+            deviceId: d.id,
+            updates: {
+              x: original?.x || 0,
+              y: original?.y || 0,
+              locked: false // Unlock all when resetting
+            }
+          }
+        })
+        updateMultipleDevices(updates)
+      })
+      return
+    }
+
+    // Actions that require a selected device
     if (!selectedDevice) {
-      alert('Please select a device first')
+      // Try to find a device from the filtered list
+      if (filteredDevices.length > 0) {
+        setSelectedDevice(filteredDevices[0].id)
+        // Retry the action after a brief delay
+        setTimeout(() => handleToolAction(action), 100)
+        return
+      }
+      alert('Please select a device first. Click on a device on the map or in the device table.')
       return
     }
 
@@ -113,6 +196,11 @@ export default function MapPage() {
 
     switch (action) {
       case 'align-grid': {
+        // Don't align locked devices
+        if (device.locked) {
+          alert('Cannot align locked device. Unlock it first.')
+          return
+        }
         // Snap to 10x10 grid
         const gridSize = 0.1 // 10% increments
         const snappedX = Math.round((device.x || 0) / gridSize) * gridSize
@@ -124,6 +212,11 @@ export default function MapPage() {
         break
       }
       case 'align-aisle': {
+        // Don't align locked devices
+        if (device.locked) {
+          alert('Cannot align locked device. Unlock it first.')
+          return
+        }
         // Align to nearest horizontal aisle (assuming aisles are horizontal)
         const snappedY = Math.round((device.y || 0) / 0.1) * 0.1
         updateMultipleDevices([{
@@ -133,8 +226,12 @@ export default function MapPage() {
         break
       }
       case 'auto-arrange': {
-        // Arrange all devices of the same type in a grid
-        const sameTypeDevices = devices.filter(d => d.type === device.type)
+        // Arrange all devices of the same type in a grid (excluding locked devices)
+        const sameTypeDevices = devices.filter(d => d.type === device.type && !d.locked)
+        if (sameTypeDevices.length === 0) {
+          alert('No unlocked devices of this type to arrange.')
+          return
+        }
         const cols = Math.ceil(Math.sqrt(sameTypeDevices.length))
         const spacing = 0.1
         const updates = sameTypeDevices.map((d, idx) => ({
@@ -148,12 +245,17 @@ export default function MapPage() {
         break
       }
       case 'snap-nearest': {
-        // Snap to nearest device position (within threshold)
+        // Don't snap locked devices
+        if (device.locked) {
+          alert('Cannot snap locked device. Unlock it first.')
+          return
+        }
+        // Snap to nearest device position (within threshold, excluding locked devices)
         const threshold = 0.05
         const deviceX = device.x || 0
         const deviceY = device.y || 0
         const nearest = devices
-          .filter(d => d.id !== device.id && d.x !== undefined && d.y !== undefined)
+          .filter(d => d.id !== device.id && d.x !== undefined && d.y !== undefined && !d.locked)
           .map(d => ({
             id: d.id,
             dist: Math.sqrt(Math.pow((d.x || 0) - deviceX, 2) + Math.pow((d.y || 0) - deviceY, 2))
@@ -168,29 +270,55 @@ export default function MapPage() {
               updates: { x: target.x, y: target.y }
             }])
           }
+        } else {
+          alert('No nearby device found within snap threshold.')
         }
         break
       }
       case 'copy-position': {
-        // Copy position to all selected devices (for now, just show message)
-        alert('Copy position: Select multiple devices to copy position to them')
+        // Copy position from selected device to clipboard (for pasting later)
+        if (device.x !== undefined && device.y !== undefined) {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('copiedDevicePosition', JSON.stringify({ x: device.x, y: device.y }))
+            // Show a subtle notification instead of alert
+            const notification = document.createElement('div')
+            notification.textContent = `Position copied! Click another device to paste.`
+            notification.style.cssText = `
+              position: fixed;
+              top: 20px;
+              right: 20px;
+              background: var(--color-primary);
+              color: white;
+              padding: 12px 20px;
+              border-radius: 8px;
+              z-index: 10000;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+              font-size: 14px;
+            `
+            document.body.appendChild(notification)
+            setTimeout(() => {
+              notification.style.opacity = '0'
+              notification.style.transition = 'opacity 0.3s'
+              setTimeout(() => notification.remove(), 300)
+            }, 2000)
+          }
+        }
         break
       }
-      case 'reset': {
-        // Reset to original positions from mockData
-        import('@/lib/mockData').then(({ mockDevices }) => {
-          const updates = devices.map(d => {
-            const original = mockDevices.find(m => m.id === d.id)
-            return {
-              deviceId: d.id,
-              updates: {
-                x: original?.x || 0,
-                y: original?.y || 0
-              }
-            }
-          })
-          updateMultipleDevices(updates)
-        })
+      case 'lock': {
+        // Lock the selected device
+        updateMultipleDevices([{
+          deviceId: device.id,
+          updates: { locked: true }
+        }])
+        break
+      }
+      case 'unlock': {
+        // Unlock the selected device
+        updateMultipleDevices([{
+          deviceId: device.id,
+          updates: { locked: false }
+        }])
         break
       }
     }
@@ -245,6 +373,28 @@ export default function MapPage() {
     if (!filters.showFixtures || !filters.showMotion || !filters.showLightSensors) count++
     return count
   }, [filters])
+
+  const handleComponentExpand = (deviceId: string, expanded: boolean) => {
+    setExpandedComponents(prev => {
+      const next = new Set(prev)
+      if (expanded) {
+        next.add(deviceId)
+      } else {
+        next.delete(deviceId)
+      }
+      return next
+    })
+  }
+
+  const handleComponentClick = (component: Component, parentDevice: Device) => {
+    setSelectedComponent(component)
+    setComponentParentDevice(parentDevice)
+  }
+
+  const handleCloseComponentModal = () => {
+    setSelectedComponent(null)
+    setComponentParentDevice(null)
+  }
 
   return (
     <div className="h-full flex flex-col min-h-0 overflow-hidden">
@@ -348,13 +498,17 @@ export default function MapPage() {
             <div className="w-full h-full rounded-2xl shadow-[var(--shadow-strong)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] relative" style={{ minHeight: 0 }}>
               <div className="w-full h-full rounded-2xl overflow-hidden">
                 <MapCanvas 
-                  onDeviceSelect={setSelectedDevice}
+                  onDeviceSelect={handleDeviceSelect}
                   selectedDeviceId={selectedDevice}
                   mapImageUrl={filters.showMap ? mapImageUrl : null}
                   highlightDeviceId={selectedDevice}
                   mode={toolMode === 'move' ? 'move' : 'select'}
                   onDeviceMove={handleDeviceMove}
                   onDeviceMoveEnd={handleDeviceMoveEnd}
+                  onComponentExpand={handleComponentExpand}
+                  expandedComponents={expandedComponents}
+                  onComponentClick={handleComponentClick as any}
+                  devicesData={filteredDevices}
                   devices={filteredDevices.map(d => ({
                     id: d.id,
                     x: d.x || 0,
@@ -364,6 +518,8 @@ export default function MapPage() {
                     status: d.status,
                     signal: d.signal,
                     location: d.location,
+                    locked: d.locked || false,
+                    components: d.components,
                   }))}
                 />
               </div>
@@ -377,11 +533,20 @@ export default function MapPage() {
             <DeviceTable
               devices={filteredDevices}
               selectedDeviceId={selectedDevice}
-              onDeviceSelect={setSelectedDevice}
+              onDeviceSelect={handleDeviceSelect}
+              onComponentClick={handleComponentClick}
             />
           </div>
         )}
       </div>
+
+      {/* Component Modal */}
+      <ComponentModal
+        component={selectedComponent}
+        parentDevice={componentParentDevice}
+        isOpen={selectedComponent !== null}
+        onClose={handleCloseComponentModal}
+      />
     </div>
   )
 }

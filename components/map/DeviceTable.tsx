@@ -11,29 +11,23 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Signal, Battery, Wifi, WifiOff, Image, Radio, Thermometer, MapPin, Edit2, Plus } from 'lucide-react'
+import { Signal, Battery, Wifi, WifiOff, Image, Radio, Thermometer, MapPin, Edit2, Plus, ChevronRight, ChevronDown, Package, Shield, Calendar, CheckCircle2, AlertCircle, XCircle } from 'lucide-react'
+import type { Component, Device as DeviceType } from '@/lib/mockData'
+import { ComponentTree } from '@/components/shared/ComponentTree'
 
-interface Device {
-  id: string
-  deviceId: string
-  serialNumber: string
-  type: 'fixture' | 'motion' | 'light-sensor'
-  signal: number
-  battery?: number
-  status: 'online' | 'offline' | 'missing'
-  location?: string
-  zone?: string
-}
+import type { Device } from '@/lib/mockData'
 
 interface DeviceTableProps {
   devices: Device[]
   selectedDeviceId?: string | null
   onDeviceSelect?: (deviceId: string | null) => void
+  onComponentClick?: (component: Component, parentDevice: DeviceType) => void
 }
 
-export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect }: DeviceTableProps) {
+export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect, onComponentClick }: DeviceTableProps) {
   const [sortField, setSortField] = useState<keyof Device>('deviceId')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [expandedDevices, setExpandedDevices] = useState<Set<string>>(new Set())
   const tableRef = useRef<HTMLDivElement>(null)
   const selectedRowRef = useRef<HTMLTableRowElement>(null)
 
@@ -113,6 +107,19 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect }: Devic
       case 'light-sensor': return 'text-[var(--color-success)]'
       default: return 'text-[var(--color-text-muted)]'
     }
+  }
+
+  const toggleDeviceExpansion = (deviceId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setExpandedDevices(prev => {
+      const next = new Set(prev)
+      if (next.has(deviceId)) {
+        next.delete(deviceId)
+      } else {
+        next.add(deviceId)
+      }
+      return next
+    })
   }
 
   return (
@@ -268,22 +275,42 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect }: Devic
               </tr>
             </thead>
             <tbody>
-              {sortedDevices.map((device) => (
-              <tr
-                key={device.id}
-                ref={selectedDeviceId === device.id ? selectedRowRef : null}
-                onClick={() => onDeviceSelect?.(device.id)}
-                className={`
-                  border-b border-[var(--color-border-subtle)]/50 cursor-pointer transition-all duration-150
-                  ${selectedDeviceId === device.id
-                    ? 'bg-[var(--color-primary-soft)] hover:bg-[var(--color-primary-soft)] shadow-[var(--shadow-glow-primary)]'
-                    : 'hover:bg-[var(--color-surface-subtle)]/50'
-                  }
-                `}
-              >
-                <td className="py-3.5 px-5 text-sm text-[var(--color-text)] font-semibold">
-                  {device.deviceId}
-                </td>
+              {sortedDevices.map((device) => {
+                const isExpanded = expandedDevices.has(device.id)
+                const hasComponents = device.components && device.components.length > 0
+                return (
+                  <>
+                    <tr
+                      key={device.id}
+                      ref={selectedDeviceId === device.id ? selectedRowRef : null}
+                      onClick={() => onDeviceSelect?.(device.id)}
+                      className={`
+                        border-b border-[var(--color-border-subtle)]/50 cursor-pointer transition-all duration-150
+                        ${selectedDeviceId === device.id
+                          ? 'bg-[var(--color-primary-soft)] hover:bg-[var(--color-primary-soft)] shadow-[var(--shadow-glow-primary)]'
+                          : 'hover:bg-[var(--color-surface-subtle)]/50'
+                        }
+                      `}
+                    >
+                      <td className="py-3.5 px-5 text-sm text-[var(--color-text)] font-semibold">
+                        <div className="flex items-center gap-2">
+                          {hasComponents && (
+                            <button
+                              onClick={(e) => toggleDeviceExpansion(device.id, e)}
+                              className="p-0.5 rounded hover:bg-[var(--color-surface-subtle)] transition-colors flex-shrink-0"
+                              title={isExpanded ? 'Collapse components' : 'Expand components'}
+                            >
+                              {isExpanded ? (
+                                <ChevronDown size={14} className="text-[var(--color-text-muted)]" />
+                              ) : (
+                                <ChevronRight size={14} className="text-[var(--color-text-muted)]" />
+                              )}
+                            </button>
+                          )}
+                          {!hasComponents && <div className="w-5" />}
+                          <span>{device.deviceId}</span>
+                        </div>
+                      </td>
                 <td className="py-3.5 px-5 text-sm text-[var(--color-text-muted)] font-mono text-xs">
                   {device.serialNumber}
                 </td>
@@ -320,7 +347,32 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect }: Devic
                   </span>
                 </td>
               </tr>
-              ))}
+              {isExpanded && hasComponents && (
+                <tr
+                  key={`${device.id}-components`}
+                  className={`
+                    border-b border-[var(--color-border-subtle)]/30
+                    ${selectedDeviceId === device.id
+                      ? 'bg-[var(--color-primary-soft)]/30'
+                      : 'bg-[var(--color-surface-subtle)]/20'
+                    }
+                  `}
+                >
+                  <td colSpan={6} className="py-3 px-5">
+                    <ComponentTree 
+                      components={device.components || []} 
+                      expanded={true}
+                      showHeader={false}
+                      compact={true}
+                      parentDevice={device}
+                      onComponentClick={onComponentClick}
+                    />
+                  </td>
+                </tr>
+              )}
+              </>
+              )
+            })}
             </tbody>
           </table>
         )}

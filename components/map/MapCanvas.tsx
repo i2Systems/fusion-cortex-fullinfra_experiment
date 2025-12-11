@@ -15,8 +15,9 @@
 
 'use client'
 
-import { Stage, Layer, Circle, Image as KonvaImage, Group, Text, Rect } from 'react-konva'
+import { Stage, Layer, Circle, Image as KonvaImage, Group, Text, Rect, Line } from 'react-konva'
 import { useEffect, useState, useRef } from 'react'
+import { Component, Device as DeviceType } from '@/lib/mockData'
 
 interface DevicePoint {
   id: string
@@ -27,6 +28,8 @@ interface DevicePoint {
   status: string
   signal: number
   location?: string
+  locked?: boolean
+  components?: Component[]
 }
 
 interface MapCanvasProps {
@@ -38,6 +41,10 @@ interface MapCanvasProps {
   mode?: 'select' | 'move'
   onDeviceMove?: (deviceId: string, x: number, y: number) => void
   onDeviceMoveEnd?: (deviceId: string, x: number, y: number) => void
+  onComponentExpand?: (deviceId: string, expanded: boolean) => void
+  expandedComponents?: Set<string>
+  onComponentClick?: (component: Component, parentDevice: any) => void
+  devicesData?: any[]
 }
 
 function FloorPlanImage({ url, width, height }: { url: string; width: number; height: number }) {
@@ -70,7 +77,11 @@ export function MapCanvas({
   highlightDeviceId,
   mode = 'select',
   onDeviceMove,
-  onDeviceMoveEnd
+  onDeviceMoveEnd,
+  onComponentExpand,
+  expandedComponents = new Set(),
+  onComponentClick,
+  devicesData = []
 }: MapCanvasProps) {
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
   const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 })
@@ -215,8 +226,12 @@ export function MapCanvas({
                 key={device.id}
                 x={deviceX}
                 y={deviceY}
-                draggable={mode === 'move'}
+                draggable={mode === 'move' && !device.locked}
                 onDragStart={(e) => {
+                  if (device.locked) {
+                    e.cancelBubble = true
+                    return
+                  }
                   setDraggedDevice({ id: device.id, startX: device.x, startY: device.y })
                   onDeviceSelect?.(device.id)
                 }}
@@ -250,11 +265,12 @@ export function MapCanvas({
                   y={0}
                   radius={isSelected ? 8 : (isHovered ? 6 : 4)}
                   fill={getDeviceColor(device.type)}
-                  stroke={isSelected ? colors.text : 'rgba(255,255,255,0.2)'}
-                  strokeWidth={isSelected ? 3 : 1}
+                  stroke={device.locked ? '#fbbf24' : (isSelected ? colors.text : 'rgba(255,255,255,0.2)')}
+                  strokeWidth={device.locked ? 2 : (isSelected ? 3 : 1)}
                   shadowBlur={isSelected ? 15 : (isHovered ? 8 : 3)}
                   shadowColor={isSelected ? colors.primary : 'black'}
-                  opacity={isSelected ? 1 : (isHovered ? 0.8 : 0.6)}
+                  opacity={device.locked ? 0.7 : (isSelected ? 1 : (isHovered ? 0.8 : 0.6))}
+                  dash={device.locked ? [4, 4] : undefined}
                   onClick={() => {
                     if (mode === 'select') {
                       onDeviceSelect?.(device.id)
@@ -268,7 +284,11 @@ export function MapCanvas({
                   onMouseEnter={(e) => {
                     const container = e.target.getStage()?.container()
                     if (container) {
-                      container.style.cursor = mode === 'move' ? 'grab' : 'pointer'
+                      if (device.locked) {
+                        container.style.cursor = 'not-allowed'
+                      } else {
+                        container.style.cursor = mode === 'move' ? 'grab' : 'pointer'
+                      }
                     }
                     setHoveredDevice(device)
                     // Get mouse position relative to stage
@@ -293,6 +313,191 @@ export function MapCanvas({
                     }
                   }}
                 />
+                {/* Lock indicator */}
+                {device.locked && (
+                  <Circle
+                    x={6}
+                    y={-6}
+                    radius={3}
+                    fill="#fbbf24"
+                    stroke="white"
+                    strokeWidth={1}
+                    listening={false}
+                  />
+                )}
+                {/* Expand button for devices with components */}
+                {isSelected && device.components && device.components.length > 0 && (
+                  <Group
+                    x={12}
+                    y={-12}
+                    onClick={(e) => {
+                      e.cancelBubble = true
+                      const isExpanded = expandedComponents.has(device.id)
+                      onComponentExpand?.(device.id, !isExpanded)
+                    }}
+                    onTap={(e) => {
+                      e.cancelBubble = true
+                      const isExpanded = expandedComponents.has(device.id)
+                      onComponentExpand?.(device.id, !isExpanded)
+                    }}
+                  >
+                    <Circle
+                      x={0}
+                      y={0}
+                      radius={10}
+                      fill={colors.primary}
+                      stroke={colors.text}
+                      strokeWidth={2}
+                      shadowBlur={5}
+                      shadowColor={colors.primary}
+                    />
+                    <Text
+                      x={-4}
+                      y={-6}
+                      text={expandedComponents.has(device.id) ? '−' : '+'}
+                      fontSize={16}
+                      fontFamily="system-ui, -apple-system, sans-serif"
+                      fontStyle="bold"
+                      fill={colors.text}
+                      align="center"
+                      listening={false}
+                    />
+                  </Group>
+                )}
+                {/* Component tree overlay - shown when expanded */}
+                {isSelected && device.components && device.components.length > 0 && expandedComponents.has(device.id) && (
+                  <Group x={25} y={-40}>
+                    <Rect
+                      width={280}
+                      height={Math.min(300, 60 + device.components.length * 80)}
+                      fill={colors.tooltipBg}
+                      cornerRadius={8}
+                      shadowBlur={15}
+                      shadowColor={colors.tooltipShadow}
+                      shadowOffsetX={0}
+                      shadowOffsetY={2}
+                    />
+                    <Rect
+                      width={280}
+                      height={Math.min(300, 60 + device.components.length * 80)}
+                      fill="transparent"
+                      stroke={colors.tooltipBorder}
+                      strokeWidth={2}
+                      cornerRadius={8}
+                    />
+                    <Text
+                      x={14}
+                      y={14}
+                      text="Components"
+                      fontSize={14}
+                      fontFamily="system-ui, -apple-system, sans-serif"
+                      fontStyle="bold"
+                      fill={colors.tooltipText}
+                      align="left"
+                    />
+                    <Line
+                      points={[14, 32, 266, 32]}
+                      stroke={colors.tooltipBorder}
+                      strokeWidth={1}
+                      opacity={0.3}
+                    />
+                    {device.components.map((component, idx) => {
+                      const yPos = 40 + idx * 70
+                      const warrantyColor = component.warrantyStatus === 'Active' 
+                        ? colors.success 
+                        : component.warrantyStatus === 'Expired'
+                        ? '#ef4444'
+                        : colors.muted
+                      const parentDevice = devicesData.find(d => d.id === device.id)
+                      const handleComponentClick = (e: any) => {
+                        e.cancelBubble = true
+                        if (onComponentClick && parentDevice) {
+                          onComponentClick(component, parentDevice)
+                        }
+                      }
+                      return (
+                        <Group 
+                          key={component.id} 
+                          y={yPos}
+                          onClick={handleComponentClick}
+                          onTap={handleComponentClick}
+                        >
+                          {/* Clickable background highlight on hover */}
+                          <Rect
+                            x={0}
+                            y={0}
+                            width={266}
+                            height={65}
+                            fill={onComponentClick ? 'rgba(76, 125, 255, 0.05)' : 'transparent'}
+                            cornerRadius={4}
+                            opacity={0}
+                            onMouseEnter={(e) => {
+                              if (onComponentClick) {
+                                const rect = e.target
+                                rect.opacity(0.1)
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (onComponentClick) {
+                                const rect = e.target
+                                rect.opacity(0)
+                              }
+                            }}
+                          />
+                          <Text
+                            x={14}
+                            y={0}
+                            text={component.componentType}
+                            fontSize={12}
+                            fontFamily="system-ui, -apple-system, sans-serif"
+                            fontStyle="bold"
+                            fill={colors.tooltipText}
+                            align="left"
+                          />
+                          <Text
+                            x={14}
+                            y={16}
+                            text={component.componentSerialNumber}
+                            fontSize={10}
+                            fontFamily="monospace"
+                            fill={colors.muted}
+                            align="left"
+                          />
+                          {component.warrantyStatus && (
+                            <Group x={14} y={32}>
+                              <Circle
+                                x={6}
+                                y={6}
+                                radius={4}
+                                fill={warrantyColor}
+                              />
+                              <Text
+                                x={16}
+                                y={0}
+                                text={`Warranty: ${component.warrantyStatus}`}
+                                fontSize={10}
+                                fontFamily="system-ui, -apple-system, sans-serif"
+                                fill={warrantyColor}
+                                align="left"
+                              />
+                            </Group>
+                          )}
+                          {component.warrantyExpiry && (
+                            <Text
+                              x={14}
+                              y={48}
+                              text={`Expires: ${component.warrantyExpiry.toLocaleDateString()}`}
+                              fontSize={9}
+                              fontFamily="system-ui, -apple-system, sans-serif"
+                              fill={colors.muted}
+                              align="left"
+                            />
+                          )}
+                        </Group>
+                      )
+                    })}
+                  </Group>
+                )}
                 {/* Tooltip - only render when hovered, positioned near cursor */}
                 {isHovered && (
                   <Group x={tooltipPosition.x - deviceX + 15} y={tooltipPosition.y - deviceY - 15}>
@@ -322,7 +527,7 @@ export function MapCanvas({
                     <Text
                       x={14}
                       y={14}
-                      text={`${device.deviceId}\nType: ${device.type}\nSignal: ${device.signal}%\nStatus: ${device.status}${device.location ? `\nLocation: ${device.location}` : ''}`}
+                      text={`${device.deviceId}\nType: ${device.type}\nSignal: ${device.signal}%\nStatus: ${device.status}${device.locked ? '\n🔒 Locked' : ''}${device.location ? `\nLocation: ${device.location}` : ''}`}
                       fontSize={13}
                       fontFamily="system-ui, -apple-system, sans-serif"
                       fontStyle="normal"

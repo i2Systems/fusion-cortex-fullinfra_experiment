@@ -88,9 +88,9 @@ export function DiscoveredDevicesList({
   }
 
   return (
-    <div className="fusion-card">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+    <div className="fusion-card h-full flex flex-col min-h-0">
+      {/* Header - Fixed */}
+      <div className="flex-shrink-0 flex items-center justify-between mb-4">
         <div>
           <h3 className="text-md font-semibold text-[var(--color-text)] mb-1">
             Discovered Devices
@@ -108,9 +108,9 @@ export function DiscoveredDevicesList({
         </button>
       </div>
 
-      {/* Filters */}
+      {/* Filters - Fixed */}
       {showFilters && (
-        <div className="mb-4 p-3 bg-[var(--color-surface-subtle)] rounded-lg border border-[var(--color-border-subtle)]">
+        <div className="flex-shrink-0 mb-4 p-3 bg-[var(--color-surface-subtle)] rounded-lg border border-[var(--color-border-subtle)]">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-[var(--color-text-muted)] mb-2">
@@ -146,63 +146,65 @@ export function DiscoveredDevicesList({
         </div>
       )}
 
-      {/* Device List */}
-      <div className="space-y-2">
-        {filteredDevices.length === 0 ? (
-          <div className="text-center py-8 text-sm text-[var(--color-text-muted)]">
-            No devices match the current filters
-          </div>
-        ) : (
-          filteredDevices.map((device) => (
-            <div
-              key={device.id}
-              onClick={() => onDeviceSelect?.(device)}
-              className={`
-                p-3 rounded-lg border cursor-pointer transition-all
-                ${selectedDeviceId === device.id
-                  ? 'bg-[var(--color-primary-soft)] border-[var(--color-primary)] shadow-[var(--shadow-glow-primary)]'
-                  : 'bg-[var(--color-surface-subtle)] border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/50'
-                }
-              `}
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h4 className="font-semibold text-sm text-[var(--color-text)]">
-                      {device.deviceId}
-                    </h4>
-                    {getStatusIcon(device.status)}
+      {/* Device List - Scrollable */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="space-y-2">
+          {filteredDevices.length === 0 ? (
+            <div className="text-center py-8 text-sm text-[var(--color-text-muted)]">
+              No devices match the current filters
+            </div>
+          ) : (
+            filteredDevices.map((device) => (
+              <div
+                key={device.id}
+                onClick={() => onDeviceSelect?.(device)}
+                className={`
+                  p-3 rounded-lg border cursor-pointer transition-all
+                  ${selectedDeviceId === device.id
+                    ? 'bg-[var(--color-primary-soft)] border-[var(--color-primary)] shadow-[var(--shadow-glow-primary)]'
+                    : 'bg-[var(--color-surface-subtle)] border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/50'
+                  }
+                `}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-semibold text-sm text-[var(--color-text)]">
+                        {device.deviceId}
+                      </h4>
+                      {getStatusIcon(device.status)}
+                    </div>
+                    <p className="text-xs text-[var(--color-text-muted)] font-mono mb-1">
+                      {device.serialNumber}
+                    </p>
+                    <p className="text-xs text-[var(--color-text-soft)]">
+                      {getTypeLabel(device.type)}
+                    </p>
                   </div>
-                  <p className="text-xs text-[var(--color-text-muted)] font-mono mb-1">
-                    {device.serialNumber}
-                  </p>
-                  <p className="text-xs text-[var(--color-text-soft)]">
-                    {getTypeLabel(device.type)}
-                  </p>
-                </div>
-                <span className={`text-xs px-2 py-1 rounded-md bg-[var(--color-surface-subtle)] ${getStatusColor(device.status)}`}>
-                  {device.status}
-                </span>
-              </div>
-              <div className="flex items-center gap-4 mt-2">
-                <div className="flex items-center gap-1.5">
-                  <Wifi size={14} className={getSignalColor(device.signal)} />
-                  <span className={`text-xs ${getSignalColor(device.signal)}`}>
-                    {device.signal}%
+                  <span className={`text-xs px-2 py-1 rounded-md bg-[var(--color-surface-subtle)] ${getStatusColor(device.status)}`}>
+                    {device.status}
                   </span>
                 </div>
-                {device.battery !== undefined && (
+                <div className="flex items-center gap-4 mt-2">
                   <div className="flex items-center gap-1.5">
-                    <Battery size={14} className={device.battery > 20 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'} />
-                    <span className="text-xs text-[var(--color-text-muted)]">
-                      {device.battery}%
+                    <Wifi size={14} className={getSignalColor(device.signal)} />
+                    <span className={`text-xs ${getSignalColor(device.signal)}`}>
+                      {device.signal}%
                     </span>
                   </div>
-                )}
+                  {device.battery !== undefined && (
+                    <div className="flex items-center gap-1.5">
+                      <Battery size={14} className={device.battery > 20 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'} />
+                      <span className="text-xs text-[var(--color-text-muted)]">
+                        {device.battery}%
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))
-        )}
+            ))
+          )}
+        </div>
       </div>
     </div>
   )

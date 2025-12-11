@@ -10,13 +10,15 @@
 'use client'
 
 import { Image, Calendar, Thermometer, Shield, Package, MapPin, Radio, Battery, Wifi, WifiOff, CheckCircle2, AlertCircle, XCircle, QrCode } from 'lucide-react'
-import { Device } from '@/lib/mockData'
+import { Device, Component } from '@/lib/mockData'
+import { ComponentTree } from '@/components/shared/ComponentTree'
 
 interface DeviceProfilePanelProps {
   device: Device | null
+  onComponentClick?: (component: Component, parentDevice: Device) => void
 }
 
-export function DeviceProfilePanel({ device }: DeviceProfilePanelProps) {
+export function DeviceProfilePanel({ device, onComponentClick }: DeviceProfilePanelProps) {
   if (!device) {
     return (
       <div className="w-96 min-w-[20rem] max-w-[32rem] bg-[var(--color-surface)] backdrop-blur-xl rounded-2xl border border-[var(--color-border-subtle)] flex flex-col shadow-[var(--shadow-strong)] overflow-hidden flex-shrink-0 h-full">
@@ -281,23 +283,42 @@ export function DeviceProfilePanel({ device }: DeviceProfilePanelProps) {
           </div>
         </div>
 
-        {/* Parts List */}
-        <div>
-          <h4 className="text-sm font-semibold text-[var(--color-text)] mb-3 flex items-center gap-2">
-            <Package size={16} />
-            Parts List
-          </h4>
-          <div className="space-y-1.5">
-            {partsList.map((part, index) => (
-              <div
-                key={index}
-                className="p-2 rounded-lg bg-[var(--color-surface-subtle)] text-sm text-[var(--color-text-muted)]"
-              >
-                {part}
-              </div>
-            ))}
+        {/* Components */}
+        {device.components && device.components.length > 0 && (
+          <div>
+            <h4 className="text-sm font-semibold text-[var(--color-text)] mb-3 flex items-center gap-2">
+              <Package size={16} />
+              Components
+            </h4>
+            <ComponentTree 
+              components={device.components} 
+              expanded={true}
+              showHeader={false}
+              parentDevice={device}
+              onComponentClick={onComponentClick}
+            />
           </div>
-        </div>
+        )}
+
+        {/* Parts List (fallback for devices without components) */}
+        {(!device.components || device.components.length === 0) && (
+          <div>
+            <h4 className="text-sm font-semibold text-[var(--color-text)] mb-3 flex items-center gap-2">
+              <Package size={16} />
+              Parts List
+            </h4>
+            <div className="space-y-1.5">
+              {partsList.map((part, index) => (
+                <div
+                  key={index}
+                  className="p-2 rounded-lg bg-[var(--color-surface-subtle)] text-sm text-[var(--color-text-muted)]"
+                >
+                  {part}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Map Position */}
         {device.x !== undefined && device.y !== undefined && (

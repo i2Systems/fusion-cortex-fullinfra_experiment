@@ -224,55 +224,58 @@ export default function DiscoveryPage() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 min-h-0 px-8 pb-14 overflow-auto">
-        <div className="max-w-6xl mx-auto pb-4">
-        {/* Discovery Controls */}
-        <DiscoveryControls
-          isScanning={isScanning}
-          onStartScan={handleStartScan}
-          onStopScan={handleStopScan}
-          onManualEntry={handleManualEntry}
-          onQRScan={handleQRScan}
-          onImport={handleImport}
-          onExport={handleExport}
-        />
+      <div className="flex-1 min-h-0 px-8 pb-14 flex flex-col overflow-hidden">
+        <div className="max-w-6xl mx-auto w-full flex flex-col flex-1 min-h-0">
+        {/* Fixed Top Section */}
+        <div className="flex-shrink-0">
+          {/* Discovery Controls */}
+          <DiscoveryControls
+            isScanning={isScanning}
+            onStartScan={handleStartScan}
+            onStopScan={handleStopScan}
+            onManualEntry={handleManualEntry}
+            onQRScan={handleQRScan}
+            onImport={handleImport}
+            onExport={handleExport}
+          />
 
-        {/* Progress (only shown when scanning) */}
-        <DiscoveryProgress
-          isScanning={isScanning}
-          progress={scanProgress}
-          devicesFound={devices.length}
-          devicesPerSecond={devices.length > 0 ? devices.length / Math.max(scanDuration, 1) : 0}
-          estimatedTimeRemaining={scanProgress > 0 ? (5 * (1 - scanProgress / 100)) : 5}
-          currentSubnet={isScanning ? `192.168.1.${Math.floor(scanProgress / 4)}/24` : undefined}
-        />
+          {/* Progress (only shown when scanning) */}
+          <DiscoveryProgress
+            isScanning={isScanning}
+            progress={scanProgress}
+            devicesFound={devices.length}
+            devicesPerSecond={devices.length > 0 ? devices.length / Math.max(scanDuration, 1) : 0}
+            estimatedTimeRemaining={scanProgress > 0 ? (5 * (1 - scanProgress / 100)) : 5}
+            currentSubnet={isScanning ? `192.168.1.${Math.floor(scanProgress / 4)}/24` : undefined}
+          />
 
-        {/* Zone Creation Status */}
-        {isCreatingZones && (
-          <div className="fusion-card mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-[var(--color-primary)] animate-pulse"></div>
-              <span className="text-sm text-[var(--color-text)]">
-                Analyzing discovered devices and creating zones...
-              </span>
+          {/* Zone Creation Status */}
+          {isCreatingZones && (
+            <div className="fusion-card mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-[var(--color-primary)] animate-pulse"></div>
+                <span className="text-sm text-[var(--color-text)]">
+                  Analyzing discovered devices and creating zones...
+                </span>
+              </div>
             </div>
-          </div>
-        )}
-        {zonesCreated > 0 && !isCreatingZones && (
-          <div className="fusion-card mb-6 border border-[var(--color-success)]/30 bg-[var(--color-success)]/10">
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-[var(--color-success)]"></div>
-              <span className="text-sm text-[var(--color-text)]">
-                <strong>{zonesCreated} zone{zonesCreated !== 1 ? 's' : ''}</strong> automatically created from discovered devices
-              </span>
+          )}
+          {zonesCreated > 0 && !isCreatingZones && (
+            <div className="fusion-card mb-6 border border-[var(--color-success)]/30 bg-[var(--color-success)]/10">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-[var(--color-success)]"></div>
+                <span className="text-sm text-[var(--color-text)]">
+                  <strong>{zonesCreated} zone{zonesCreated !== 1 ? 's' : ''}</strong> automatically created from discovered devices
+                </span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Discovery Status & Results */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-4">
-          {/* Status Card */}
-          <div className="fusion-card">
+        {/* Scrollable Bottom Section */}
+        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Status Card - Fixed */}
+          <div className="fusion-card flex-shrink-0">
             <h3 className="text-md font-semibold text-[var(--color-text)] mb-4">
               Discovery Status
             </h3>
@@ -312,8 +315,8 @@ export default function DiscoveryPage() {
             </div>
           </div>
 
-          {/* Discovered Devices List */}
-          <div className="lg:col-span-2">
+          {/* Discovered Devices List - Scrollable */}
+          <div className="lg:col-span-2 flex flex-col min-h-0">
             <DiscoveredDevicesList
               devices={devices}
               onDeviceSelect={setSelectedDevice}

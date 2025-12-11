@@ -11,6 +11,17 @@
 export type DeviceType = 'fixture' | 'motion' | 'light-sensor'
 export type DeviceStatus = 'online' | 'offline' | 'missing'
 
+export interface Component {
+  id: string
+  componentType: string // e.g., "LED Module", "Driver", "Lens", "Mounting Bracket"
+  componentSerialNumber: string
+  warrantyStatus?: string
+  warrantyExpiry?: Date
+  buildDate?: Date
+  status?: DeviceStatus
+  notes?: string // Instance-specific notes for this component within this specific device
+}
+
 export interface Device {
   id: string
   deviceId: string
@@ -23,6 +34,10 @@ export interface Device {
   zone?: string
   x?: number // Map position (0-1 normalized)
   y?: number // Map position (0-1 normalized)
+  locked?: boolean // Whether device position is locked
+  components?: Component[] // Child components (for fixtures)
+  warrantyStatus?: string
+  warrantyExpiry?: Date
 }
 
 // Generate 250 devices with realistic data and organized positioning
@@ -49,6 +64,45 @@ function generateDevices(): Device[] {
 
   let deviceCounter = 1
   let serialCounter = 2024
+  let componentCounter = 1
+
+  // Helper function to generate components for a fixture
+  function generateComponentsForFixture(fixtureId: string, fixtureSerial: string): Component[] {
+    const componentTypes = ['LED Module', 'Driver', 'Lens', 'Mounting Bracket']
+    const components: Component[] = []
+    
+    // Sample notes that might apply to specific component instances
+    const sampleNotes = [
+      'Replaced during maintenance on 3/15/2024',
+      'Minor wear observed, monitor for replacement',
+      'Warranty claim submitted - awaiting response',
+      'Inspected and verified during last service',
+      undefined, // Some components may not have notes
+      undefined,
+    ]
+    
+    for (const componentType of componentTypes) {
+      const buildDate = new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1)
+      const warrantyExpiry = new Date(buildDate)
+      warrantyExpiry.setFullYear(warrantyExpiry.getFullYear() + (Math.random() > 0.7 ? 3 : 5)) // 3 or 5 year warranty
+      const warrantyStatus = warrantyExpiry > new Date() ? 'Active' : 'Expired'
+      const status: DeviceStatus = Math.random() > 0.1 ? 'online' : 'offline'
+      const notes = Math.random() > 0.6 ? sampleNotes[Math.floor(Math.random() * sampleNotes.length)] : undefined
+      
+      components.push({
+        id: `component-${componentCounter++}`,
+        componentType,
+        componentSerialNumber: `${fixtureSerial}-${componentType.replace(/\s+/g, '').substring(0, 3).toUpperCase()}-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`,
+        warrantyStatus,
+        warrantyExpiry,
+        buildDate,
+        status,
+        notes,
+      })
+    }
+    
+    return components
+  }
 
   // Generate fixtures (150 devices, ~60%)
   for (const zone of zones) {
@@ -87,10 +141,17 @@ function generateDevices(): Device[] {
         const signal = Math.floor(Math.random() * 40) + 50 // 50-90%
         const status: DeviceStatus = Math.random() > 0.05 ? 'online' : 'offline'
         
+        const fixtureSerial = `SN-2024-${String(serialCounter).padStart(4, '0')}-F${String(Math.floor(Math.random() * 9) + 1)}`
+        const fixtureId = `device-${deviceCounter++}`
+        const buildDate = new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1)
+        const warrantyExpiry = new Date(buildDate)
+        warrantyExpiry.setFullYear(warrantyExpiry.getFullYear() + 5) // 5 year warranty for fixtures
+        const warrantyStatus = warrantyExpiry > new Date() ? 'Active' : 'Expired'
+        
         devices.push({
-          id: `device-${deviceCounter++}`,
+          id: fixtureId,
           deviceId: `FLX-${String(serialCounter++).padStart(4, '0')}`,
-          serialNumber: `SN-2024-${String(serialCounter - 1).padStart(4, '0')}-F${String(Math.floor(Math.random() * 9) + 1)}`,
+          serialNumber: fixtureSerial,
           type: 'fixture',
           signal: status === 'offline' ? Math.floor(Math.random() * 30) : signal,
           battery: undefined,
@@ -99,6 +160,9 @@ function generateDevices(): Device[] {
           zone,
           x,
           y,
+          components: generateComponentsForFixture(fixtureId, fixtureSerial),
+          warrantyStatus,
+          warrantyExpiry,
         })
       }
     }
@@ -172,10 +236,16 @@ function generateDevices(): Device[] {
 
   // Add a specific device with environmental ingress fault for story consistency
   // This device appears across dashboard, map, zones, and faults pages
+  const faultDeviceSerial = 'SN-2024-3158-F3'
+  const faultDeviceId = 'device-fault-grocery-001'
+  const faultBuildDate = new Date(2023, 5, 15)
+  const faultWarrantyExpiry = new Date(faultBuildDate)
+  faultWarrantyExpiry.setFullYear(faultWarrantyExpiry.getFullYear() + 5)
+  
   const faultDevice: Device = {
-    id: 'device-fault-grocery-001',
+    id: faultDeviceId,
     deviceId: 'FLX-3158',
-    serialNumber: 'SN-2024-3158-F3',
+    serialNumber: faultDeviceSerial,
     type: 'fixture',
     signal: 12, // Low signal due to water damage
     status: 'missing', // Missing due to environmental ingress failure
@@ -183,6 +253,9 @@ function generateDevices(): Device[] {
     zone: 'Zone 7 - Grocery',
     x: 0.72, // Position in Zone 7 - Grocery area
     y: 0.35,
+    components: generateComponentsForFixture(faultDeviceId, faultDeviceSerial),
+    warrantyStatus: faultWarrantyExpiry > new Date() ? 'Active' : 'Expired',
+    warrantyExpiry: faultWarrantyExpiry,
   }
   devices.push(faultDevice)
 
