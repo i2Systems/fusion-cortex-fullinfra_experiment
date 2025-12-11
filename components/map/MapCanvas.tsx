@@ -29,6 +29,7 @@ interface DevicePoint {
   signal: number
   location?: string
   locked?: boolean
+  orientation?: number // Rotation angle in degrees
   components?: Component[]
 }
 
@@ -260,59 +261,144 @@ export function MapCanvas({
                   setDraggedDevice(null)
                 }}
               >
-                <Circle
-                  x={0}
-                  y={0}
-                  radius={isSelected ? 8 : (isHovered ? 6 : 4)}
-                  fill={getDeviceColor(device.type)}
-                  stroke={device.locked ? '#fbbf24' : (isSelected ? colors.text : 'rgba(255,255,255,0.2)')}
-                  strokeWidth={device.locked ? 2 : (isSelected ? 3 : 1)}
-                  shadowBlur={isSelected ? 15 : (isHovered ? 8 : 3)}
-                  shadowColor={isSelected ? colors.primary : 'black'}
-                  opacity={device.locked ? 0.7 : (isSelected ? 1 : (isHovered ? 0.8 : 0.6))}
-                  dash={device.locked ? [4, 4] : undefined}
-                  onClick={() => {
-                    if (mode === 'select') {
-                      onDeviceSelect?.(device.id)
-                    }
-                  }}
-                  onTap={() => {
-                    if (mode === 'select') {
-                      onDeviceSelect?.(device.id)
-                    }
-                  }}
-                  onMouseEnter={(e) => {
-                    const container = e.target.getStage()?.container()
-                    if (container) {
-                      if (device.locked) {
-                        container.style.cursor = 'not-allowed'
-                      } else {
-                        container.style.cursor = mode === 'move' ? 'grab' : 'pointer'
+                {/* Light Bar for Fixtures */}
+                {device.type === 'fixture' && (() => {
+                  // Calculate light bar dimensions (6ft x 6inch = 72:6 ratio = 12:1)
+                  // Use a reasonable size that scales with canvas
+                  const barLength = Math.max(30, dimensions.width * 0.035) // ~3.5% of width, min 30px
+                  const barWidth = Math.max(3, barLength / 12) // Maintain 12:1 ratio
+                  
+                  return (
+                    <Group rotation={device.orientation || 0}>
+                      {/* Light bar rectangle - 6ft x 6inch (12:1 ratio) */}
+                      <Rect
+                        x={-barLength / 2} // Center the bar
+                        y={-barWidth / 2} // Center the bar
+                        width={barLength}
+                        height={barWidth}
+                        fill={getDeviceColor(device.type)}
+                        opacity={device.locked ? 0.5 : (isSelected ? 0.9 : (isHovered ? 0.8 : 0.7))}
+                        stroke={device.locked ? '#fbbf24' : (isSelected ? colors.text : 'rgba(255,255,255,0.3)')}
+                        strokeWidth={device.locked ? 2 : (isSelected ? 2 : 1)}
+                        shadowBlur={isSelected ? 10 : (isHovered ? 6 : 2)}
+                        shadowColor={isSelected ? colors.primary : 'black'}
+                        cornerRadius={1}
+                        dash={device.locked ? [4, 4] : undefined}
+                        listening={false}
+                      />
+                      {/* Center dot for interaction */}
+                      <Circle
+                        x={0}
+                        y={0}
+                        radius={isSelected ? 6 : (isHovered ? 5 : 4)}
+                        fill={getDeviceColor(device.type)}
+                        stroke={device.locked ? '#fbbf24' : (isSelected ? colors.text : 'rgba(255,255,255,0.4)')}
+                        strokeWidth={device.locked ? 2 : (isSelected ? 2.5 : 1.5)}
+                        shadowBlur={isSelected ? 12 : (isHovered ? 8 : 4)}
+                        shadowColor={isSelected ? colors.primary : 'black'}
+                        opacity={device.locked ? 0.8 : (isSelected ? 1 : (isHovered ? 0.9 : 0.8))}
+                        onClick={() => {
+                          if (mode === 'select') {
+                            onDeviceSelect?.(device.id)
+                          }
+                        }}
+                        onTap={() => {
+                          if (mode === 'select') {
+                            onDeviceSelect?.(device.id)
+                          }
+                        }}
+                        onMouseEnter={(e) => {
+                          const container = e.target.getStage()?.container()
+                          if (container) {
+                            if (device.locked) {
+                              container.style.cursor = 'not-allowed'
+                            } else {
+                              container.style.cursor = mode === 'move' ? 'grab' : 'pointer'
+                            }
+                          }
+                          setHoveredDevice(device)
+                          // Get mouse position relative to stage
+                          const stage = e.target.getStage()
+                          if (stage) {
+                            const pointerPos = stage.getPointerPosition()
+                            if (pointerPos) {
+                              setTooltipPosition({ x: pointerPos.x, y: pointerPos.y })
+                            }
+                          }
+                        }}
+                        onMouseLeave={() => {
+                          setHoveredDevice(null)
+                        }}
+                        onMouseMove={(e) => {
+                          const stage = e.target.getStage()
+                          if (stage) {
+                            const pointerPos = stage.getPointerPosition()
+                            if (pointerPos) {
+                              setTooltipPosition({ x: pointerPos.x, y: pointerPos.y })
+                            }
+                          }
+                        }}
+                      />
+                    </Group>
+                  )
+                })()}
+                
+                {/* Regular dot for non-fixture devices */}
+                {device.type !== 'fixture' && (
+                  <Circle
+                    x={0}
+                    y={0}
+                    radius={isSelected ? 8 : (isHovered ? 6 : 4)}
+                    fill={getDeviceColor(device.type)}
+                    stroke={device.locked ? '#fbbf24' : (isSelected ? colors.text : 'rgba(255,255,255,0.2)')}
+                    strokeWidth={device.locked ? 2 : (isSelected ? 3 : 1)}
+                    shadowBlur={isSelected ? 15 : (isHovered ? 8 : 3)}
+                    shadowColor={isSelected ? colors.primary : 'black'}
+                    opacity={device.locked ? 0.7 : (isSelected ? 1 : (isHovered ? 0.8 : 0.6))}
+                    dash={device.locked ? [4, 4] : undefined}
+                    onClick={() => {
+                      if (mode === 'select') {
+                        onDeviceSelect?.(device.id)
                       }
-                    }
-                    setHoveredDevice(device)
-                    // Get mouse position relative to stage
-                    const stage = e.target.getStage()
-                    if (stage) {
-                      const pointerPos = stage.getPointerPosition()
-                      if (pointerPos) {
-                        setTooltipPosition({ x: pointerPos.x, y: pointerPos.y })
+                    }}
+                    onTap={() => {
+                      if (mode === 'select') {
+                        onDeviceSelect?.(device.id)
                       }
-                    }
-                  }}
-                  onMouseLeave={() => {
-                    setHoveredDevice(null)
-                  }}
-                  onMouseMove={(e) => {
-                    const stage = e.target.getStage()
-                    if (stage) {
-                      const pointerPos = stage.getPointerPosition()
-                      if (pointerPos) {
-                        setTooltipPosition({ x: pointerPos.x, y: pointerPos.y })
+                    }}
+                    onMouseEnter={(e) => {
+                      const container = e.target.getStage()?.container()
+                      if (container) {
+                        if (device.locked) {
+                          container.style.cursor = 'not-allowed'
+                        } else {
+                          container.style.cursor = mode === 'move' ? 'grab' : 'pointer'
+                        }
                       }
-                    }
-                  }}
-                />
+                      setHoveredDevice(device)
+                      // Get mouse position relative to stage
+                      const stage = e.target.getStage()
+                      if (stage) {
+                        const pointerPos = stage.getPointerPosition()
+                        if (pointerPos) {
+                          setTooltipPosition({ x: pointerPos.x, y: pointerPos.y })
+                        }
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredDevice(null)
+                    }}
+                    onMouseMove={(e) => {
+                      const stage = e.target.getStage()
+                      if (stage) {
+                        const pointerPos = stage.getPointerPosition()
+                        if (pointerPos) {
+                          setTooltipPosition({ x: pointerPos.x, y: pointerPos.y })
+                        }
+                      }
+                    }}
+                  />
+                )}
                 {/* Lock indicator */}
                 {device.locked && (
                   <Circle

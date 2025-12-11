@@ -19,11 +19,10 @@ import { ManualDeviceEntry } from '@/components/discovery/ManualDeviceEntry'
 import { Device } from '@/lib/mockData'
 import { useDevices } from '@/lib/DeviceContext'
 import { useZones } from '@/lib/ZoneContext'
-import { detectZonesFromDevices } from '@/lib/zoneDetection'
 
 export default function DiscoveryPage() {
   const { devices, addDevice, setDevices } = useDevices()
-  const { zones, addZone, deleteZone } = useZones()
+  const { zones, addZone, deleteZone, updateZone, getDevicesInZone } = useZones()
   const [isScanning, setIsScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState(0)
   const [devicesFound, setDevicesFound] = useState(0)
@@ -37,6 +36,37 @@ export default function DiscoveryPage() {
   
   // Use devices from context as discovered devices
   const discoveredDevices = devices
+
+  // Function to assign discovered devices to existing zones based on their positions
+  const createZonesFromDevices = useCallback(() => {
+    if (devices.length === 0) {
+      console.log('No devices to assign to zones')
+      return
+    }
+    
+    if (zones.length === 0) {
+      console.log('No zones available to assign devices to')
+      return
+    }
+    
+    setIsCreatingZones(true)
+    
+    // Assign discovered devices to existing zones based on their positions
+    // Base zones should already be initialized from ZoneContext
+    let totalAssigned = 0
+    zones.forEach(zone => {
+      const devicesInZone = getDevicesInZone(zone.id, devices)
+      
+      updateZone(zone.id, {
+        deviceIds: devicesInZone.map(d => d.id)
+      })
+      totalAssigned += devicesInZone.length
+    })
+    
+    console.log(`Assigned ${totalAssigned} devices across ${zones.length} zones`)
+    setZonesCreated(zones.length)
+    setIsCreatingZones(false)
+  }, [devices, zones, updateZone, getDevicesInZone])
 
   // Simulate discovery scan
   useEffect(() => {
@@ -74,7 +104,7 @@ export default function DiscoveryPage() {
             setLastRun(new Date())
             clearInterval(interval)
             
-            // Auto-create zones from discovered devices
+            // Assign discovered devices to existing zones based on their positions
             setTimeout(() => {
               createZonesFromDevices()
             }, 300) // Small delay to ensure all devices are added
@@ -87,16 +117,17 @@ export default function DiscoveryPage() {
       // Reset when not scanning
       setScanProgress(0)
     }
-  }, [isScanning, addDevice])
+  }, [isScanning, addDevice, createZonesFromDevices])
 
   const handleStartScan = () => {
-    // Clear existing devices and zones for a fresh discovery
+    // Clear existing devices for a fresh discovery
+    // Keep zones - they're prepopulated base zones
     setDevices([])
     setZonesCreated(0)
     
-    // Clear all existing zones (they'll be recreated from discovered devices)
+    // Clear deviceIds from all zones (they'll be repopulated after discovery)
     zones.forEach(zone => {
-      deleteZone(zone.id)
+      updateZone(zone.id, { deviceIds: [] })
     })
     
     setIsScanning(true)
@@ -142,29 +173,6 @@ export default function DiscoveryPage() {
     // Placeholder for importing device list
     alert('Import functionality would open file picker here. Supports CSV or JSON device lists.')
   }
-
-  const createZonesFromDevices = useCallback(() => {
-    if (devices.length === 0) return
-    
-    setIsCreatingZones(true)
-    
-    // Detect zones from discovered devices (already limited to 12)
-    const detectedZones = detectZonesFromDevices(devices)
-    
-    // Clear existing zones first (since we're starting fresh)
-    // Then create all detected zones
-    zones.forEach(zone => {
-      deleteZone(zone.id)
-    })
-    
-    // Create all detected zones (already limited to 12 max)
-    detectedZones.forEach(zoneData => {
-      addZone(zoneData)
-    })
-    
-    setZonesCreated(detectedZones.length)
-    setIsCreatingZones(false)
-  }, [devices, zones, addZone, deleteZone])
 
   const handleExport = () => {
     // Export discovered devices as JSON

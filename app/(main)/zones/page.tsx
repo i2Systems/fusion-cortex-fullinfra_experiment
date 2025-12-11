@@ -133,6 +133,7 @@ export default function ZonesPage() {
 
   // Convert zones to format for ZonesPanel
   const zonesForPanel = useMemo(() => {
+    console.log('Zones for panel:', zones.length, 'zones')
     return zones.map(zone => {
       const devicesInZone = getDevicesInZone(zone.id, devices)
       return {
@@ -144,6 +145,12 @@ export default function ZonesPage() {
       }
     })
   }, [zones, devices, getDevicesInZone])
+  
+  // Debug: Log zones on mount
+  useEffect(() => {
+    console.log('Zones page - zones count:', zones.length)
+    console.log('Zones:', zones.map(z => ({ id: z.id, name: z.name, deviceCount: z.deviceIds.length })))
+  }, [zones])
 
   // Get unique zones from devices for filter panel
   const availableZones = useMemo(() => {
@@ -274,25 +281,28 @@ export default function ZonesPage() {
           )}
         </div>
 
-        {/* Zones Panel - Right Side (only show when map is uploaded) */}
-        {mapUploaded && (
-          <div className="w-96 min-w-[20rem] max-w-[32rem] bg-[var(--color-surface)] backdrop-blur-xl rounded-2xl border border-[var(--color-border-subtle)] flex flex-col shadow-[var(--shadow-strong)] overflow-hidden flex-shrink-0" style={{ minHeight: 0 }}>
-            <ZonesPanel
-              zones={zonesForPanel}
-              selectedZoneId={selectedZone}
-              onZoneSelect={setSelectedZone}
-              onCreateZone={() => {
-                setSelectedZone(null)
-                setToolMode('draw-polygon')
-              }}
-              onDeleteZone={handleDeleteZone}
-              onEditZone={(zoneId) => {
-                setSelectedZone(zoneId)
-                // Could open edit modal here
-              }}
-            />
-          </div>
-        )}
+        {/* Zones Panel - Right Side (always show, even without map) */}
+        <div className="w-96 min-w-[20rem] max-w-[32rem] bg-[var(--color-surface)] backdrop-blur-xl rounded-2xl border border-[var(--color-border-subtle)] flex flex-col shadow-[var(--shadow-strong)] overflow-hidden flex-shrink-0" style={{ minHeight: 0 }}>
+          <ZonesPanel
+            zones={zonesForPanel}
+            selectedZoneId={selectedZone}
+            onZoneSelect={setSelectedZone}
+            onCreateZone={() => {
+              if (!mapUploaded) {
+                // Prompt to upload map first
+                alert('Please upload a map first to create zones by drawing on it.')
+                return
+              }
+              setSelectedZone(null)
+              setToolMode('draw-polygon')
+            }}
+            onDeleteZone={handleDeleteZone}
+            onEditZone={(zoneId) => {
+              setSelectedZone(zoneId)
+              // Could open edit modal here
+            }}
+          />
+        </div>
       </div>
     </div>
   )

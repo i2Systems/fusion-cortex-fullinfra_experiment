@@ -519,6 +519,7 @@ export default function MapPage() {
                     signal: d.signal,
                     location: d.location,
                     locked: d.locked || false,
+                    orientation: d.orientation,
                     components: d.components,
                   }))}
                 />

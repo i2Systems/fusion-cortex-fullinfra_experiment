@@ -10,7 +10,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { Device, mockDevices } from './mockData'
+import { Device } from './mockData'
 import { initialZones } from './initialZones'
 
 export interface Zone {
@@ -54,46 +54,58 @@ function pointInPolygon(point: { x: number; y: number }, polygon: Array<{ x: num
 export function ZoneProvider({ children }: { children: ReactNode }) {
   const [zones, setZones] = useState<Zone[]>([])
 
-  // Load zones from localStorage on mount
-  // Don't auto-initialize - let discovery create zones
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedZones = localStorage.getItem('fusion_zones')
-      if (savedZones) {
-        try {
-          const parsed = JSON.parse(savedZones)
-          // Convert date strings back to Date objects
-          const zonesWithDates = parsed.map((z: any) => ({
-            ...z,
-            createdAt: new Date(z.createdAt),
-            updatedAt: new Date(z.updatedAt),
-          }))
-          setZones(zonesWithDates)
-        } catch (e) {
-          console.error('Failed to parse saved zones:', e)
-          // Don't initialize defaults - wait for discovery
-        }
-      }
-      // Don't auto-initialize - zones will be created during discovery
-    }
-  }, [])
-
+  // Initialize default zones function - defined before useEffect
   const initializeDefaultZones = () => {
     const now = new Date()
-    const defaultZones: Zone[] = initialZones.map(zoneData => {
-      // Find devices in this zone based on their zone property
-      const devicesInZone = mockDevices.filter(d => d.zone === zoneData.name)
-      
+    const defaultZones: Zone[] = initialZones.map((zoneData, index) => {
       return {
         ...zoneData,
-        id: `zone-${zoneData.name.toLowerCase().replace(/\s+/g, '-')}`,
-        deviceIds: devicesInZone.map(d => d.id),
+        id: `zone-default-${index}-${zoneData.name.toLowerCase().replace(/\s+/g, '-')}`,
+        deviceIds: [], // Will be populated when devices are loaded/discovered
         createdAt: now,
         updatedAt: now,
       }
     })
+    console.log(`Initializing ${defaultZones.length} default zones:`, defaultZones.map(z => z.name))
     setZones(defaultZones)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('fusion_zones', JSON.stringify(defaultZones))
+      localStorage.setItem('fusion_zones_version', 'v2-base-zones')
+    }
   }
+
+  // Load zones from localStorage on mount, or initialize defaults
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedZones = localStorage.getItem('fusion_zones')
+      const zonesVersion = localStorage.getItem('fusion_zones_version')
+      const CURRENT_VERSION = 'v2-base-zones'
+      
+      // If we have saved zones with correct version, use them
+      if (savedZones && zonesVersion === CURRENT_VERSION) {
+        try {
+          const parsed = JSON.parse(savedZones)
+          // Only use saved zones if they exist and are valid
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const zonesWithDates = parsed.map((z: any) => ({
+              ...z,
+              createdAt: new Date(z.createdAt),
+              updatedAt: new Date(z.updatedAt),
+            }))
+            setZones(zonesWithDates)
+            console.log(`Loaded ${zonesWithDates.length} zones from localStorage`)
+            return
+          }
+        } catch (e) {
+          console.error('Failed to parse saved zones:', e)
+        }
+      }
+      
+      // Always initialize default zones if we get here (no saved zones or version mismatch)
+      console.log('Initializing default zones...')
+      initializeDefaultZones()
+    }
+  }, [])
 
   // Save to localStorage whenever zones change
   useEffect(() => {
@@ -101,6 +113,17 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('fusion_zones', JSON.stringify(zones))
     }
   }, [zones])
+  
+  // Safety check: If zones are empty after mount, force initialize
+  useEffect(() => {
+    if (zones.length === 0 && typeof window !== 'undefined') {
+      console.warn('Zones array is empty, forcing initialization...')
+      const savedZones = localStorage.getItem('fusion_zones')
+      if (!savedZones) {
+        initializeDefaultZones()
+      }
+    }
+  }, [zones.length])
 
   const addZone = (zoneData: Omit<Zone, 'id' | 'createdAt' | 'updatedAt'>): Zone => {
     const newZone: Zone = {

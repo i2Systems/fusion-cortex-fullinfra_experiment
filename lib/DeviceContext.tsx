@@ -40,8 +40,12 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     // In production, this would load from tRPC/API
     const initialDevices = initialMockDevices
     
+    // Check for data version to force regeneration when positioning logic changes
+    const DATA_VERSION = 'v2-grid-placement'
+    const savedVersion = typeof window !== 'undefined' ? localStorage.getItem('fusion_devices_version') : null
+    
     // Also check localStorage for any manually added devices
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && savedVersion === DATA_VERSION) {
       const savedDevices = localStorage.getItem('fusion_devices')
       if (savedDevices) {
         try {
@@ -87,6 +91,11 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
           console.error('Failed to parse saved devices:', e)
         }
       }
+    }
+    
+    // If version doesn't match or no saved data, use fresh data and set version
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('fusion_devices_version', DATA_VERSION)
     }
     
     setDevices(initialDevices)
