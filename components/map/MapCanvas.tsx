@@ -16,7 +16,7 @@
 'use client'
 
 import { Stage, Layer, Circle, Image as KonvaImage, Group, Text, Rect, Line } from 'react-konva'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { Component, Device as DeviceType } from '@/lib/mockData'
 
 interface DevicePoint {
@@ -33,11 +33,21 @@ interface DevicePoint {
   components?: Component[]
 }
 
+interface Zone {
+  id: string
+  name: string
+  color: string
+  polygon: Array<{ x: number; y: number }> // Normalized coordinates (0-1)
+}
+
 interface MapCanvasProps {
   onDeviceSelect?: (deviceId: string | null) => void
+  onDevicesSelect?: (deviceIds: string[]) => void
   selectedDeviceId?: string | null
+  selectedDeviceIds?: string[]
   mapImageUrl?: string | null
   devices?: DevicePoint[]
+  zones?: Zone[]
   highlightDeviceId?: string | null
   mode?: 'select' | 'move'
   onDeviceMove?: (deviceId: string, x: number, y: number) => void
@@ -46,6 +56,7 @@ interface MapCanvasProps {
   expandedComponents?: Set<string>
   onComponentClick?: (component: Component, parentDevice: any) => void
   devicesData?: any[]
+  onZoneClick?: (zoneId: string) => void
 }
 
 function FloorPlanImage({ url, width, height }: { url: string; width: number; height: number }) {
@@ -72,9 +83,12 @@ function FloorPlanImage({ url, width, height }: { url: string; width: number; he
 
 export function MapCanvas({ 
   onDeviceSelect, 
+  onDevicesSelect,
   selectedDeviceId, 
+  selectedDeviceIds = [],
   mapImageUrl, 
   devices = [], 
+  zones = [],
   highlightDeviceId,
   mode = 'select',
   onDeviceMove,
@@ -82,7 +96,8 @@ export function MapCanvas({
   onComponentExpand,
   expandedComponents = new Set(),
   onComponentClick,
-  devicesData = []
+  devicesData = [],
+  onZoneClick
 }: MapCanvasProps) {
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
   const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 })
@@ -90,6 +105,75 @@ export function MapCanvas({
   const [hoveredDevice, setHoveredDevice] = useState<DevicePoint | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
   const [draggedDevice, setDraggedDevice] = useState<{ id: string; startX: number; startY: number } | null>(null)
+  
+  // Lasso selection state
+  const [isSelecting, setIsSelecting] = useState(false)
+  const [selectionStart, setSelectionStart] = useState<{ x: number; y: number } | null>(null)
+  const [selectionEnd, setSelectionEnd] = useState<{ x: number; y: number } | null>(null)
+  const [isShiftHeld, setIsShiftHeld] = useState(false)
+  const [hoveredZoneId, setHoveredZoneId] = useState<string | null>(null)
+  const stageRef = useRef<any>(null)
+  
+  // Track Shift key state - more robust detection
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check both key name and shiftKey property for reliability
+      if (e.key === 'Shift' || e.shiftKey) {
+        setIsShiftHeld(true)
+        // Change cursor to indicate lasso mode
+        if (stageRef.current) {
+          const container = stageRef.current.container()
+          if (container) {
+            container.style.cursor = 'crosshair'
+          }
+        }
+      }
+    }
+    
+    const handleKeyUp = (e: KeyboardEvent) => {
+      // Only clear if shift is actually released (not just another key)
+      if (e.key === 'Shift' || (!e.shiftKey && isShiftHeld)) {
+        setIsShiftHeld(false)
+        // Reset cursor
+        if (stageRef.current) {
+          const container = stageRef.current.container()
+          if (container) {
+            container.style.cursor = 'default'
+          }
+        }
+        // Don't cancel selection on keyup - let mouseup handle it
+      }
+    }
+    
+    // Also check on mouse events to catch cases where shift is pressed outside window
+    const handleMouseMove = (e: MouseEvent) => {
+      if (e.shiftKey !== isShiftHeld) {
+        setIsShiftHeld(e.shiftKey)
+        if (stageRef.current) {
+          const container = stageRef.current.container()
+          if (container) {
+            container.style.cursor = e.shiftKey ? 'crosshair' : 'default'
+          }
+        }
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('mousemove', handleMouseMove)
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('mousemove', handleMouseMove)
+    }
+  }, [isSelecting, isShiftHeld])
+  
+  // Get full device data for hovered device
+  const hoveredDeviceData = useMemo(() => {
+    if (!hoveredDevice || !devicesData) return null
+    return devicesData.find(d => d.id === hoveredDevice.id) || null
+  }, [hoveredDevice, devicesData])
   const animationFrameRef = useRef<number | null>(null)
   const [colors, setColors] = useState({
     primary: '#4c7dff',
@@ -193,15 +277,185 @@ export function MapCanvas({
   return (
     <div className="w-full h-full overflow-hidden">
       <Stage 
+        ref={stageRef}
         width={dimensions.width} 
         height={dimensions.height}
         x={stagePosition.x}
         y={stagePosition.y}
         scaleX={scale}
         scaleY={scale}
-        draggable={mode === 'select'} // Only allow stage dragging in select mode
+        draggable={mode === 'select' && !isSelecting && !isShiftHeld && draggedDevice === null} // Disable stage dragging when Shift is held or selecting
+        onMouseDown={(e) => {
+          if (mode === 'select' && e.evt.button === 0 && !draggedDevice) {
+            const stage = e.target.getStage()
+            if (!stage) return
+            
+            // Check if shift is actually held (use both state and event)
+            const shiftHeld = isShiftHeld || e.evt.shiftKey
+            const clickedOnEmpty = e.target === stage || e.target === stage.findOne('Layer')
+            
+            // Start lasso selection if Shift is held
+            if (shiftHeld) {
+              const pointerPos = stage.getPointerPosition()
+              if (pointerPos) {
+                // Convert pointer position to content coordinates
+                const transform = stage.getAbsoluteTransform().copy().invert()
+                const pos = transform.point(pointerPos)
+                
+                console.log('Starting selection at:', pos)
+                setIsSelecting(true)
+                setSelectionStart({ x: pos.x, y: pos.y })
+                setSelectionEnd({ x: pos.x, y: pos.y })
+                
+                // Clear previous selection if not holding ctrl/meta (shift adds to selection)
+                if (!e.evt.ctrlKey && !e.evt.metaKey) {
+                  // Don't clear on shift - allow adding to selection
+                }
+                
+                // Prevent default to avoid conflicts
+                e.evt.preventDefault()
+                e.evt.stopPropagation()
+              }
+            } else if (clickedOnEmpty && !shiftHeld) {
+              // Regular click without Shift - clear selection and free mouse
+              onDevicesSelect?.([])
+              onDeviceSelect?.(null)
+              // Reset any dragging state
+              setDraggedDevice(null)
+              setIsSelecting(false)
+              setSelectionStart(null)
+              setSelectionEnd(null)
+            }
+          }
+        }}
+        onMouseMove={(e) => {
+          const stage = e.target.getStage()
+          if (!stage) return
+          
+          // Update selection box if selecting
+          if (isSelecting && selectionStart) {
+            const pointerPos = stage.getPointerPosition()
+            if (pointerPos) {
+              // Convert pointer position to content coordinates
+              const transform = stage.getAbsoluteTransform().copy().invert()
+              const pos = transform.point(pointerPos)
+              setSelectionEnd({ x: pos.x, y: pos.y })
+            }
+          } else {
+            // Update shift state from event (more reliable)
+            const shiftHeld = e.evt.shiftKey
+            if (shiftHeld !== isShiftHeld) {
+              setIsShiftHeld(shiftHeld)
+            }
+            
+            // Show crosshair cursor when Shift is held
+            if (shiftHeld && mode === 'select' && !draggedDevice) {
+              const container = stage.container()
+              if (container) {
+                container.style.cursor = 'crosshair'
+              }
+            } else if (!shiftHeld) {
+              const container = stage.container()
+              if (container) {
+                container.style.cursor = 'default'
+              }
+            }
+          }
+        }}
+        onMouseUp={(e) => {
+          if (isSelecting && selectionStart && selectionEnd) {
+            // Find devices within selection box
+            const minX = Math.min(selectionStart.x, selectionEnd.x)
+            const maxX = Math.max(selectionStart.x, selectionEnd.x)
+            const minY = Math.min(selectionStart.y, selectionEnd.y)
+            const maxY = Math.max(selectionStart.y, selectionEnd.y)
+            
+            // Only process if selection box has meaningful size
+            const width = Math.abs(selectionEnd.x - selectionStart.x)
+            const height = Math.abs(selectionEnd.y - selectionStart.y)
+            
+            if (width > 5 || height > 5) {
+              const selectedIds: string[] = []
+              devices.forEach(device => {
+                // Convert device position from normalized (0-1) to canvas pixels
+                const deviceX = device.x * dimensions.width
+                const deviceY = device.y * dimensions.height
+                
+                // Check if device is within selection box bounds
+                const tolerance = 5
+                if (deviceX >= minX - tolerance && 
+                    deviceX <= maxX + tolerance && 
+                    deviceY >= minY - tolerance && 
+                    deviceY <= maxY + tolerance) {
+                  selectedIds.push(device.id)
+                }
+              })
+              
+              console.log(`Selection box: (${minX.toFixed(0)}, ${minY.toFixed(0)}) to (${maxX.toFixed(0)}, ${maxY.toFixed(0)})`)
+              console.log(`Found ${selectedIds.length} devices in selection`)
+              
+              if (selectedIds.length > 0) {
+                if (e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey) {
+                  // Add to selection
+                  const newSelection = [...new Set([...selectedDeviceIds, ...selectedIds])]
+                  onDevicesSelect?.(newSelection)
+                  if (newSelection.length === 1) {
+                    onDeviceSelect?.(newSelection[0])
+                  }
+                } else {
+                  // Replace selection
+                  onDevicesSelect?.(selectedIds)
+                  if (selectedIds.length === 1) {
+                    onDeviceSelect?.(selectedIds[0])
+                  } else {
+                    onDeviceSelect?.(null)
+                  }
+                }
+              } else {
+                // No devices selected - clear if not holding modifier
+                if (!e.evt.shiftKey && !e.evt.ctrlKey && !e.evt.metaKey) {
+                  onDevicesSelect?.([])
+                  onDeviceSelect?.(null)
+                }
+              }
+            }
+            
+            setIsSelecting(false)
+            setSelectionStart(null)
+            setSelectionEnd(null)
+          }
+        }}
         onDragEnd={(e) => {
           setStagePosition({ x: e.target.x(), y: e.target.y() })
+        }}
+        onWheel={(e) => {
+          // Handle trackpad/mouse wheel zoom
+          e.evt.preventDefault()
+          
+          const stage = e.target.getStage()
+          if (!stage) return
+          
+          const pointerPos = stage.getPointerPosition()
+          if (!pointerPos) return
+          
+          // Get wheel delta (positive = zoom in, negative = zoom out)
+          const deltaY = e.evt.deltaY
+          
+          // Determine zoom direction (trackpad: negative deltaY = zoom in, positive = zoom out)
+          // Mouse wheel: positive deltaY = scroll down = zoom out
+          const zoomFactor = deltaY > 0 ? 0.9 : 1.1
+          const newScale = Math.max(0.5, Math.min(3, scale * zoomFactor))
+          
+          // Calculate mouse position relative to stage
+          const mouseX = (pointerPos.x - stagePosition.x) / scale
+          const mouseY = (pointerPos.y - stagePosition.y) / scale
+          
+          // Calculate new position to zoom towards mouse point
+          const newX = pointerPos.x - mouseX * newScale
+          const newY = pointerPos.y - mouseY * newScale
+          
+          setScale(newScale)
+          setStagePosition({ x: newX, y: newY })
         }}
       >
         <Layer>
@@ -214,12 +468,80 @@ export function MapCanvas({
             />
           )}
           
+          {/* Zones Background - rendered before devices so they appear behind */}
+          {zones.map((zone) => {
+            const points = zone.polygon.map(p => ({
+              x: p.x * dimensions.width,
+              y: p.y * dimensions.height,
+            })).flatMap(p => [p.x, p.y])
+            
+            const hasSelectedDevices = selectedDeviceIds.length > 0
+            const isHovered = hoveredZoneId === zone.id
+            
+            return (
+              <Group
+                key={zone.id}
+                onClick={() => {
+                  if (onZoneClick && mode === 'select') {
+                    onZoneClick(zone.id)
+                  }
+                }}
+                onTap={() => {
+                  if (onZoneClick && mode === 'select') {
+                    onZoneClick(zone.id)
+                  }
+                }}
+                onMouseEnter={() => {
+                  setHoveredZoneId(zone.id)
+                  if (hasSelectedDevices && mode === 'select') {
+                    const container = stageRef.current?.container()
+                    if (container) {
+                      container.style.cursor = 'pointer'
+                    }
+                  }
+                }}
+                onMouseLeave={() => {
+                  setHoveredZoneId(null)
+                  if (hasSelectedDevices && mode === 'select') {
+                    const container = stageRef.current?.container()
+                    if (container) {
+                      container.style.cursor = isShiftHeld ? 'crosshair' : 'default'
+                    }
+                  }
+                }}
+              >
+                <Line
+                  points={points}
+                  fill={hasSelectedDevices && isHovered ? `${zone.color}40` : `${zone.color}20`}
+                  stroke={zone.color}
+                  strokeWidth={hasSelectedDevices && isHovered ? 2 : 1}
+                  closed
+                  opacity={hasSelectedDevices && isHovered ? 0.5 : 0.3}
+                  listening={true}
+                  shadowBlur={hasSelectedDevices && isHovered ? 15 : 0}
+                  shadowColor={zone.color}
+                />
+                <Text
+                  x={points.filter((_, i) => i % 2 === 0).reduce((a, b) => a + b, 0) / (points.length / 2) - 30}
+                  y={points.filter((_, i) => i % 2 === 1).reduce((a, b) => a + b, 0) / (points.length / 2) - 8}
+                  text={hasSelectedDevices && isHovered ? `Click to arrange ${selectedDeviceIds.length} device${selectedDeviceIds.length !== 1 ? 's' : ''}` : zone.name}
+                  fontSize={hasSelectedDevices && isHovered ? 11 : 12}
+                  fontFamily="system-ui, -apple-system, sans-serif"
+                  fill={zone.color}
+                  opacity={hasSelectedDevices && isHovered ? 0.9 : 0.6}
+                  listening={false}
+                  fontStyle={hasSelectedDevices && isHovered ? 'bold' : 'normal'}
+                />
+              </Group>
+            )
+          })}
+          
           {/* Device points */}
           {devices.map((device) => {
             // Scale device positions to canvas dimensions
             const deviceX = device.x * dimensions.width
             const deviceY = device.y * dimensions.height
-            const isSelected = selectedDeviceId === device.id
+            const isSelected = selectedDeviceId === device.id || selectedDeviceIds.includes(device.id)
             const isHovered = hoveredDevice?.id === device.id
             
             return (
@@ -227,36 +549,50 @@ export function MapCanvas({
                 key={device.id}
                 x={deviceX}
                 y={deviceY}
-                draggable={mode === 'move' && !device.locked}
-                onDragStart={(e) => {
-                  if (device.locked) {
-                    e.cancelBubble = true
-                    return
+                draggable={mode === 'move'}
+                dragBoundFunc={(pos) => {
+                  // Constrain dragging to canvas bounds
+                  return {
+                    x: Math.max(0, Math.min(dimensions.width, pos.x)),
+                    y: Math.max(0, Math.min(dimensions.height, pos.y))
                   }
-                  setDraggedDevice({ id: device.id, startX: device.x, startY: device.y })
-                  onDeviceSelect?.(device.id)
                 }}
-                onDragMove={(e) => {
-                  if (mode === 'move' && onDeviceMove) {
-                    // Convert stage coordinates to normalized 0-1 coordinates
-                    const stage = e.target.getStage()
-                    if (stage) {
-                      const pos = e.target.position()
-                      const normalizedX = Math.max(0, Math.min(1, pos.x / dimensions.width))
-                      const normalizedY = Math.max(0, Math.min(1, pos.y / dimensions.height))
-                      onDeviceMove(device.id, normalizedX, normalizedY)
+                onDragStart={(e) => {
+                  // Prevent stage dragging when dragging devices
+                    e.cancelBubble = true
+                  setIsSelecting(false)
+                  setSelectionStart(null)
+                  setSelectionEnd(null)
+                  setDraggedDevice({ id: device.id, startX: device.x || 0, startY: device.y || 0 })
+                  if (!selectedDeviceIds.includes(device.id)) {
+                    if (e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey) {
+                      // Add to selection
+                      onDevicesSelect?.([...selectedDeviceIds, device.id])
+                    } else {
+                      // Replace selection
+                      onDevicesSelect?.([device.id])
+                  onDeviceSelect?.(device.id)
                     }
                   }
                 }}
+                onDragMove={(e) => {
+                  // Prevent stage dragging
+                  e.cancelBubble = true
+                  // Don't update device position during drag - only update on drag end
+                  // This prevents feedback loops where position updates cause re-renders
+                  // which then recalculate the Group position, causing erratic movement
+                }}
                 onDragEnd={(e) => {
+                  // Prevent stage dragging
+                  e.cancelBubble = true
+                  
                   if (mode === 'move' && onDeviceMoveEnd) {
-                    const stage = e.target.getStage()
-                    if (stage) {
+                    // Get the final position of the Group (already in canvas coordinates)
                       const pos = e.target.position()
+                    // Convert canvas coordinates to normalized 0-1 coordinates
                       const normalizedX = Math.max(0, Math.min(1, pos.x / dimensions.width))
                       const normalizedY = Math.max(0, Math.min(1, pos.y / dimensions.height))
                       onDeviceMoveEnd(device.id, normalizedX, normalizedY)
-                    }
                   }
                   setDraggedDevice(null)
                 }}
@@ -297,13 +633,38 @@ export function MapCanvas({
                         shadowBlur={isSelected ? 12 : (isHovered ? 8 : 4)}
                         shadowColor={isSelected ? colors.primary : 'black'}
                         opacity={device.locked ? 0.8 : (isSelected ? 1 : (isHovered ? 0.9 : 0.8))}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.cancelBubble = true
                           if (mode === 'select') {
+                            if (e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey) {
+                              // Toggle selection
+                              if (selectedDeviceIds.includes(device.id)) {
+                                const newSelection = selectedDeviceIds.filter(id => id !== device.id)
+                                onDevicesSelect?.(newSelection)
+                                if (newSelection.length === 1) {
+                                  onDeviceSelect?.(newSelection[0])
+                                } else if (newSelection.length === 0) {
+                                  onDeviceSelect?.(null)
+                                }
+                              } else {
+                                const newSelection = [...selectedDeviceIds, device.id]
+                                onDevicesSelect?.(newSelection)
+                                if (newSelection.length === 1) {
                             onDeviceSelect?.(device.id)
+                                }
+                              }
+                            } else {
+                              // Single select
+                              onDevicesSelect?.([device.id])
+                            onDeviceSelect?.(device.id)
+                            }
                           }
                         }}
-                        onTap={() => {
+                        onTap={(e) => {
+                          e.cancelBubble = true
                           if (mode === 'select') {
+                            // For tap events, we don't have modifier keys, so just single select
+                            onDevicesSelect?.([device.id])
                             onDeviceSelect?.(device.id)
                           }
                         }}
@@ -584,50 +945,555 @@ export function MapCanvas({
                     })}
                   </Group>
                 )}
-                {/* Tooltip - only render when hovered, positioned near cursor */}
-                {isHovered && (
-                  <Group x={tooltipPosition.x - deviceX + 15} y={tooltipPosition.y - deviceY - 15}>
+              </Group>
+            )
+          })}
+        </Layer>
+        
+        {/* Tooltip Layer - Always on top */}
+        <Layer>
+          {hoveredDevice && hoveredDeviceData && (() => {
+            // Calculate tooltip dimensions based on content
+            const componentsCount = hoveredDeviceData.components?.length || 0
+            const hasComponents = componentsCount > 0
+            const tooltipWidth = 300 // Increased width for better text wrapping
+            const padding = 16
+            const lineHeight = 18
+            const sectionSpacing = 8
+            
+            // Calculate base info height (accounting for text wrapping)
+            const deviceInfoLines = [
+              `Type: ${hoveredDevice.type}`,
+              `Serial: ${hoveredDeviceData.serialNumber}`,
+              `Signal: ${hoveredDevice.signal}%`,
+              `Status: ${hoveredDevice.status}`,
+              ...(hoveredDevice.locked ? ['🔒 Locked'] : []),
+              ...(hoveredDevice.location ? [`Location: ${hoveredDevice.location}`] : []),
+              ...(hoveredDeviceData.zone ? [`Zone: ${hoveredDeviceData.zone}`] : []),
+            ]
+            
+            // Estimate text wrapping for long strings
+            const maxTextWidth = tooltipWidth - (padding * 2)
+            const estimateWrappedLines = (text: string, fontSize: number) => {
+              // Rough estimate: ~10-12 chars per line at 12px font
+              const charsPerLine = Math.floor(maxTextWidth / (fontSize * 0.6))
+              return Math.max(1, Math.ceil(text.length / charsPerLine))
+            }
+            
+            let deviceInfoHeight = 0
+            deviceInfoLines.forEach(line => {
+              const wrappedLines = estimateWrappedLines(line, 12)
+              deviceInfoHeight += wrappedLines * lineHeight
+            })
+            
+            // Header + divider + spacing
+            const headerHeight = 40
+            const dividerHeight = 2
+            const baseHeight = headerHeight + dividerHeight + sectionSpacing + deviceInfoHeight + sectionSpacing
+            
+            // Components section height
+            const componentsHeaderHeight = 20
+            const componentsListHeight = hasComponents 
+              ? Math.min(componentsCount, 5) * 20 + (componentsCount > 5 ? 20 : 0)
+              : 0
+            const componentsHeight = hasComponents 
+              ? componentsHeaderHeight + componentsListHeight + sectionSpacing
+              : 0
+            
+            const totalHeight = baseHeight + componentsHeight + (padding * 2)
+            
+            // Calculate position to keep tooltip within viewport
+            const tooltipX = Math.max(
+              padding,
+              Math.min(
+                tooltipPosition.x + 20,
+                dimensions.width - tooltipWidth - padding
+              )
+            )
+            const tooltipY = Math.max(
+              padding,
+              Math.min(
+                tooltipPosition.y - 10,
+                dimensions.height - totalHeight - padding
+              )
+            )
+            
+            return (
+              <Group x={tooltipX} y={tooltipY}>
                     {/* Tooltip background - uses theme tokens */}
                     <Rect
-                      width={220}
-                      height={device.location ? 110 : 90}
+                  width={tooltipWidth}
+                  height={totalHeight}
                       fill={colors.tooltipBg}
-                      cornerRadius={8}
+                  cornerRadius={10}
                       listening={false}
-                      shadowBlur={15}
+                  shadowBlur={20}
                       shadowColor={colors.tooltipShadow}
                       shadowOffsetX={0}
-                      shadowOffsetY={2}
+                  shadowOffsetY={4}
+                  opacity={0.98}
                     />
                     {/* Border for better visibility - uses theme primary color */}
                     <Rect
-                      width={220}
-                      height={device.location ? 110 : 90}
+                  width={tooltipWidth}
+                  height={totalHeight}
                       fill="transparent"
                       stroke={colors.tooltipBorder}
                       strokeWidth={2}
-                      cornerRadius={8}
+                  cornerRadius={10}
                       listening={false}
                     />
-                    {/* Tooltip text - uses theme text color */}
+                
+                {/* Header section */}
                     <Text
-                      x={14}
-                      y={14}
-                      text={`${device.deviceId}\nType: ${device.type}\nSignal: ${device.signal}%\nStatus: ${device.status}${device.locked ? '\n🔒 Locked' : ''}${device.location ? `\nLocation: ${device.location}` : ''}`}
-                      fontSize={13}
+                  x={padding}
+                  y={padding}
+                  text={hoveredDevice.deviceId}
+                  fontSize={16}
+                  fontFamily="system-ui, -apple-system, sans-serif"
+                  fontStyle="bold"
+                  fill={colors.tooltipText}
+                  align="left"
+                  listening={false}
+                  width={tooltipWidth - (padding * 2)}
+                  wrap="word"
+                />
+                
+                {/* Divider line */}
+                <Line
+                  points={[padding, padding + 24, tooltipWidth - padding, padding + 24]}
+                  stroke={colors.tooltipBorder}
+                  strokeWidth={1}
+                  opacity={0.3}
+                      listening={false}
+                    />
+                
+                {/* Device info - render each line separately for proper wrapping */}
+                {deviceInfoLines.map((line, idx) => {
+                  const yPos = padding + headerHeight + dividerHeight + sectionSpacing + (idx * lineHeight)
+                  return (
+                    <Text
+                      key={idx}
+                      x={padding}
+                      y={yPos}
+                      text={line}
+                      fontSize={12}
                       fontFamily="system-ui, -apple-system, sans-serif"
                       fontStyle="normal"
                       fill={colors.tooltipText}
                       align="left"
                       listening={false}
+                      width={tooltipWidth - (padding * 2)}
+                      wrap="word"
                       lineHeight={1.5}
                     />
-                  </Group>
+                  )
+                })}
+                
+                {/* Components section */}
+                {hasComponents && (
+                  <>
+                    <Line
+                      points={[padding, baseHeight - sectionSpacing, tooltipWidth - padding, baseHeight - sectionSpacing]}
+                      stroke={colors.tooltipBorder}
+                      strokeWidth={1}
+                      opacity={0.2}
+                      listening={false}
+                    />
+                    <Text
+                      x={padding}
+                      y={baseHeight}
+                      text={`Components (${componentsCount}):`}
+                      fontSize={11}
+                      fontFamily="system-ui, -apple-system, sans-serif"
+                      fontStyle="bold"
+                      fill={colors.tooltipText}
+                      align="left"
+                      listening={false}
+                      opacity={0.9}
+                    />
+                    {hoveredDeviceData.components?.slice(0, 5).map((component: any, idx: number) => (
+                      <Text
+                        key={component.id}
+                        x={padding + 4}
+                        y={baseHeight + componentsHeaderHeight + (idx * 20)}
+                        text={`• ${component.componentType}`}
+                        fontSize={11}
+                        fontFamily="system-ui, -apple-system, sans-serif"
+                        fontStyle="normal"
+                        fill={colors.muted}
+                        align="left"
+                        listening={false}
+                        width={tooltipWidth - (padding * 2) - 4}
+                        wrap="word"
+                      />
+                    ))}
+                    {componentsCount > 5 && (
+                      <Text
+                        x={padding + 4}
+                        y={baseHeight + componentsHeaderHeight + (5 * 20)}
+                        text={`...and ${componentsCount - 5} more`}
+                        fontSize={10}
+                        fontFamily="system-ui, -apple-system, sans-serif"
+                        fontStyle="italic"
+                        fill={colors.muted}
+                        align="left"
+                        listening={false}
+                        opacity={0.7}
+                      />
+                    )}
+                  </>
                 )}
               </Group>
             )
-          })}
+          })()}
         </Layer>
+        
+        {/* Selection Box Layer - Always on top */}
+        {isSelecting && selectionStart && selectionEnd && (
+          <Layer>
+            {(() => {
+              const minX = Math.min(selectionStart.x, selectionEnd.x)
+              const maxX = Math.max(selectionStart.x, selectionEnd.x)
+              const minY = Math.min(selectionStart.y, selectionEnd.y)
+              const maxY = Math.max(selectionStart.y, selectionEnd.y)
+              const width = Math.abs(selectionEnd.x - selectionStart.x)
+              const height = Math.abs(selectionEnd.y - selectionStart.y)
+              
+              // Only render if selection has meaningful size
+              if (width < 2 || height < 2) {
+                return null
+              }
+              
+              // Calculate safe corner radius (must be less than half the smallest dimension)
+              const safeCornerRadius = Math.min(4, Math.min(width, height) / 2 - 1)
+              const safeCornerRadiusInner = Math.max(0, Math.min(2, Math.min(width - 6, height - 6) / 2 - 1))
+              
+              // Find devices within selection box (with tolerance to match selection logic)
+              const tolerance = 5
+              const devicesInSelection = devices.filter(device => {
+                const deviceX = device.x * dimensions.width
+                const deviceY = device.y * dimensions.height
+                return deviceX >= minX - tolerance && 
+                       deviceX <= maxX + tolerance && 
+                       deviceY >= minY - tolerance && 
+                       deviceY <= maxY + tolerance
+              })
+              
+              // Count by type
+              const fixtures = devicesInSelection.filter(d => d.type === 'fixture').length
+              const motion = devicesInSelection.filter(d => d.type === 'motion').length
+              const sensors = devicesInSelection.filter(d => d.type === 'light-sensor').length
+              const totalCount = devicesInSelection.length
+              
+              return (
+                <Group>
+                  {/* Selection box with much stronger visual */}
+                  {/* Outer glow */}
+                  <Rect
+                    x={minX - 2}
+                    y={minY - 2}
+                    width={width + 4}
+                    height={height + 4}
+                    fill="transparent"
+                    stroke="rgba(76, 125, 255, 0.4)"
+                    strokeWidth={5}
+                    listening={false}
+                    shadowBlur={20}
+                    shadowColor="rgba(76, 125, 255, 0.9)"
+                    cornerRadius={Math.max(0, safeCornerRadius + 1)}
+                  />
+                  
+                  {/* Main selection box */}
+                  <Rect
+                    x={minX}
+                    y={minY}
+                    width={width}
+                    height={height}
+                    fill="rgba(76, 125, 255, 0.25)"
+                    stroke="rgba(76, 125, 255, 1)"
+                    strokeWidth={4}
+                    dash={[12, 6]}
+                    listening={false}
+                    shadowBlur={25}
+                    shadowColor="rgba(76, 125, 255, 1)"
+                    cornerRadius={Math.max(0, safeCornerRadius)}
+                  />
+                  
+                  {/* Inner bright border for better definition - only if there's room */}
+                  {width > 6 && height > 6 && (
+                    <Rect
+                      x={minX + 3}
+                      y={minY + 3}
+                      width={width - 6}
+                      height={height - 6}
+                      fill="transparent"
+                      stroke="rgba(255, 255, 255, 0.8)"
+                      strokeWidth={2}
+                      dash={[6, 4]}
+                      listening={false}
+                      cornerRadius={Math.max(0, safeCornerRadiusInner)}
+                    />
+                  )}
+                  
+                  {/* Corner indicators for better visibility */}
+                  <Group>
+                    {/* Top-left corner */}
+                    <Line
+                      points={[minX, minY, minX + 20, minY]}
+                      stroke="rgba(76, 125, 255, 1)"
+                      strokeWidth={4}
+                      lineCap="round"
+                      listening={false}
+                    />
+                    <Line
+                      points={[minX, minY, minX, minY + 20]}
+                      stroke="rgba(76, 125, 255, 1)"
+                      strokeWidth={4}
+                      lineCap="round"
+                      listening={false}
+                    />
+                    {/* Top-right corner */}
+                    <Line
+                      points={[maxX, minY, maxX - 20, minY]}
+                      stroke="rgba(76, 125, 255, 1)"
+                      strokeWidth={4}
+                      lineCap="round"
+                      listening={false}
+                    />
+                    <Line
+                      points={[maxX, minY, maxX, minY + 20]}
+                      stroke="rgba(76, 125, 255, 1)"
+                      strokeWidth={4}
+                      lineCap="round"
+                      listening={false}
+                    />
+                    {/* Bottom-left corner */}
+                    <Line
+                      points={[minX, maxY, minX + 20, maxY]}
+                      stroke="rgba(76, 125, 255, 1)"
+                      strokeWidth={4}
+                      lineCap="round"
+                      listening={false}
+                    />
+                    <Line
+                      points={[minX, maxY, minX, maxY - 20]}
+                      stroke="rgba(76, 125, 255, 1)"
+                      strokeWidth={4}
+                      lineCap="round"
+                      listening={false}
+                    />
+                    {/* Bottom-right corner */}
+                    <Line
+                      points={[maxX, maxY, maxX - 20, maxY]}
+                      stroke="rgba(76, 125, 255, 1)"
+                      strokeWidth={4}
+                      lineCap="round"
+                      listening={false}
+                    />
+                    <Line
+                      points={[maxX, maxY, maxX, maxY - 20]}
+                      stroke="rgba(76, 125, 255, 1)"
+                      strokeWidth={4}
+                      lineCap="round"
+                      listening={false}
+                    />
+                  </Group>
+                  
+                  {/* Device indicators - show prominent highlights for each device in selection */}
+                  {devicesInSelection.map((device) => {
+                    const deviceX = device.x * dimensions.width
+                    const deviceY = device.y * dimensions.height
+                    const color = device.type === 'fixture' ? '#4c7dff' : 
+                                 device.type === 'motion' ? '#f97316' : 
+                                 '#22c55e'
+                    
+                    return (
+                      <Group key={device.id}>
+                        {/* Outer glow ring */}
+                        <Circle
+                          x={deviceX}
+                          y={deviceY}
+                          radius={12}
+                          fill="transparent"
+                          stroke={color}
+                          strokeWidth={3}
+                          opacity={0.6}
+                          listening={false}
+                          shadowBlur={15}
+                          shadowColor={color}
+                        />
+                        {/* Highlight circle around device */}
+                        <Circle
+                          x={deviceX}
+                          y={deviceY}
+                          radius={10}
+                          fill={color}
+                          opacity={0.5}
+                          listening={false}
+                        />
+                        {/* Inner bright ring */}
+                        <Circle
+                          x={deviceX}
+                          y={deviceY}
+                          radius={8}
+                          fill="transparent"
+                          stroke={color}
+                          strokeWidth={3}
+                          listening={false}
+                        />
+                        {/* Center dot */}
+                        <Circle
+                          x={deviceX}
+                          y={deviceY}
+                          radius={4}
+                          fill={color}
+                          listening={false}
+                        />
+              </Group>
+            )
+          })}
+                  
+                  {/* Count indicator with breakdown - always show, even when 0 */}
+                  <Group
+                    x={minX + 10}
+                    y={Math.max(10, minY - 60)}
+                  >
+                    <Rect
+                      x={0}
+                      y={0}
+                      width={Math.max(160, 100 + (totalCount > 9 ? 20 : 0))}
+                      height={totalCount > 0 ? 60 : 35}
+                      fill="rgba(17, 24, 39, 0.98)"
+                      cornerRadius={8}
+                      listening={false}
+                      shadowBlur={25}
+                      shadowColor="rgba(0, 0, 0, 0.7)"
+                    />
+                    <Rect
+                      x={0}
+                      y={0}
+                      width={Math.max(160, 100 + (totalCount > 9 ? 20 : 0))}
+                      height={totalCount > 0 ? 60 : 35}
+                      fill="transparent"
+                      stroke="rgba(76, 125, 255, 1)"
+                      strokeWidth={3}
+                      cornerRadius={8}
+                      listening={false}
+                    />
+                    <Text
+                      x={10}
+                      y={8}
+                      text={totalCount > 0 
+                        ? `${totalCount} device${totalCount !== 1 ? 's' : ''} selected`
+                        : 'Drag to select devices'}
+                      fontSize={13}
+                      fontFamily="system-ui, -apple-system, sans-serif"
+                      fontStyle="bold"
+                      fill={totalCount > 0 ? "#ffffff" : "rgba(255, 255, 255, 0.7)"}
+                      align="left"
+                      listening={false}
+                    />
+                      {totalCount > 0 && (
+                        <Group x={8} y={22}>
+                          {fixtures > 0 && (
+                            <Text
+                              x={0}
+                              y={0}
+                              text={`• ${fixtures} fixture${fixtures !== 1 ? 's' : ''}`}
+                              fontSize={10}
+                              fontFamily="system-ui, -apple-system, sans-serif"
+                              fill="#4c7dff"
+                              align="left"
+                              listening={false}
+                            />
+                          )}
+                          {motion > 0 && (
+                            <Text
+                              x={0}
+                              y={fixtures > 0 ? 14 : 0}
+                              text={`• ${motion} motion sensor${motion !== 1 ? 's' : ''}`}
+                              fontSize={10}
+                              fontFamily="system-ui, -apple-system, sans-serif"
+                              fill="#f97316"
+                              align="left"
+                              listening={false}
+                            />
+                          )}
+                          {sensors > 0 && (
+                            <Text
+                              x={0}
+                              y={(fixtures > 0 ? 14 : 0) + (motion > 0 ? 14 : 0)}
+                              text={`• ${sensors} light sensor${sensors !== 1 ? 's' : ''}`}
+                              fontSize={10}
+                              fontFamily="system-ui, -apple-system, sans-serif"
+                              fill="#22c55e"
+                              align="left"
+                              listening={false}
+                            />
+                          )}
+                        </Group>
+                      )}
+                    </Group>
+                </Group>
+              )
+            })()}
+        </Layer>
+        )}
+        
+        {/* Shift hint overlay - more prominent */}
+        {isShiftHeld && mode === 'select' && !isSelecting && (
+          <Layer>
+            <Group>
+              {/* Pulsing background */}
+              <Rect
+                x={dimensions.width / 2 - 150}
+                y={20}
+                width={300}
+                height={50}
+                fill="rgba(76, 125, 255, 0.15)"
+                cornerRadius={10}
+                listening={false}
+                shadowBlur={20}
+                shadowColor="rgba(76, 125, 255, 0.5)"
+              />
+              <Rect
+                x={dimensions.width / 2 - 150}
+                y={20}
+                width={300}
+                height={50}
+                fill="rgba(17, 24, 39, 0.95)"
+                cornerRadius={10}
+                listening={false}
+                shadowBlur={20}
+                shadowColor="rgba(0, 0, 0, 0.6)"
+              />
+              <Rect
+                x={dimensions.width / 2 - 150}
+                y={20}
+                width={300}
+                height={50}
+                fill="transparent"
+                stroke="rgba(76, 125, 255, 1)"
+                strokeWidth={3}
+                cornerRadius={10}
+                listening={false}
+                dash={[8, 4]}
+              />
+              <Text
+                x={dimensions.width / 2}
+                y={47}
+                text="Hold Shift + Drag to select devices"
+                fontSize={14}
+                fontFamily="system-ui, -apple-system, sans-serif"
+                fontStyle="bold"
+                fill="#ffffff"
+                align="center"
+                listening={false}
+              />
+            </Group>
+          </Layer>
+        )}
       </Stage>
     </div>
   )

@@ -42,8 +42,8 @@ const ZONE_COLORS = [
 ]
 
 export default function ZonesPage() {
-  const { devices, updateMultipleDevices } = useDevices()
-  const { zones, addZone, updateZone, deleteZone, getDevicesInZone } = useZones()
+  const { devices, updateMultipleDevices, saveDevices } = useDevices()
+  const { zones, addZone, updateZone, deleteZone, getDevicesInZone, saveZones, isZonesSaved } = useZones()
   const { role } = useRole()
   const [selectedZone, setSelectedZone] = useState<string | null>(null)
   const [mapUploaded, setMapUploaded] = useState(false)
@@ -124,6 +124,14 @@ export default function ZonesPage() {
     setToolMode('select')
   }
 
+  // Reset tool mode when zone is selected from list
+  useEffect(() => {
+    if (selectedZone && toolMode !== 'select' && toolMode !== 'edit') {
+      // Keep current mode if it's select or edit, otherwise reset to select
+      // This allows drawing/editing to continue if user clicks on map
+    }
+  }, [selectedZone, toolMode])
+
   const handleDeleteZone = () => {
     if (selectedZone) {
       deleteZone(selectedZone)
@@ -165,8 +173,13 @@ export default function ZonesPage() {
   // Make devices more subtle on zones page (smaller, more transparent)
   // Also apply layer filters
   const zoneDevices = useMemo(() => {
-    let filteredDevices = selectedZone 
-      ? devices.filter(d => d.zone === selectedZone)
+    const selectedZoneObj = zones.find(z => z.id === selectedZone)
+    let filteredDevices = selectedZoneObj
+      ? devices.filter(d => {
+          // Check if device is in the selected zone by position
+          if (d.x === undefined || d.y === undefined) return false
+          return getDevicesInZone(selectedZoneObj.id, devices).some(zoneDevice => zoneDevice.id === d.id)
+        })
       : devices
 
     // Apply layer visibility filters
@@ -236,6 +249,42 @@ export default function ZonesPage() {
                 onModeChange={setToolMode}
                 onDeleteZone={handleDeleteZone}
                 canDelete={!!selectedZone}
+                onSave={() => {
+                  // Save zones
+                  saveZones()
+                  // Also save devices to ensure their positions and zone assignments are preserved
+                  saveDevices()
+                  // Mark BACnet mappings as saved too (they're already in localStorage)
+                  if (typeof window !== 'undefined') {
+                    const bacnetMappings = localStorage.getItem('fusion_bacnet_mappings')
+                    if (bacnetMappings) {
+                      localStorage.setItem('fusion_bacnet_mappings_saved', 'true')
+                    }
+                  }
+                  // Show confirmation
+                  const notification = document.createElement('div')
+                  notification.textContent = `✅ Saved ${zones.length} zones and ${devices.length} devices! Layout preserved for demo.`
+                  notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: var(--color-primary);
+                    color: white;
+                    padding: 16px 24px;
+                    border-radius: 8px;
+                    z-index: 10000;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    font-size: 14px;
+                    font-weight: 500;
+                    max-width: 350px;
+                  `
+                  document.body.appendChild(notification)
+                  setTimeout(() => {
+                    notification.style.opacity = '0'
+                    notification.style.transition = 'opacity 0.3s'
+                    setTimeout(() => notification.remove(), 300)
+                  }, 4000)
+                }}
               />
             </div>
           )}
@@ -274,8 +323,12 @@ export default function ZonesPage() {
                 }))}
                 selectedZoneId={selectedZone}
                 onZoneSelect={setSelectedZone}
+                onModeChange={setToolMode}
                 mode={toolMode}
                 onZoneCreated={handleZoneCreated}
+                onZoneUpdated={(zoneId, polygon) => {
+                  updateZone(zoneId, { polygon })
+                }}
               />
             </div>
           )}
@@ -297,9 +350,11 @@ export default function ZonesPage() {
               setToolMode('draw-polygon')
             }}
             onDeleteZone={handleDeleteZone}
-            onEditZone={(zoneId) => {
-              setSelectedZone(zoneId)
-              // Could open edit modal here
+            onEditZone={(zoneId, updates) => {
+              const zone = zones.find(z => z.id === zoneId)
+              if (zone) {
+                updateZone(zoneId, updates)
+              }
             }}
           />
         </div>

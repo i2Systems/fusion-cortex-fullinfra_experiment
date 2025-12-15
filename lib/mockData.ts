@@ -41,50 +41,49 @@ export interface Device {
   warrantyExpiry?: Date
 }
 
-// Generate 250 devices with realistic data and organized positioning
+// Generate 120 devices with realistic data and organized positioning
 function generateDevices(): Device[] {
   const devices: Device[] = []
+  const MAX_DEVICES = 120
   
   // Define comprehensive room structure based on Walmart Supercenter floor plan
-  // Each room gets at least 4 lights in a grid pattern
+  // Rooms positioned to match the zone layout from the image
+  // Orange Zone: Apparel & Clothing
+  // Green Zone: Home & Garden  
+  // Blue Zone: Electronics & Sporting Goods
+  // Purple Zone: Toys & Electronics
+  // Yellow Zone: Grocery & Food
   const rooms = [
-    // Left side - Loading/Stock/Pharmacy area
-    { x: [0.02, 0.08], y: [0.05, 0.15], name: 'Loading Dock', zone: 'Zone 1 - Electronics', doorways: [{ x: 0.05, y: 0.1 }] },
-    { x: [0.08, 0.15], y: [0.05, 0.15], name: 'Stockroom Left', zone: 'Zone 1 - Electronics', doorways: [{ x: 0.12, y: 0.1 }] },
-    { x: [0.15, 0.25], y: [0.05, 0.2], name: 'Pharmacy/Health & Beauty', zone: 'Zone 1 - Electronics', doorways: [{ x: 0.2, y: 0.125 }, { x: 0.15, y: 0.125 }] },
-    { x: [0.25, 0.32], y: [0.05, 0.2], name: 'Home Top', zone: 'Zone 1 - Electronics', doorways: [{ x: 0.28, y: 0.125 }] },
+    // Orange Zone - Apparel sections (left side, mid-section)
+    { x: [0.1, 0.28], y: [0.2, 0.45], name: 'Apparel Top', zone: 'Apparel & Clothing', doorways: [{ x: 0.19, y: 0.325 }, { x: 0.1, y: 0.325 }] },
+    { x: [0.1, 0.28], y: [0.45, 0.65], name: 'Apparel Center', zone: 'Apparel & Clothing', doorways: [{ x: 0.19, y: 0.55 }, { x: 0.1, y: 0.55 }] },
+    { x: [0.15, 0.28], y: [0.65, 0.9], name: 'Apparel Bottom', zone: 'Apparel & Clothing', doorways: [{ x: 0.225, y: 0.775 }, { x: 0.15, y: 0.775 }] },
+    { x: [0.05, 0.15], y: [0.65, 0.85], name: 'Auto Care Center', zone: 'Apparel & Clothing', doorways: [{ x: 0.1, y: 0.75 }, { x: 0.15, y: 0.75 }] },
     
-    // Top middle - Pickup/Delivery
-    { x: [0.32, 0.45], y: [0.02, 0.12], name: 'Pickup & Delivery', zone: 'Zone 3 - Retail', doorways: [{ x: 0.38, y: 0.07 }, { x: 0.32, y: 0.07 }] },
+    // Green Zone - Home (top center, small section)
+    { x: [0.25, 0.42], y: [0.05, 0.2], name: 'Home Top', zone: 'Home & Garden', doorways: [{ x: 0.33, y: 0.125 }] },
+    { x: [0.28, 0.42], y: [0.2, 0.35], name: 'Home Center', zone: 'Home & Garden', doorways: [{ x: 0.35, y: 0.275 }] },
     
-    // Top right - Grocery prep areas
-    { x: [0.6, 0.72], y: [0.05, 0.2], name: 'Produce', zone: 'Zone 7 - Grocery', doorways: [{ x: 0.66, y: 0.125 }, { x: 0.72, y: 0.125 }] },
-    { x: [0.72, 0.88], y: [0.05, 0.2], name: 'Meat & Seafood', zone: 'Zone 7 - Grocery', doorways: [{ x: 0.8, y: 0.125 }, { x: 0.72, y: 0.125 }] },
+    // Blue Zone - Electronics & Sporting Goods (top center-right)
+    { x: [0.42, 0.58], y: [0.05, 0.2], name: 'Electronics Top', zone: 'Electronics & Sporting Goods', doorways: [{ x: 0.5, y: 0.125 }] },
+    { x: [0.42, 0.58], y: [0.2, 0.35], name: 'Electronics Center', zone: 'Electronics & Sporting Goods', doorways: [{ x: 0.5, y: 0.275 }, { x: 0.42, y: 0.275 }] },
+    { x: [0.58, 0.65], y: [0.2, 0.35], name: 'Sporting Goods', zone: 'Electronics & Sporting Goods', doorways: [{ x: 0.615, y: 0.275 }] },
     
-    // Center left - Apparel sections
-    { x: [0.1, 0.28], y: [0.2, 0.45], name: 'Apparel Top', zone: 'Zone 2 - Clothing', doorways: [{ x: 0.19, y: 0.325 }, { x: 0.1, y: 0.325 }] },
-    { x: [0.28, 0.42], y: [0.2, 0.35], name: 'Home Center', zone: 'Zone 3 - Retail', doorways: [{ x: 0.35, y: 0.275 }] },
-    { x: [0.42, 0.58], y: [0.2, 0.35], name: 'Electronics Center', zone: 'Zone 1 - Electronics', doorways: [{ x: 0.5, y: 0.275 }, { x: 0.42, y: 0.275 }] },
-    { x: [0.58, 0.65], y: [0.2, 0.35], name: 'Sporting Goods', zone: 'Zone 3 - Retail', doorways: [{ x: 0.615, y: 0.275 }] },
+    // Purple Zone - Toys & Electronics (center, right of orange)
+    { x: [0.28, 0.42], y: [0.35, 0.5], name: 'Toys Top', zone: 'Toys & Electronics', doorways: [{ x: 0.35, y: 0.425 }] },
+    { x: [0.45, 0.6], y: [0.35, 0.5], name: 'Toys Center', zone: 'Toys & Electronics', doorways: [{ x: 0.525, y: 0.425 }] },
+    { x: [0.3, 0.45], y: [0.65, 0.85], name: 'Electronics Bottom', zone: 'Toys & Electronics', doorways: [{ x: 0.375, y: 0.75 }] },
+    { x: [0.45, 0.6], y: [0.65, 0.85], name: 'Toys Bottom', zone: 'Toys & Electronics', doorways: [{ x: 0.525, y: 0.75 }] },
+    { x: [0.32, 0.45], y: [0.02, 0.12], name: 'Pickup & Delivery', zone: 'Toys & Electronics', doorways: [{ x: 0.38, y: 0.07 }, { x: 0.32, y: 0.07 }] },
     
-    // Center - Toys and more Apparel
-    { x: [0.28, 0.42], y: [0.35, 0.5], name: 'Toys Top', zone: 'Zone 3 - Retail', doorways: [{ x: 0.35, y: 0.425 }] },
-    { x: [0.1, 0.28], y: [0.45, 0.65], name: 'Apparel Center', zone: 'Zone 2 - Clothing', doorways: [{ x: 0.19, y: 0.55 }, { x: 0.1, y: 0.55 }] },
-    
-    // Bottom left - Auto Care and more Apparel
-    { x: [0.05, 0.15], y: [0.65, 0.85], name: 'Auto Care Center', zone: 'Zone 2 - Clothing', doorways: [{ x: 0.1, y: 0.75 }, { x: 0.15, y: 0.75 }] },
-    { x: [0.15, 0.3], y: [0.65, 0.9], name: 'Apparel Bottom', zone: 'Zone 2 - Clothing', doorways: [{ x: 0.225, y: 0.775 }, { x: 0.15, y: 0.775 }] },
-    { x: [0.3, 0.45], y: [0.65, 0.85], name: 'Electronics Bottom', zone: 'Zone 1 - Electronics', doorways: [{ x: 0.375, y: 0.75 }] },
-    { x: [0.45, 0.6], y: [0.65, 0.85], name: 'Toys Bottom', zone: 'Zone 3 - Retail', doorways: [{ x: 0.525, y: 0.75 }] },
-    
-    // Center right - Deli and Bakery
-    { x: [0.6, 0.75], y: [0.2, 0.35], name: 'Deli', zone: 'Zone 7 - Grocery', doorways: [{ x: 0.675, y: 0.275 }, { x: 0.75, y: 0.275 }] },
-    { x: [0.75, 0.88], y: [0.2, 0.35], name: 'Bakery', zone: 'Zone 7 - Grocery', doorways: [{ x: 0.815, y: 0.275 }, { x: 0.75, y: 0.275 }] },
-    
-    // Bottom right - Grocery aisles and Main Lobby
-    { x: [0.6, 0.88], y: [0.35, 0.55], name: 'Grocery Aisles', zone: 'Zone 7 - Grocery', doorways: [{ x: 0.74, y: 0.45 }, { x: 0.6, y: 0.45 }] },
-    { x: [0.88, 0.98], y: [0.35, 0.55], name: 'Main Lobby', zone: 'Zone 7 - Grocery', doorways: [{ x: 0.93, y: 0.45 }, { x: 0.88, y: 0.45 }, { x: 0.93, y: 0.35 }, { x: 0.93, y: 0.55 }] },
-    { x: [0.88, 0.98], y: [0.55, 0.7], name: 'Stockroom Right', zone: 'Zone 7 - Grocery', doorways: [{ x: 0.93, y: 0.625 }] },
+    // Yellow Zone - Grocery & Food (right side)
+    { x: [0.6, 0.72], y: [0.05, 0.2], name: 'Produce', zone: 'Grocery & Food', doorways: [{ x: 0.66, y: 0.125 }, { x: 0.72, y: 0.125 }] },
+    { x: [0.72, 0.88], y: [0.05, 0.2], name: 'Meat & Seafood', zone: 'Grocery & Food', doorways: [{ x: 0.8, y: 0.125 }, { x: 0.72, y: 0.125 }] },
+    { x: [0.6, 0.75], y: [0.2, 0.35], name: 'Deli', zone: 'Grocery & Food', doorways: [{ x: 0.675, y: 0.275 }, { x: 0.75, y: 0.275 }] },
+    { x: [0.75, 0.88], y: [0.2, 0.35], name: 'Bakery', zone: 'Grocery & Food', doorways: [{ x: 0.815, y: 0.275 }, { x: 0.75, y: 0.275 }] },
+    { x: [0.6, 0.88], y: [0.35, 0.55], name: 'Grocery Aisles', zone: 'Grocery & Food', doorways: [{ x: 0.74, y: 0.45 }, { x: 0.6, y: 0.45 }] },
+    { x: [0.88, 0.98], y: [0.35, 0.55], name: 'Main Lobby', zone: 'Grocery & Food', doorways: [{ x: 0.93, y: 0.45 }, { x: 0.88, y: 0.45 }, { x: 0.93, y: 0.35 }, { x: 0.93, y: 0.55 }] },
+    { x: [0.88, 0.98], y: [0.55, 0.7], name: 'Stockroom Right', zone: 'Grocery & Food', doorways: [{ x: 0.93, y: 0.625 }] },
   ]
   
   // Collect all doorways for motion sensor placement
@@ -97,23 +96,16 @@ function generateDevices(): Device[] {
     }
   })
   
-  // Zone regions for backward compatibility
+  // Zone regions for backward compatibility (matching the new zone layout)
   const zoneRegions = {
-    'Zone 1 - Electronics': { x: [0.1, 0.6], y: [0.05, 0.85] },
-    'Zone 2 - Clothing': { x: [0.05, 0.3], y: [0.2, 0.9] },
-    'Zone 3 - Retail': { x: [0.28, 0.6], y: [0.1, 0.85] },
-    'Zone 7 - Grocery': { x: [0.6, 0.98], y: [0.05, 0.7] },
+    'Apparel & Clothing': { x: [0.05, 0.28], y: [0.2, 0.9] },
+    'Home & Garden': { x: [0.25, 0.42], y: [0.05, 0.35] },
+    'Electronics & Sporting Goods': { x: [0.42, 0.65], y: [0.05, 0.35] },
+    'Toys & Electronics': { x: [0.28, 0.6], y: [0.35, 0.85] },
+    'Grocery & Food': { x: [0.6, 0.98], y: [0.05, 0.7] },
   }
   
   const zones = Object.keys(zoneRegions)
-  
-  // Define aisle patterns for each zone (for aisle-specific lighting)
-  const aislePatterns: Record<string, { count: number; spacing: number; startX: number; startY: number; direction: 'horizontal' | 'vertical' }> = {
-    'Zone 1 - Electronics': { count: 8, spacing: 0.025, startX: 0.12, startY: 0.15, direction: 'vertical' },
-    'Zone 2 - Clothing': { count: 20, spacing: 0.02, startX: 0.12, startY: 0.52, direction: 'vertical' },
-    'Zone 3 - Retail': { count: 7, spacing: 0.03, startX: 0.32, startY: 0.15, direction: 'vertical' },
-    'Zone 7 - Grocery': { count: 10, spacing: 0.03, startX: 0.62, startY: 0.15, direction: 'vertical' },
-  }
 
   let deviceCounter = 1
   let serialCounter = 2024
@@ -163,12 +155,22 @@ function generateDevices(): Device[] {
     const roomWidth = room.x[1] - room.x[0]
     const roomHeight = room.y[1] - room.y[0]
     
-    // Calculate grid dimensions - ensure at least 4 lights (2x2 minimum)
-    // For better coverage, calculate based on room area with a minimum
-    const minLights = 4
+    // Calculate grid dimensions - optimized for 120 total devices
+    // Distribute devices more evenly based on room size and importance
+    const minLights = 2
     const roomArea = roomWidth * roomHeight
-    // Scale factor: larger rooms get more lights, but ensure minimum
-    const targetLights = Math.max(minLights, Math.ceil(roomArea * 300))
+    
+    // Adjust density based on room type - larger/more important rooms get more lights
+    let densityMultiplier = 120
+    if (room.name.includes('Grocery Aisles') || room.name.includes('Apparel')) {
+      densityMultiplier = 180 // Higher density for large retail areas
+    } else if (room.name.includes('Main Lobby') || room.name.includes('Electronics')) {
+      densityMultiplier = 150 // Medium-high for important areas
+    } else if (room.name.includes('Stockroom') || room.name.includes('Loading')) {
+      densityMultiplier = 80 // Lower for storage areas
+    }
+    
+    const targetLights = Math.max(minLights, Math.ceil(roomArea * densityMultiplier))
     
     // Calculate grid dimensions maintaining aspect ratio
     const aspectRatio = roomWidth / roomHeight
@@ -194,9 +196,11 @@ function generateDevices(): Device[] {
     const isWide = roomWidth > roomHeight
     const baseOrientation = isWide ? 0 : 90 // Horizontal for wide rooms, vertical for tall rooms
     
-    // Place lights in grid
+    // Place lights in grid (stop if we've reached max devices)
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
+        if (devices.length >= MAX_DEVICES - 30) break // Reserve space for sensors
+        
         // Calculate position with padding from edges
         const x = room.x[0] + padding + (spacingX * col)
         const y = room.y[0] + padding + (spacingY * row)
@@ -237,12 +241,21 @@ function generateDevices(): Device[] {
           warrantyExpiry,
         })
       }
+      if (devices.length >= MAX_DEVICES - 30) break
     }
+    if (devices.length >= MAX_DEVICES - 30) break
   }
 
-  // Generate motion sensors - placed near EVERY doorway
-  // Place exactly 1 sensor per doorway, positioned very close to the doorway
-  for (const doorway of allDoorways) {
+  // Generate motion sensors - placed near key doorways (reduced count)
+  // Select only important doorways to keep device count at 120
+  const importantDoorways = allDoorways.filter((doorway, idx) => {
+    // Keep every 2nd doorway to reduce count
+    return idx % 2 === 0 || Math.random() > 0.5
+  }).slice(0, 15) // Limit to 15 motion sensors max
+  
+  for (const doorway of importantDoorways) {
+    if (devices.length >= MAX_DEVICES - 10) break // Reserve space for light sensors and fault device
+    
     // Position very close to doorway - motion sensors should be right at entrances
     // Use smaller offset to keep them close to the doorway
     const offsetX = (Math.random() - 0.5) * 0.012 // Much smaller offset - 1.2% max
@@ -269,23 +282,23 @@ function generateDevices(): Device[] {
     })
   }
 
-  // Generate light sensors - placed along exterior walls and in key rooms
+  // Generate light sensors - placed along exterior walls and in key rooms (reduced count)
   // Exterior walls: top (y ~ 0.02-0.15) and right (x ~ 0.88-0.98)
   const exteriorWallPositions: Array<{ x: number; y: number }> = []
   
-  // Top wall (y = 0.02-0.15)
-  for (let x = 0.05; x < 0.95; x += 0.08) {
+  // Top wall (y = 0.02-0.15) - reduced spacing
+  for (let x = 0.1; x < 0.9; x += 0.15) {
     exteriorWallPositions.push({ x, y: 0.05 + Math.random() * 0.1 })
   }
   
-  // Right wall (x = 0.88-0.98)
-  for (let y = 0.1; y < 0.7; y += 0.1) {
+  // Right wall (x = 0.88-0.98) - reduced spacing
+  for (let y = 0.15; y < 0.65; y += 0.15) {
     exteriorWallPositions.push({ x: 0.88 + Math.random() * 0.1, y })
   }
   
-  // Place sensors along exterior walls
-  for (const pos of exteriorWallPositions) {
-    if (devices.length >= 250) break
+  // Place sensors along exterior walls (limit to 8 total)
+  for (const pos of exteriorWallPositions.slice(0, 8)) {
+    if (devices.length >= MAX_DEVICES - 2) break // Reserve space for fault device
     
     const location = 'Exterior Wall'
     const signal = Math.floor(Math.random() * 40) + 50
@@ -307,12 +320,10 @@ function generateDevices(): Device[] {
     })
   }
   
-  // Place a few sensors in key large rooms (Main Lobby, Grocery Aisles)
-  const keyRooms = rooms.filter(r => r.name === 'Main Lobby' || r.name === 'Grocery Aisles' || r.name.includes('Apparel'))
-  for (const room of keyRooms) {
-    if (devices.length >= 250) break
-    
-    if (Math.random() > 0.4) continue // 60% of key rooms get a sensor
+  // Place a few sensors in key large rooms (Main Lobby, Grocery Aisles) - reduced count
+  const keyRooms = rooms.filter(r => r.name === 'Main Lobby' || r.name === 'Grocery Aisles')
+  for (const room of keyRooms.slice(0, 2)) {
+    if (devices.length >= MAX_DEVICES - 2) break
     
     const centerX = (room.x[0] + room.x[1]) / 2
     const centerY = (room.y[0] + room.y[1]) / 2

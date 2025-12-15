@@ -43,8 +43,42 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     // Check for data version to force regeneration when positioning logic changes
     const DATA_VERSION = 'v2-grid-placement'
     const savedVersion = typeof window !== 'undefined' ? localStorage.getItem('fusion_devices_version') : null
+    const devicesSaved = typeof window !== 'undefined' ? localStorage.getItem('fusion_devices_saved') === 'true' : false
     
-    // Also check localStorage for any manually added devices
+    // PRIORITY: If devices are marked as saved, always load them (regardless of version)
+    if (devicesSaved && typeof window !== 'undefined') {
+      const savedDevices = localStorage.getItem('fusion_devices')
+      if (savedDevices) {
+        try {
+          const parsed = JSON.parse(savedDevices)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const restored = parsed.map((device: Device) => {
+              if (device.components) {
+                return {
+                  ...device,
+                  components: device.components.map((comp: any) => ({
+                    ...comp,
+                    warrantyExpiry: comp.warrantyExpiry ? new Date(comp.warrantyExpiry) : undefined,
+                    buildDate: comp.buildDate ? new Date(comp.buildDate) : undefined,
+                  })),
+                  warrantyExpiry: device.warrantyExpiry ? new Date(device.warrantyExpiry as any) : undefined,
+                }
+              }
+              return device
+            })
+            setDevices(restored)
+            setHistory([restored])
+            setHistoryIndex(0)
+            console.log(`✅ Loaded ${restored.length} saved devices from localStorage (protected from reset)`)
+            return
+          }
+        } catch (e) {
+          console.error('Failed to parse saved devices:', e)
+        }
+      }
+    }
+    
+    // Also check localStorage for any manually added devices (if version matches)
     if (typeof window !== 'undefined' && savedVersion === DATA_VERSION) {
       const savedDevices = localStorage.getItem('fusion_devices')
       if (savedDevices) {
@@ -196,6 +230,18 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     setDevices(initialMockDevices)
   }
 
+  const saveDevices = () => {
+    // Mark devices as saved - this prevents them from being reset
+    if (typeof window !== 'undefined' && devices.length > 0) {
+      localStorage.setItem('fusion_devices', JSON.stringify(devices))
+      localStorage.setItem('fusion_devices_saved', 'true')
+      localStorage.setItem('fusion_devices_version', 'v2-grid-placement')
+      console.log(`✅ Saved ${devices.length} devices to system (protected from reset)`)
+    } else {
+      console.warn('Cannot save: No devices to save')
+    }
+  }
+
   return (
     <DeviceContext.Provider
       value={{
@@ -207,6 +253,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
         removeDevice,
         setDevices,
         refreshDevices,
+        saveDevices,
         undo,
         redo,
         canUndo: historyIndex > 0,

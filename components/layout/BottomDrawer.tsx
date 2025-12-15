@@ -13,7 +13,7 @@
 'use client'
 
 import { ChevronUp, ChevronDown, Radar, AlertTriangle, Layers, Network, Workflow, Search, Home, X } from 'lucide-react'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { useNotifications } from '@/lib/NotificationContext'
 import { useRouter } from 'next/navigation'
@@ -39,12 +39,18 @@ const typeIcons: Record<string, any> = {
 
 export function BottomDrawer({ children }: BottomDrawerProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
   const pathname = usePathname()
   const { notifications, unreadCount, markAsRead, dismissNotification } = useNotifications()
   const { devices } = useDevices()
   const { zones } = useZones()
   const { rules } = useRules()
   const router = useRouter()
+  
+  // Track if component is mounted (client-side only)
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
   
   // Get recent notifications (show more for horizontal scroll)
   const recentNotifications = notifications.slice(0, 10)
@@ -74,8 +80,8 @@ export function BottomDrawer({ children }: BottomDrawerProps) {
       return `${zones.length} zone${zones.length !== 1 ? 's' : ''} configured`
     }
     if (pathname?.startsWith('/bacnet')) {
-      // Count zones with BACnet mappings from localStorage
-      if (typeof window !== 'undefined') {
+      // Count zones with BACnet mappings from localStorage (only after mount to avoid hydration mismatch)
+      if (isMounted && typeof window !== 'undefined') {
         try {
           const saved = localStorage.getItem('fusion_bacnet_mappings')
           if (saved) {
@@ -91,6 +97,7 @@ export function BottomDrawer({ children }: BottomDrawerProps) {
         }
       }
       // Fallback: show zones count (limited to 12 as per BACnet page logic)
+      // This ensures server and initial client render match
       const zoneCount = Math.min(zones.length, 12)
       return `${zoneCount} zone${zoneCount !== 1 ? 's' : ''}`
     }
@@ -99,7 +106,7 @@ export function BottomDrawer({ children }: BottomDrawerProps) {
       return `${devices.length.toLocaleString()} device${devices.length !== 1 ? 's' : ''}${offline > 0 ? ` — ${offline} offline` : ''}`
     }
     return null
-  }, [pathname, devices, zones, rules])
+  }, [pathname, devices, zones, rules, isMounted])
 
   return (
     <div

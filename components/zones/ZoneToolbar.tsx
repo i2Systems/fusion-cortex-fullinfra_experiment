@@ -16,7 +16,8 @@ import {
   Trash2,
   Square,
   Circle,
-  Move
+  Move,
+  Save
 } from 'lucide-react'
 
 export type ZoneToolMode = 
@@ -31,6 +32,7 @@ interface ZoneToolbarProps {
   onModeChange: (mode: ZoneToolMode) => void
   onDeleteZone?: () => void
   canDelete?: boolean
+  onSave?: () => void
 }
 
 interface ToolOption {
@@ -84,7 +86,8 @@ export function ZoneToolbar({
   mode, 
   onModeChange, 
   onDeleteZone,
-  canDelete = false
+  canDelete = false,
+  onSave
 }: ZoneToolbarProps) {
   const handleToolClick = (tool: ToolOption) => {
     if (tool.isToggle) {
@@ -128,6 +131,19 @@ export function ZoneToolbar({
             )
           })}
         </div>
+        
+        {/* Separator */}
+        <div className="h-6 w-px bg-[var(--color-border-subtle)] mx-1" />
+        
+        {/* Save Button */}
+        <button
+          onClick={() => onSave?.()}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] transition-all duration-200 shadow-[var(--shadow-soft)]"
+          title="Save zone layout to system (prevents automatic resets)"
+        >
+          <Save size={16} />
+          <span className="text-sm font-medium whitespace-nowrap">Save Layout</span>
+        </button>
     </div>
   )
 }

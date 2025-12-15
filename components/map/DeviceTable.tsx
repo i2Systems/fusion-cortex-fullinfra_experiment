@@ -10,7 +10,7 @@
 
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Signal, Battery, Wifi, WifiOff, Image, Radio, Thermometer, MapPin, Edit2, Plus, ChevronRight, ChevronDown, Package, Shield, Calendar, CheckCircle2, AlertCircle, XCircle } from 'lucide-react'
 import type { Component, Device as DeviceType } from '@/lib/mockData'
 import { ComponentTree } from '@/components/shared/ComponentTree'
@@ -279,9 +279,8 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect, onCompo
                 const isExpanded = expandedDevices.has(device.id)
                 const hasComponents = device.components && device.components.length > 0
                 return (
-                  <>
+                  <React.Fragment key={device.id}>
                     <tr
-                      key={device.id}
                       ref={selectedDeviceId === device.id ? selectedRowRef : null}
                       onClick={() => onDeviceSelect?.(device.id)}
                       className={`
@@ -349,7 +348,6 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect, onCompo
               </tr>
               {isExpanded && hasComponents && (
                 <tr
-                  key={`${device.id}-components`}
                   className={`
                     border-b border-[var(--color-border-subtle)]/30
                     ${selectedDeviceId === device.id
@@ -370,7 +368,7 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect, onCompo
                   </td>
                 </tr>
               )}
-              </>
+              </React.Fragment>
               )
             })}
             </tbody>

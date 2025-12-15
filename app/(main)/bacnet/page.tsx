@@ -11,12 +11,25 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { SearchIsland } from '@/components/layout/SearchIsland'
+import { MapViewToggle, type MapViewMode } from '@/components/shared/MapViewToggle'
+import { MapUpload } from '@/components/map/MapUpload'
 import { useZones } from '@/lib/ZoneContext'
 import { useDevices } from '@/lib/DeviceContext'
 import { BACnetDetailsPanel } from '@/components/bacnet/BACnetDetailsPanel'
 import { initialBACnetMappings, type ControlCapability } from '@/lib/initialBACnetMappings'
 import { Power, Sun, Clock, Radio, CheckCircle2, AlertCircle, XCircle, Plus } from 'lucide-react'
+
+// Dynamically import BACnetZoneCanvas to avoid SSR issues with Konva
+const BACnetZoneCanvas = dynamic(() => import('@/components/bacnet/BACnetZoneCanvas').then(mod => ({ default: mod.BACnetZoneCanvas })), {
+  ssr: false,
+  loading: () => (
+    <div className="h-full flex items-center justify-center">
+      <div className="text-[var(--color-text-muted)]">Loading map...</div>
+    </div>
+  ),
+})
 
 interface BACnetMapping {
   zoneId: string
@@ -121,9 +134,17 @@ export default function BACnetPage() {
   const [mappings, setMappings] = useState<BACnetMapping[]>([])
   const [selectedMappingId, setSelectedMappingId] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [viewMode, setViewMode] = useState<MapViewMode>('list')
+  const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
+  const [mapUploaded, setMapUploaded] = useState(false)
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null)
 
   // Generate mappings for all zones (limit to 12)
   const zoneMappings = useMemo(() => {
+    // Don't generate mappings if zones are empty (still initializing)
+    if (zones.length === 0) {
+      return []
+    }
     return zones.slice(0, 12).map((zone, index) => {
       const deviceCount = devices.filter(d => d.zone === zone.name).length
       const existing = mappings.find(m => m.zoneId === zone.id)
@@ -138,7 +159,8 @@ export default function BACnetPage() {
   // Auto-create BACnet mappings when new zones are detected
   useEffect(() => {
     if (typeof window !== 'undefined' && zones.length > 0) {
-      // When zones are cleared and recreated, clear mappings too
+      // Check if mappings are saved - if so, always load them and don't auto-create
+      const mappingsSaved = localStorage.getItem('fusion_bacnet_mappings_saved') === 'true'
       const saved = localStorage.getItem('fusion_bacnet_mappings')
       let existingMappings: BACnetMapping[] = []
       
@@ -154,6 +176,12 @@ export default function BACnetPage() {
           existingMappings = existingMappings.filter(m => 
             zones.some(z => z.id === m.zoneId)
           )
+          
+          // If mappings are saved, use them and don't auto-create
+          if (mappingsSaved && existingMappings.length > 0) {
+            setMappings(existingMappings)
+            return
+          }
         } catch (e) {
           console.error('Failed to parse saved mappings:', e)
         }
@@ -165,7 +193,10 @@ export default function BACnetPage() {
         !existingMappings.find(m => m.zoneId === zone.id)
       )
 
-      if (zonesWithoutMappings.length > 0) {
+      // Only auto-create mappings if zones are not marked as saved
+      // This prevents overwriting user's saved BACnet mappings
+      const zonesSaved = localStorage.getItem('fusion_zones_saved') === 'true'
+      if (zonesWithoutMappings.length > 0 && !zonesSaved) {
         // Create mappings for new zones
         const newMappings: BACnetMapping[] = zonesWithoutMappings.map((zone, index) => {
           const initialMapping = initialBACnetMappings.find(m => m.zoneName === zone.name)
@@ -326,6 +357,66 @@ export default function BACnetPage() {
     return `${Math.floor(hours / 24)}d ago`
   }
 
+  // Load saved map image on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedImageUrl = localStorage.getItem('map-image-url')
+      if (savedImageUrl) {
+        setMapImageUrl(savedImageUrl)
+        setMapUploaded(true)
+      }
+    }
+  }, [])
+
+  const handleMapUpload = (imageUrl: string) => {
+    setMapImageUrl(imageUrl)
+    setMapUploaded(true)
+  }
+
+  // Handle zone selection from map
+  const handleZoneSelect = (zoneId: string | null) => {
+    setSelectedZoneId(zoneId)
+    if (zoneId) {
+      // Find mapping for this zone and select it
+      const mapping = zoneMappings.find(m => m.zoneId === zoneId)
+      if (mapping) {
+        setSelectedMappingId(mapping.zoneId)
+      }
+    }
+  }
+
+  // Filter mappings based on selected zone
+  const filteredMappings = useMemo(() => {
+    // If zones are still initializing, return empty array
+    if (zones.length === 0) return []
+    if (!selectedZoneId) return zoneMappings
+    return zoneMappings.filter(m => m.zoneId === selectedZoneId)
+  }, [zoneMappings, selectedZoneId, zones.length])
+
+  // Prepare zones for map with BACnet status
+  const mapZones = useMemo(() => {
+    return zones.map(z => ({
+      id: z.id,
+      name: z.name,
+      color: z.color,
+      polygon: z.polygon,
+    }))
+  }, [zones])
+
+  // Prepare devices for map
+  const mapDevices = useMemo(() => {
+    return devices.map(d => ({
+      id: d.id,
+      x: d.x || 0,
+      y: d.y || 0,
+      type: d.type,
+      deviceId: d.deviceId,
+      status: d.status,
+      signal: d.signal,
+      location: d.location,
+    }))
+  }, [devices])
+
   return (
     <div className="h-full flex flex-col min-h-0 overflow-hidden">
       {/* Top Search Island - In flow */}
@@ -344,135 +435,182 @@ export default function BACnetPage() {
         />
       </div>
 
-      {/* Main Content: Table + Details Panel */}
+      {/* Main Content: Table/Map + Details Panel */}
       <div className="main-content-area flex-1 flex min-h-0 gap-4 px-[20px] pb-14" style={{ overflow: 'visible' }}>
-        {/* Table - Left Side */}
-        <div className="flex-1 min-w-0">
-          <div className="fusion-card overflow-hidden h-full flex flex-col">
-            <div className="p-4 border-b border-[var(--color-border-subtle)]">
-                <h2 className="text-lg font-semibold text-[var(--color-text)] mb-1">
-                  Zone to BMS Connections
-                </h2>
-                <p className="text-sm text-[var(--color-text-muted)]">
-                  Configure how lighting zones connect to your Building Management System via BACnet protocol
-                </p>
-            </div>
+        {/* Table/Map - Left Side */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          {/* View Toggle */}
+          <div className="mb-3 flex items-center justify-between">
+            <MapViewToggle currentView={viewMode} onViewChange={setViewMode} />
+            {selectedZoneId && viewMode === 'map' && (
+              <button
+                onClick={() => {
+                  setSelectedZoneId(null)
+                  setSelectedMappingId(null)
+                }}
+                className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
+              >
+                Clear filter
+              </button>
+            )}
+          </div>
 
-            <div className="flex-1 overflow-auto">
-              <table className="w-full">
-                <thead className="sticky top-0 bg-[var(--color-surface)] z-10">
-                  <tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)]">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-[var(--color-text-muted)]">
-                      Zone
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-[var(--color-text-muted)]">
-                      Control Capabilities
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-[var(--color-text-muted)]">
-                      BACnet Object ID
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-[var(--color-text-muted)]">
-                      Status
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-[var(--color-text-muted)]">
-                      Connection Details
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {zoneMappings.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-8 text-center text-sm text-[var(--color-text-muted)]">
-                        No zones configured. Create zones on the Zones page first.
-                      </td>
-                    </tr>
-                  ) : (
-                    zoneMappings.map((mapping) => {
-                      const isSelected = selectedMappingId === mapping.zoneId
-                      
-                      return (
-                        <tr 
-                          key={mapping.zoneId}
-                          onClick={() => setSelectedMappingId(mapping.zoneId)}
-                          className={`
-                            border-b border-[var(--color-border-subtle)] 
-                            transition-colors cursor-pointer
-                            ${isSelected 
-                              ? 'bg-[var(--color-primary-soft)] hover:bg-[var(--color-primary-soft)]' 
-                              : 'hover:bg-[var(--color-surface-subtle)]'
-                            }
-                          `}
-                        >
-                    {/* Zone Name */}
-                    <td className="py-4 px-4">
-                      <div className="font-medium text-sm text-[var(--color-text)]">
-                        {mapping.zoneName}
-                      </div>
-                    </td>
+          {/* Content Area */}
+          <div className="flex-1 min-h-0">
+            {viewMode === 'list' ? (
+              <div className="fusion-card overflow-hidden h-full flex flex-col">
+                <div className="p-4 border-b border-[var(--color-border-subtle)]">
+                  <h2 className="text-lg font-semibold text-[var(--color-text)] mb-1">
+                    Zone to BMS Connections
+                  </h2>
+                  <p className="text-sm text-[var(--color-text-muted)]">
+                    Configure how lighting zones connect to your Building Management System via BACnet protocol
+                  </p>
+                </div>
 
-                    {/* Control Capabilities */}
-                    <td className="py-4 px-4">
-                      {mapping.controlCapabilities.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5">
-                          {mapping.controlCapabilities.map((cap) => {
-                            const { label, icon: Icon } = capabilityLabels[cap]
-                            return (
-                              <span
-                                key={cap}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-[var(--color-primary-soft)] text-[var(--color-primary)] border border-[var(--color-primary)]/20"
-                              >
-                                <Icon size={12} />
-                                {label}
-                              </span>
-                            )
-                          })}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-[var(--color-text-muted)]">No capabilities assigned</span>
-                      )}
-                    </td>
-
-                    {/* BACnet Object ID */}
-                    <td className="py-4 px-4">
-                      {mapping.bacnetObjectId ? (
-                        <span className="text-sm font-mono text-[var(--color-text)]">
-                          {mapping.bacnetObjectId}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-[var(--color-text-muted)] italic">
-                          Not assigned
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Status */}
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        {getStatusIcon(mapping.status)}
-                        <span className={`text-xs px-2 py-1 rounded capitalize ${getStatusColor(mapping.status)}`}>
-                          {mapping.status === 'not-assigned' ? 'Not Assigned' : mapping.status}
-                        </span>
-                        {mapping.lastConnected && (
-                          <span className="text-xs text-[var(--color-text-muted)]">
-                            {formatLastConnected(mapping.lastConnected)}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-
-                          {/* Connection Details */}
-                          <td className="py-4 px-4">
-                            <p className="text-xs text-[var(--color-text-muted)] max-w-md line-clamp-2">
-                              {mapping.description}
-                            </p>
+                <div className="flex-1 overflow-auto">
+                  <table className="w-full">
+                    <thead className="sticky top-0 bg-[var(--color-surface)] z-10">
+                      <tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)]">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-[var(--color-text-muted)]">
+                          Zone
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-[var(--color-text-muted)]">
+                          Control Capabilities
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-[var(--color-text-muted)]">
+                          BACnet Object ID
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-[var(--color-text-muted)]">
+                          Status
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-[var(--color-text-muted)]">
+                          Connection Details
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {zones.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-8 text-center text-sm text-[var(--color-text-muted)]">
+                            Loading zones...
                           </td>
                         </tr>
-                      )
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+                      ) : filteredMappings.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-8 text-center text-sm text-[var(--color-text-muted)]">
+                            {selectedZoneId ? 'No mappings for selected zone' : 'No zones configured. Create zones on the Zones page first.'}
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredMappings.map((mapping) => {
+                          const isSelected = selectedMappingId === mapping.zoneId
+                          
+                          return (
+                            <tr 
+                              key={mapping.zoneId}
+                              onClick={() => setSelectedMappingId(mapping.zoneId)}
+                              className={`
+                                border-b border-[var(--color-border-subtle)] 
+                                transition-colors cursor-pointer
+                                ${isSelected 
+                                  ? 'bg-[var(--color-primary-soft)] hover:bg-[var(--color-primary-soft)]' 
+                                  : 'hover:bg-[var(--color-surface-subtle)]'
+                                }
+                              `}
+                            >
+                              {/* Zone Name */}
+                              <td className="py-4 px-4">
+                                <div className="font-medium text-sm text-[var(--color-text)]">
+                                  {mapping.zoneName}
+                                </div>
+                              </td>
+
+                              {/* Control Capabilities */}
+                              <td className="py-4 px-4">
+                                {mapping.controlCapabilities.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {mapping.controlCapabilities.map((cap) => {
+                                      const { label, icon: Icon } = capabilityLabels[cap]
+                                      return (
+                                        <span
+                                          key={cap}
+                                          className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-[var(--color-primary-soft)] text-[var(--color-primary)] border border-[var(--color-primary)]/20"
+                                        >
+                                          <Icon size={12} />
+                                          {label}
+                                        </span>
+                                      )
+                                    })}
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-[var(--color-text-muted)]">No capabilities assigned</span>
+                                )}
+                              </td>
+
+                              {/* BACnet Object ID */}
+                              <td className="py-4 px-4">
+                                {mapping.bacnetObjectId ? (
+                                  <span className="text-sm font-mono text-[var(--color-text)]">
+                                    {mapping.bacnetObjectId}
+                                  </span>
+                                ) : (
+                                  <span className="text-sm text-[var(--color-text-muted)] italic">
+                                    Not assigned
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* Status */}
+                              <td className="py-4 px-4">
+                                <div className="flex items-center gap-2">
+                                  {getStatusIcon(mapping.status)}
+                                  <span className={`text-xs px-2 py-1 rounded capitalize ${getStatusColor(mapping.status)}`}>
+                                    {mapping.status === 'not-assigned' ? 'Not Assigned' : mapping.status}
+                                  </span>
+                                  {mapping.lastConnected && (
+                                    <span className="text-xs text-[var(--color-text-muted)]">
+                                      {formatLastConnected(mapping.lastConnected)}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Connection Details */}
+                              <td className="py-4 px-4">
+                                <p className="text-xs text-[var(--color-text-muted)] max-w-md line-clamp-2">
+                                  {mapping.description}
+                                </p>
+                              </td>
+                            </tr>
+                          )
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="fusion-card overflow-hidden h-full flex flex-col rounded-2xl shadow-[var(--shadow-strong)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] relative">
+                {!mapUploaded ? (
+                  <div className="w-full h-full">
+                    <MapUpload onMapUpload={handleMapUpload} />
+                  </div>
+                ) : (
+                  <div className="w-full h-full rounded-2xl overflow-hidden">
+                    <BACnetZoneCanvas
+                      zones={mapZones}
+                      devices={mapDevices}
+                      mappings={zoneMappings}
+                      mapImageUrl={mapImageUrl}
+                      selectedZoneId={selectedZoneId || selectedMappingId}
+                      onZoneSelect={handleZoneSelect}
+                      devicesData={devices}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

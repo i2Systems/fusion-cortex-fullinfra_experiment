@@ -18,12 +18,7 @@ import {
   AlignLeft, 
   Sparkles, 
   Undo2, 
-  Redo2, 
-  Lock, 
-  Unlock, 
-  Copy, 
-  RotateCcw,
-  Magnet
+  Redo2
 } from 'lucide-react'
 
 export type MapToolMode = 
@@ -31,12 +26,7 @@ export type MapToolMode =
   | 'move' 
   | 'align-grid' 
   | 'align-aisle' 
-  | 'auto-arrange' 
-  | 'lock' 
-  | 'unlock' 
-  | 'copy-position' 
-  | 'reset' 
-  | 'snap-nearest'
+  | 'auto-arrange'
 
 interface MapToolbarProps {
   mode: MapToolMode
@@ -91,41 +81,6 @@ const toolOptions: ToolOption[] = [
     label: 'Auto Arrange',
     icon: Sparkles,
     description: 'Automatically arrange devices by type',
-    isAction: true,
-  },
-  {
-    id: 'snap-nearest',
-    label: 'Snap Nearest',
-    icon: Magnet,
-    description: 'Snap devices to nearest logical position',
-    isAction: true,
-  },
-  {
-    id: 'copy-position',
-    label: 'Copy Position',
-    icon: Copy,
-    description: 'Copy position from selected device',
-    isAction: true,
-  },
-  {
-    id: 'lock',
-    label: 'Lock',
-    icon: Lock,
-    description: 'Lock selected devices',
-    isAction: true,
-  },
-  {
-    id: 'unlock',
-    label: 'Unlock',
-    icon: Unlock,
-    description: 'Unlock selected devices',
-    isAction: true,
-  },
-  {
-    id: 'reset',
-    label: 'Reset',
-    icon: RotateCcw,
-    description: 'Reset devices to original positions',
     isAction: true,
   },
 ]

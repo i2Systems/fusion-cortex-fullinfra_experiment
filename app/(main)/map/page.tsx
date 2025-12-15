@@ -35,7 +35,36 @@ const MapCanvas = dynamic(() => import('@/components/map/MapCanvas').then(mod =>
 })
 
 import { useDevices } from '@/lib/DeviceContext'
+import { useZones } from '@/lib/ZoneContext'
 import { useRole } from '@/lib/role'
+
+// Helper function to check if a point is inside a polygon
+function pointInPolygon(point: { x: number; y: number }, polygon: Array<{ x: number; y: number }>): boolean {
+  let inside = false
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x
+    const yi = polygon[i].y
+    const xj = polygon[j].x
+    const yj = polygon[j].y
+    
+    const intersect = ((yi > point.y) !== (yj > point.y)) &&
+      (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi)
+    if (intersect) inside = !inside
+  }
+  return inside
+}
+
+// Helper to find which zone contains a device
+function findZoneForDevice(device: { x?: number; y?: number }, zones: Array<{ id: string; polygon: Array<{ x: number; y: number }> }>): { id: string; polygon: Array<{ x: number; y: number }> } | null {
+  if (device.x === undefined || device.y === undefined) return null
+  
+  for (const zone of zones) {
+    if (pointInPolygon({ x: device.x, y: device.y }, zone.polygon)) {
+      return zone
+    }
+  }
+  return null
+}
 
 export default function MapPage() {
   const { 
@@ -48,35 +77,92 @@ export default function MapPage() {
     canRedo
   } = useDevices()
   const { role } = useRole()
+  const { zones } = useZones()
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null)
+  const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([])
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null) // Zone to arrange devices into
   const [expandedComponents, setExpandedComponents] = useState<Set<string>>(new Set())
   const [selectedComponent, setSelectedComponent] = useState<Component | null>(null)
   const [componentParentDevice, setComponentParentDevice] = useState<Device | null>(null)
   
-  // Handle device selection with paste position support
+  // Handle device selection
   const handleDeviceSelect = (deviceId: string | null) => {
-    if (deviceId && typeof window !== 'undefined') {
-      const copiedPos = sessionStorage.getItem('copiedDevicePosition')
-      if (copiedPos) {
-        try {
-          const { x: copiedX, y: copiedY } = JSON.parse(copiedPos)
-          const device = devices.find(d => d.id === deviceId)
-          if (device && !device.locked) {
-            // Paste the copied position
-            updateMultipleDevices([{
-              deviceId,
-              updates: { x: copiedX, y: copiedY }
-            }])
-            sessionStorage.removeItem('copiedDevicePosition')
-            setSelectedDevice(deviceId)
-            return
-          }
-        } catch (e) {
-          // Invalid copied position, continue with normal selection
-        }
-      }
-    }
     setSelectedDevice(deviceId)
+    if (deviceId) {
+      setSelectedDeviceIds([deviceId])
+    }
+  }
+  
+  // Handle multi-device selection
+  const handleDevicesSelect = (deviceIds: string[]) => {
+    setSelectedDeviceIds(deviceIds)
+    if (deviceIds.length === 1) {
+      setSelectedDevice(deviceIds[0])
+    } else {
+      setSelectedDevice(null)
+    }
+  }
+  
+  // Handle zone click - set selected zone and auto-arrange selected devices into it
+  const handleZoneClick = (zoneId: string) => {
+    // Set the selected zone
+    setSelectedZoneId(zoneId)
+    
+    // If devices are selected, auto-arrange them into this zone
+    if (selectedDeviceIds.length > 0) {
+      const zone = zones.find(z => z.id === zoneId)
+      if (!zone) return
+      
+      // Get zone bounds from polygon (polygon is in normalized 0-1 coordinates)
+      const zonePoints = zone.polygon
+      const minX = Math.min(...zonePoints.map(p => p.x))
+      const maxX = Math.max(...zonePoints.map(p => p.x))
+      const minY = Math.min(...zonePoints.map(p => p.y))
+      const maxY = Math.max(...zonePoints.map(p => p.y))
+      
+      // Calculate zone dimensions with padding to keep devices inside
+      const padding = 0.02 // 2% padding from zone edges
+      const zoneMinX = minX + padding
+      const zoneMaxX = maxX - padding
+      const zoneMinY = minY + padding
+      const zoneMaxY = maxY - padding
+      
+      const zoneWidth = zoneMaxX - zoneMinX
+      const zoneHeight = zoneMaxY - zoneMinY
+      
+      // Only proceed if zone has valid dimensions
+      if (zoneWidth <= 0 || zoneHeight <= 0) {
+        console.warn('Zone has invalid dimensions for auto-arrange')
+        return
+      }
+      
+      // Calculate grid layout for selected devices within zone bounds
+      const selectedDevices = devices.filter(d => selectedDeviceIds.includes(d.id))
+      const cols = Math.ceil(Math.sqrt(selectedDevices.length))
+      const rows = Math.ceil(selectedDevices.length / cols)
+      
+      // Calculate spacing to fit devices within zone with margins
+      const spacingX = zoneWidth / (cols + 1)
+      const spacingY = zoneHeight / (rows + 1)
+      
+      const updates = selectedDevices.map((device, idx) => {
+        const col = idx % cols
+        const row = Math.floor(idx / cols)
+        // Position devices within zone bounds, starting from zoneMinX/zoneMinY
+        const x = Math.max(zoneMinX, Math.min(zoneMaxX, zoneMinX + spacingX * (col + 1)))
+        const y = Math.max(zoneMinY, Math.min(zoneMaxY, zoneMinY + spacingY * (row + 1)))
+        
+        return {
+          deviceId: device.id,
+          updates: {
+            x: x,
+            y: y
+          }
+        }
+      })
+      
+      updateMultipleDevices(updates)
+    }
   }
   const [mapUploaded, setMapUploaded] = useState(false)
   const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
@@ -122,35 +208,14 @@ export default function MapPage() {
   }
 
   const handleDeviceMove = (deviceId: string, x: number, y: number) => {
-    const device = devices.find(d => d.id === deviceId)
-    // Don't move locked devices
-    if (device?.locked) return
-    updateDevicePosition(deviceId, x, y)
+    // Don't update during drag - only update on drag end to prevent feedback loops
+    // The visual position is handled by Konva's drag system
   }
 
   const handleDeviceMoveEnd = (deviceId: string, x: number, y: number) => {
-    const device = devices.find(d => d.id === deviceId)
-    // Don't save position for locked devices
-    if (device?.locked) return
-    // Check if we should paste copied position
-    if (typeof window !== 'undefined') {
-      const copiedPos = sessionStorage.getItem('copiedDevicePosition')
-      if (copiedPos) {
-        try {
-          const { x: copiedX, y: copiedY } = JSON.parse(copiedPos)
-          // Use copied position instead
-          updateMultipleDevices([{
-            deviceId,
-            updates: { x: copiedX, y: copiedY }
-          }])
-          sessionStorage.removeItem('copiedDevicePosition')
-          return
-        } catch (e) {
-          // Invalid copied position, continue with normal save
-        }
-      }
-    }
-    // Save to history when drag ends
+    // Only allow moving in 'move' mode
+    if (toolMode !== 'move') return
+    // Save final position to history when drag ends
     updateMultipleDevices([{
       deviceId,
       updates: { x, y }
@@ -158,171 +223,120 @@ export default function MapPage() {
   }
 
   const handleToolAction = (action: MapToolMode) => {
-    // Actions that don't require a selected device
-    if (action === 'reset') {
-      // Reset to original positions from mockData
-      import('@/lib/mockData').then(({ mockDevices }) => {
-        const updates = devices.map(d => {
-          const original = mockDevices.find(m => m.id === d.id)
-          return {
-            deviceId: d.id,
-            updates: {
-              x: original?.x || 0,
-              y: original?.y || 0,
-              locked: false // Unlock all when resetting
-            }
-          }
-        })
-        updateMultipleDevices(updates)
-      })
+    // Actions require a selected zone
+    if (!selectedZoneId) {
+      alert('Please select a zone first. Click on a zone to select it, then use the toolbar actions to arrange devices within it.')
+      return
+    }
+    
+    const zone = zones.find(z => z.id === selectedZoneId)
+    if (!zone) {
+      alert('Selected zone not found. Please select a zone again.')
       return
     }
 
-    // Actions that require a selected device
-    if (!selectedDevice) {
-      // Try to find a device from the filtered list
-      if (filteredDevices.length > 0) {
-        setSelectedDevice(filteredDevices[0].id)
-        // Retry the action after a brief delay
-        setTimeout(() => handleToolAction(action), 100)
-        return
-      }
-      alert('Please select a device first. Click on a device on the map or in the device table.')
+    // Actions that require selected devices
+    const devicesToProcess = selectedDeviceIds.length > 0 
+      ? devices.filter(d => selectedDeviceIds.includes(d.id))
+      : selectedDevice 
+        ? [devices.find(d => d.id === selectedDevice)].filter(Boolean) as Device[]
+        : []
+    
+    if (devicesToProcess.length === 0) {
+      alert('Please select one or more devices first. Click on devices on the map or use Shift+drag to select multiple.')
       return
     }
 
-    const device = devices.find(d => d.id === selectedDevice)
-    if (!device) return
+    // Get zone bounds with padding
+    const zonePoints = zone.polygon
+    const minX = Math.min(...zonePoints.map(p => p.x))
+    const maxX = Math.max(...zonePoints.map(p => p.x))
+    const minY = Math.min(...zonePoints.map(p => p.y))
+    const maxY = Math.max(...zonePoints.map(p => p.y))
+    
+    const padding = 0.02 // 2% padding from zone edges
+    const zoneMinX = minX + padding
+    const zoneMaxX = maxX - padding
+    const zoneMinY = minY + padding
+    const zoneMaxY = maxY - padding
+    
+    const zoneWidth = zoneMaxX - zoneMinX
+    const zoneHeight = zoneMaxY - zoneMinY
 
     switch (action) {
       case 'align-grid': {
-        // Don't align locked devices
-        if (device.locked) {
-          alert('Cannot align locked device. Unlock it first.')
-          return
-        }
-        // Snap to 10x10 grid
-        const gridSize = 0.1 // 10% increments
-        const snappedX = Math.round((device.x || 0) / gridSize) * gridSize
-        const snappedY = Math.round((device.y || 0) / gridSize) * gridSize
-        updateMultipleDevices([{
-          deviceId: device.id,
-          updates: { x: snappedX, y: snappedY }
-        }])
-        break
-      }
-      case 'align-aisle': {
-        // Don't align locked devices
-        if (device.locked) {
-          alert('Cannot align locked device. Unlock it first.')
-          return
-        }
-        // Align to nearest horizontal aisle (assuming aisles are horizontal)
-        const snappedY = Math.round((device.y || 0) / 0.1) * 0.1
-        updateMultipleDevices([{
-          deviceId: device.id,
-          updates: { y: snappedY }
-        }])
-        break
-      }
-      case 'auto-arrange': {
-        // Arrange all devices of the same type in a grid (excluding locked devices)
-        const sameTypeDevices = devices.filter(d => d.type === device.type && !d.locked)
-        if (sameTypeDevices.length === 0) {
-          alert('No unlocked devices of this type to arrange.')
-          return
-        }
-        const cols = Math.ceil(Math.sqrt(sameTypeDevices.length))
-        const spacing = 0.1
-        const updates = sameTypeDevices.map((d, idx) => ({
-          deviceId: d.id,
-          updates: {
-            x: (idx % cols) * spacing + 0.1,
-            y: Math.floor(idx / cols) * spacing + 0.1
+        // Snap devices to grid within zone
+        const gridSize = Math.min(zoneWidth / 10, zoneHeight / 10, 0.05) // Adaptive grid size
+        const updates = devicesToProcess.map(d => {
+          // Snap to grid within zone bounds
+          const snappedX = Math.round((d.x || 0) / gridSize) * gridSize
+          const snappedY = Math.round((d.y || 0) / gridSize) * gridSize
+          // Clamp to zone bounds
+          const x = Math.max(zoneMinX, Math.min(zoneMaxX, snappedX))
+          const y = Math.max(zoneMinY, Math.min(zoneMaxY, snappedY))
+          return {
+            deviceId: d.id,
+            updates: { x, y }
           }
-        }))
+        })
         updateMultipleDevices(updates)
         break
       }
-      case 'snap-nearest': {
-        // Don't snap locked devices
-        if (device.locked) {
-          alert('Cannot snap locked device. Unlock it first.')
+      case 'align-aisle': {
+        // Align to nearest horizontal aisle line within zone
+        const aisleSpacing = Math.min(zoneHeight / 10, 0.05) // Adaptive spacing
+        const updates = devicesToProcess.map(d => {
+          const snappedY = Math.round((d.y || 0) / aisleSpacing) * aisleSpacing
+          // Clamp to zone bounds, keep X position
+          const y = Math.max(zoneMinY, Math.min(zoneMaxY, snappedY))
+          const x = Math.max(zoneMinX, Math.min(zoneMaxX, d.x || 0))
+          return {
+            deviceId: d.id,
+            updates: { x, y }
+          }
+        })
+        updateMultipleDevices(updates)
+        break
+      }
+      case 'auto-arrange': {
+        // Arrange devices in a grid pattern within the zone
+        if (devicesToProcess.length === 0) {
+          alert('No devices to arrange.')
           return
         }
-        // Snap to nearest device position (within threshold, excluding locked devices)
-        const threshold = 0.05
-        const deviceX = device.x || 0
-        const deviceY = device.y || 0
-        const nearest = devices
-          .filter(d => d.id !== device.id && d.x !== undefined && d.y !== undefined && !d.locked)
-          .map(d => ({
-            id: d.id,
-            dist: Math.sqrt(Math.pow((d.x || 0) - deviceX, 2) + Math.pow((d.y || 0) - deviceY, 2))
-          }))
-          .sort((a, b) => a.dist - b.dist)[0]
+        const cols = Math.ceil(Math.sqrt(devicesToProcess.length))
+        const rows = Math.ceil(devicesToProcess.length / cols)
         
-        if (nearest && nearest.dist < threshold) {
-          const target = devices.find(d => d.id === nearest.id)
-          if (target && target.x !== undefined && target.y !== undefined) {
-            updateMultipleDevices([{
-              deviceId: device.id,
-              updates: { x: target.x, y: target.y }
-            }])
+        // Calculate spacing to fit devices within zone
+        const spacingX = zoneWidth / (cols + 1)
+        const spacingY = zoneHeight / (rows + 1)
+        
+        const updates = devicesToProcess.map((d, idx) => {
+          const col = idx % cols
+          const row = Math.floor(idx / cols)
+          // Position devices within zone bounds
+          const x = Math.max(zoneMinX, Math.min(zoneMaxX, zoneMinX + spacingX * (col + 1)))
+          const y = Math.max(zoneMinY, Math.min(zoneMaxY, zoneMinY + spacingY * (row + 1)))
+          return {
+            deviceId: d.id,
+            updates: { x, y }
           }
-        } else {
-          alert('No nearby device found within snap threshold.')
-        }
-        break
-      }
-      case 'copy-position': {
-        // Copy position from selected device to clipboard (for pasting later)
-        if (device.x !== undefined && device.y !== undefined) {
-          if (typeof window !== 'undefined') {
-            sessionStorage.setItem('copiedDevicePosition', JSON.stringify({ x: device.x, y: device.y }))
-            // Show a subtle notification instead of alert
-            const notification = document.createElement('div')
-            notification.textContent = `Position copied! Click another device to paste.`
-            notification.style.cssText = `
-              position: fixed;
-              top: 20px;
-              right: 20px;
-              background: var(--color-primary);
-              color: white;
-              padding: 12px 20px;
-              border-radius: 8px;
-              z-index: 10000;
-              box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-              font-size: 14px;
-            `
-            document.body.appendChild(notification)
-            setTimeout(() => {
-              notification.style.opacity = '0'
-              notification.style.transition = 'opacity 0.3s'
-              setTimeout(() => notification.remove(), 300)
-            }, 2000)
-          }
-        }
-        break
-      }
-      case 'lock': {
-        // Lock the selected device
-        updateMultipleDevices([{
-          deviceId: device.id,
-          updates: { locked: true }
-        }])
-        break
-      }
-      case 'unlock': {
-        // Unlock the selected device
-        updateMultipleDevices([{
-          deviceId: device.id,
-          updates: { locked: false }
-        }])
+        })
+        updateMultipleDevices(updates)
         break
       }
     }
   }
+
+  // Prepare zones for map view
+  const mapZones = useMemo(() => {
+    return zones.map(z => ({
+      id: z.id,
+      name: z.name,
+      color: z.color,
+      polygon: z.polygon,
+    }))
+  }, [zones])
 
   // Get unique zones from devices
   const availableZones = useMemo(() => {
@@ -499,8 +513,11 @@ export default function MapPage() {
               <div className="w-full h-full rounded-2xl overflow-hidden">
                 <MapCanvas 
                   onDeviceSelect={handleDeviceSelect}
+                  onDevicesSelect={handleDevicesSelect}
                   selectedDeviceId={selectedDevice}
+                  selectedDeviceIds={selectedDeviceIds}
                   mapImageUrl={filters.showMap ? mapImageUrl : null}
+                  zones={mapZones}
                   highlightDeviceId={selectedDevice}
                   mode={toolMode === 'move' ? 'move' : 'select'}
                   onDeviceMove={handleDeviceMove}
@@ -509,6 +526,7 @@ export default function MapPage() {
                   expandedComponents={expandedComponents}
                   onComponentClick={handleComponentClick as any}
                   devicesData={filteredDevices}
+                  onZoneClick={handleZoneClick}
                   devices={filteredDevices.map(d => ({
                     id: d.id,
                     x: d.x || 0,

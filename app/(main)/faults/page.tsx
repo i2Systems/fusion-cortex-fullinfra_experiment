@@ -10,12 +10,26 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { SearchIsland } from '@/components/layout/SearchIsland'
+import { MapViewToggle, type MapViewMode } from '@/components/shared/MapViewToggle'
+import { MapUpload } from '@/components/map/MapUpload'
 import { FaultList } from '@/components/faults/FaultList'
 import { FaultDetailsPanel } from '@/components/faults/FaultDetailsPanel'
 import { useDevices } from '@/lib/DeviceContext'
+import { useZones } from '@/lib/ZoneContext'
 import { Device } from '@/lib/mockData'
 import { FaultCategory, assignFaultCategory, generateFaultDescription, faultCategories } from '@/lib/faultDefinitions'
+
+// Dynamically import FaultsMapCanvas to avoid SSR issues with Konva
+const FaultsMapCanvas = dynamic(() => import('@/components/faults/FaultsMapCanvas').then(mod => ({ default: mod.FaultsMapCanvas })), {
+  ssr: false,
+  loading: () => (
+    <div className="h-full flex items-center justify-center">
+      <div className="text-[var(--color-text-muted)]">Loading map...</div>
+    </div>
+  ),
+})
 
 interface Fault {
   device: Device
@@ -26,8 +40,29 @@ interface Fault {
 
 export default function FaultsPage() {
   const { devices } = useDevices()
+  const { zones } = useZones()
   const [selectedFaultId, setSelectedFaultId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [viewMode, setViewMode] = useState<MapViewMode>('list')
+  const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
+  const [mapUploaded, setMapUploaded] = useState(false)
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
+
+  // Load saved map image on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedImageUrl = localStorage.getItem('map-image-url')
+      if (savedImageUrl) {
+        setMapImageUrl(savedImageUrl)
+        setMapUploaded(true)
+      }
+    }
+  }, [])
+
+  const handleMapUpload = (imageUrl: string) => {
+    setMapImageUrl(imageUrl)
+    setMapUploaded(true)
+  }
 
   // Check if we should highlight a specific device (from dashboard navigation)
   useEffect(() => {
@@ -38,12 +73,21 @@ export default function FaultsPage() {
         const device = devices.find(d => d.deviceId === highlightDevice)
         if (device) {
           setSelectedFaultId(device.id)
+          setSelectedDeviceId(device.id)
           // Clear the highlight after selecting
           sessionStorage.removeItem('highlightDevice')
         }
       }
     }
   }, [devices])
+
+  // Handle device selection from map
+  const handleDeviceSelect = (deviceId: string | null) => {
+    setSelectedDeviceId(deviceId)
+    if (deviceId) {
+      setSelectedFaultId(deviceId)
+    }
+  }
 
   // Generate faults from devices
   const faults = useMemo<Fault[]>(() => {
@@ -99,6 +143,69 @@ export default function FaultsPage() {
   const selectedFault = useMemo(() => {
     return faults.find(f => f.device.id === selectedFaultId) || null
   }, [faults, selectedFaultId])
+
+  // Filter faults based on selected device
+  const filteredFaults = useMemo(() => {
+    let filtered = faults
+    
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim()
+      filtered = filtered.filter(fault => {
+        const categoryInfo = faultCategories[fault.faultType]
+        return (
+          fault.device.deviceId.toLowerCase().includes(query) ||
+          fault.device.serialNumber.toLowerCase().includes(query) ||
+          (fault.device.location && fault.device.location.toLowerCase().includes(query)) ||
+          (fault.device.zone && fault.device.zone.toLowerCase().includes(query)) ||
+          fault.faultType.toLowerCase().includes(query) ||
+          (categoryInfo && (
+            categoryInfo.label.toLowerCase().includes(query) ||
+            categoryInfo.shortLabel.toLowerCase().includes(query) ||
+            categoryInfo.description.toLowerCase().includes(query)
+          )) ||
+          fault.description.toLowerCase().includes(query)
+        )
+      })
+    }
+    
+    // Apply device filter (only if device is selected)
+    if (selectedDeviceId) {
+      filtered = filtered.filter(fault => fault.device.id === selectedDeviceId)
+    }
+    
+    return filtered
+  }, [faults, searchQuery, selectedDeviceId])
+
+  // Prepare zones for map
+  const mapZones = useMemo(() => {
+    return zones.map(z => ({
+      id: z.id,
+      name: z.name,
+      color: z.color,
+      polygon: z.polygon,
+    }))
+  }, [zones])
+
+  // Prepare devices for map with fault indicators
+  const mapDevices = useMemo(() => {
+    return devices.map(d => {
+      const deviceFaults = faults.filter(f => f.device.id === d.id)
+      return {
+        id: d.id,
+        x: d.x || 0,
+        y: d.y || 0,
+        type: d.type,
+        deviceId: d.deviceId,
+        status: d.status,
+        signal: d.signal,
+        location: d.location,
+        hasFault: deviceFaults.length > 0,
+        faultCount: deviceFaults.length,
+        faultType: deviceFaults[0]?.faultType,
+      }
+    })
+  }, [devices, faults])
 
   // Calculate summary counts by category
   const summary = useMemo(() => {
@@ -189,17 +296,58 @@ export default function FaultsPage() {
         </div>
       </div>
 
-      {/* Main Content: Fault List + Details Panel */}
+      {/* Main Content: Fault List/Map + Details Panel */}
       <div className="main-content-area flex-1 flex min-h-0 gap-4 px-[20px] pt-2 pb-14 overflow-hidden">
-        {/* Fault List - Left Side */}
-        <div className="flex-1 min-w-0">
-          <div className="fusion-card overflow-hidden h-full flex flex-col">
-            <FaultList
-              faults={faults}
-              selectedFaultId={selectedFaultId}
-              onFaultSelect={setSelectedFaultId}
-              searchQuery={searchQuery}
-            />
+        {/* Fault List/Map - Left Side */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          {/* View Toggle */}
+          <div className="mb-3 flex items-center justify-between">
+            <MapViewToggle currentView={viewMode} onViewChange={setViewMode} />
+            {selectedDeviceId && viewMode === 'map' && (
+              <button
+                onClick={() => {
+                  setSelectedDeviceId(null)
+                  setSelectedFaultId(null)
+                }}
+                className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
+              >
+                Clear filter
+              </button>
+            )}
+          </div>
+
+          {/* Content Area */}
+          <div className="flex-1 min-h-0">
+            {viewMode === 'list' ? (
+              <div className="fusion-card overflow-hidden h-full flex flex-col">
+                <FaultList
+                  faults={filteredFaults}
+                  selectedFaultId={selectedFaultId}
+                  onFaultSelect={setSelectedFaultId}
+                  searchQuery={searchQuery}
+                />
+              </div>
+            ) : (
+              <div className="fusion-card overflow-hidden h-full flex flex-col rounded-2xl shadow-[var(--shadow-strong)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] relative">
+                {!mapUploaded ? (
+                  <div className="w-full h-full">
+                    <MapUpload onMapUpload={handleMapUpload} />
+                  </div>
+                ) : (
+                  <div className="w-full h-full rounded-2xl overflow-hidden">
+                    <FaultsMapCanvas
+                      zones={mapZones}
+                      devices={mapDevices}
+                      faults={faults}
+                      mapImageUrl={mapImageUrl}
+                      selectedDeviceId={selectedDeviceId}
+                      onDeviceSelect={handleDeviceSelect}
+                      devicesData={devices}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
