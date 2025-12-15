@@ -108,61 +108,61 @@ export default function MapPage() {
     // Set the selected zone
     setSelectedZoneId(zoneId)
     
-      // If devices are selected, auto-arrange them into this zone
-      if (selectedDeviceIds.length > 0) {
-        const zone = zones.find(z => z.id === zoneId)
-        if (!zone) return
+    // If devices are selected, auto-arrange them into this zone
+    if (selectedDeviceIds.length > 0) {
+      const zone = zones.find(z => z.id === zoneId)
+      if (!zone) return
+      
+      // Get zone bounds from polygon (polygon is in normalized 0-1 coordinates)
+      const zonePoints = zone.polygon
+      const minX = Math.min(...zonePoints.map(p => p.x))
+      const maxX = Math.max(...zonePoints.map(p => p.x))
+      const minY = Math.min(...zonePoints.map(p => p.y))
+      const maxY = Math.max(...zonePoints.map(p => p.y))
+      
+      // Calculate zone dimensions with padding to keep devices inside
+      const padding = 0.02 // 2% padding from zone edges
+      const zoneMinX = minX + padding
+      const zoneMaxX = maxX - padding
+      const zoneMinY = minY + padding
+      const zoneMaxY = maxY - padding
+      
+      const zoneWidth = zoneMaxX - zoneMinX
+      const zoneHeight = zoneMaxY - zoneMinY
+      
+      // Only proceed if zone has valid dimensions
+      if (zoneWidth <= 0 || zoneHeight <= 0) {
+        console.warn('Zone has invalid dimensions for auto-arrange')
+        return
+      }
+      
+      // Calculate grid layout for selected devices within zone bounds
+      const selectedDevices = devices.filter(d => selectedDeviceIds.includes(d.id))
+      const cols = Math.ceil(Math.sqrt(selectedDevices.length))
+      const rows = Math.ceil(selectedDevices.length / cols)
+      
+      // Calculate spacing to fit devices within zone with margins
+      const spacingX = zoneWidth / (cols + 1)
+      const spacingY = zoneHeight / (rows + 1)
+      
+      const updates = selectedDevices.map((device, idx) => {
+        const col = idx % cols
+        const row = Math.floor(idx / cols)
+        // Position devices within zone bounds, starting from zoneMinX/zoneMinY
+        const x = Math.max(zoneMinX, Math.min(zoneMaxX, zoneMinX + spacingX * (col + 1)))
+        const y = Math.max(zoneMinY, Math.min(zoneMaxY, zoneMinY + spacingY * (row + 1)))
         
-        // Get zone bounds from polygon (polygon is in normalized 0-1 coordinates)
-        const zonePoints = zone.polygon
-        const minX = Math.min(...zonePoints.map(p => p.x))
-        const maxX = Math.max(...zonePoints.map(p => p.x))
-        const minY = Math.min(...zonePoints.map(p => p.y))
-        const maxY = Math.max(...zonePoints.map(p => p.y))
-        
-        // Calculate zone dimensions with padding to keep devices inside
-        const padding = 0.02 // 2% padding from zone edges
-        const zoneMinX = minX + padding
-        const zoneMaxX = maxX - padding
-        const zoneMinY = minY + padding
-        const zoneMaxY = maxY - padding
-        
-        const zoneWidth = zoneMaxX - zoneMinX
-        const zoneHeight = zoneMaxY - zoneMinY
-        
-        // Only proceed if zone has valid dimensions
-        if (zoneWidth <= 0 || zoneHeight <= 0) {
-          console.warn('Zone has invalid dimensions for auto-arrange')
-          return
-        }
-        
-        // Calculate grid layout for selected devices within zone bounds
-        const selectedDevices = devices.filter(d => selectedDeviceIds.includes(d.id))
-        const cols = Math.ceil(Math.sqrt(selectedDevices.length))
-        const rows = Math.ceil(selectedDevices.length / cols)
-        
-        // Calculate spacing to fit devices within zone with margins
-        const spacingX = zoneWidth / (cols + 1)
-        const spacingY = zoneHeight / (rows + 1)
-        
-        const updates = selectedDevices.map((device, idx) => {
-          const col = idx % cols
-          const row = Math.floor(idx / cols)
-          // Position devices within zone bounds, starting from zoneMinX/zoneMinY
-          const x = Math.max(zoneMinX, Math.min(zoneMaxX, zoneMinX + spacingX * (col + 1)))
-          const y = Math.max(zoneMinY, Math.min(zoneMaxY, zoneMinY + spacingY * (row + 1)))
-          
-          return {
-            deviceId: device.id,
-            updates: {
-              x: x,
+        return {
+          deviceId: device.id,
+          updates: {
+            x: x,
               y: y,
               zone: zone.name // Update device zone property
-            }
           }
-        })
-        
-        updateMultipleDevices(updates)
+        }
+      })
+      
+      updateMultipleDevices(updates)
         
         // Sync zones after arranging
         setTimeout(() => {
@@ -171,7 +171,7 @@ export default function MapPage() {
             return update ? { ...d, ...update.updates } : d
           }))
         }, 0)
-      }
+    }
   }
   const [mapUploaded, setMapUploaded] = useState(false)
   const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)

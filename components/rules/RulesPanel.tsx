@@ -697,18 +697,18 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
             ) : (
               /* Rule/Override trigger fields */
               <>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-2">
-                    Trigger
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-2">
+                Trigger
                     {selectedRuleType === 'override' && (
                       <span className="ml-2 text-xs text-[var(--color-warning)]">(Overrides typically use BMS trigger)</span>
                     )}
-                  </label>
-                  <select
+              </label>
+              <select
                     value={formData.trigger || (selectedRuleType === 'override' ? 'bms' : 'motion')}
                     onChange={(e) => setFormData({ ...formData, trigger: e.target.value as TriggerType })}
-                    className="w-full px-3 py-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
-                  >
+                className="w-full px-3 py-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
+              >
                     {triggerOptions
                       .filter(option => {
                         // For overrides, prioritize BMS trigger but allow others
@@ -718,63 +718,63 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
                         return true
                       })
                       .map(option => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                  </select>
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
                   {selectedRuleType === 'override' && formData.trigger !== 'bms' && (
                     <p className="mt-1 text-xs text-[var(--color-text-muted)]">
                       Note: Overrides typically use BMS trigger for manual control
                     </p>
                   )}
-                </div>
+            </div>
 
-                {/* Condition Fields */}
+            {/* Condition Fields */}
                 {(formData.trigger === 'no_motion' || formData.trigger === 'schedule') && (
                   <div>
                     <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-2">
                       Duration (minutes)
                     </label>
-                    <input
-                      type="number"
-                      value={formData.condition?.duration || ''}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        condition: { ...formData.condition, duration: parseInt(e.target.value) || undefined }
-                      })}
+                  <input
+                    type="number"
+                    value={formData.condition?.duration || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      condition: { ...formData.condition, duration: parseInt(e.target.value) || undefined }
+                    })}
                       placeholder="Duration"
-                      className="w-full px-3 py-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
-                    />
+                    className="w-full px-3 py-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
+                  />
                   </div>
                 )}
 
                 {formData.trigger === 'daylight' && (
                   <div className="space-y-2">
-                    <div className="flex gap-2">
-                      <select
-                        value={formData.condition?.operator || '>'}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          condition: { ...formData.condition, operator: e.target.value as '>' | '<' | '=' | '>=' }
-                        })}
-                        className="px-3 py-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]"
-                      >
-                        <option value=">">{'>'}</option>
-                        <option value="<">{'<'}</option>
-                        <option value=">=">{'>='}</option>
-                        <option value="=">{'='}</option>
-                      </select>
-                      <input
-                        type="number"
-                        value={formData.condition?.level || ''}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          condition: { ...formData.condition, level: parseInt(e.target.value) || undefined }
-                        })}
-                        placeholder="Level (fc)"
-                        className="flex-1 px-3 py-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
-                      />
+                  <div className="flex gap-2">
+                    <select
+                      value={formData.condition?.operator || '>'}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        condition: { ...formData.condition, operator: e.target.value as '>' | '<' | '=' | '>=' }
+                      })}
+                      className="px-3 py-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]"
+                    >
+                      <option value=">">{'>'}</option>
+                      <option value="<">{'<'}</option>
+                      <option value=">=">{'>='}</option>
+                      <option value="=">{'='}</option>
+                    </select>
+                    <input
+                      type="number"
+                      value={formData.condition?.level || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        condition: { ...formData.condition, level: parseInt(e.target.value) || undefined }
+                      })}
+                      placeholder="Level (fc)"
+                      className="flex-1 px-3 py-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
+                    />
                     </div>
                   </div>
                 )}
@@ -788,29 +788,29 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
               </label>
               <div className="space-y-2">
                 {selectedTargetType === 'zone' ? (
-                  <select
-                    multiple
-                    value={formData.action?.zones || []}
-                    onChange={(e) => {
-                      const selected = Array.from(e.target.selectedOptions, option => option.value)
-                      setFormData({
-                        ...formData,
-                        action: { 
-                          zones: selected,
-                          brightness: formData.action?.brightness,
-                          duration: formData.action?.duration,
-                          returnToBMS: formData.action?.returnToBMS,
-                        }
-                      })
-                    }}
-                    className="w-full px-3 py-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all min-h-[80px]"
-                  >
-                    {zones.map(zone => (
-                      <option key={zone.id} value={zone.name}>
-                        {zone.name}
-                      </option>
-                    ))}
-                  </select>
+                <select
+                  multiple
+                  value={formData.action?.zones || []}
+                  onChange={(e) => {
+                    const selected = Array.from(e.target.selectedOptions, option => option.value)
+                    setFormData({
+                      ...formData,
+                      action: { 
+                        zones: selected,
+                        brightness: formData.action?.brightness,
+                        duration: formData.action?.duration,
+                        returnToBMS: formData.action?.returnToBMS,
+                      }
+                    })
+                  }}
+                  className="w-full px-3 py-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all min-h-[80px]"
+                >
+                  {zones.map(zone => (
+                    <option key={zone.id} value={zone.name}>
+                      {zone.name}
+                    </option>
+                  ))}
+                </select>
                 ) : (
                   <select
                     multiple
@@ -842,7 +842,7 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
                   onChange={(e) => setFormData({
                     ...formData,
                     action: { 
-                      ...formData.action,
+                      ...formData.action, 
                       brightness: parseInt(e.target.value) || undefined 
                     }
                   })}
@@ -852,51 +852,51 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
                   className="w-full px-3 py-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
                 />
                 {selectedRuleType !== 'schedule' && (
+                <input
+                  type="number"
+                  value={formData.action?.duration || ''}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    action: { 
+                      ...formData.action, 
+                      duration: parseInt(e.target.value) || undefined 
+                    }
+                  })}
+                  placeholder="Duration (minutes)"
+                  className="w-full px-3 py-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
+                />
+                )}
+                {selectedRuleType !== 'schedule' && (
+                <label className="flex items-center gap-2 cursor-pointer text-sm text-[var(--color-text)]">
                   <input
-                    type="number"
-                    value={formData.action?.duration || ''}
+                    type="checkbox"
+                    checked={formData.action?.returnToBMS || false}
                     onChange={(e) => setFormData({
                       ...formData,
                       action: { 
-                        ...formData.action,
-                        duration: parseInt(e.target.value) || undefined 
+                        ...formData.action, 
+                        returnToBMS: e.target.checked 
                       }
                     })}
-                    placeholder="Duration (minutes)"
-                    className="w-full px-3 py-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
+                    className="fusion-checkbox"
                   />
-                )}
-                {selectedRuleType !== 'schedule' && (
-                  <label className="flex items-center gap-2 cursor-pointer text-sm text-[var(--color-text)]">
-                    <input
-                      type="checkbox"
-                      checked={formData.action?.returnToBMS || false}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        action: { 
-                          ...formData.action,
-                          returnToBMS: e.target.checked 
-                        }
-                      })}
-                      className="fusion-checkbox"
-                    />
-                    Return to BMS after duration
-                  </label>
+                  Return to BMS after duration
+                </label>
                 )}
               </div>
             </div>
 
             {selectedRuleType !== 'schedule' && (
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="override-bms"
-                  checked={formData.overrideBMS || false}
-                  onChange={(e) => setFormData({ ...formData, overrideBMS: e.target.checked })}
-                  className="fusion-checkbox"
-                />
-                <label htmlFor="override-bms" className="text-sm text-[var(--color-text-muted)] cursor-pointer">
-                  Override BMS when triggered
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="override-bms"
+                checked={formData.overrideBMS || false}
+                onChange={(e) => setFormData({ ...formData, overrideBMS: e.target.checked })}
+                className="fusion-checkbox"
+              />
+              <label htmlFor="override-bms" className="text-sm text-[var(--color-text-muted)] cursor-pointer">
+                Override BMS when triggered
                 </label>
               </div>
             )}
@@ -962,10 +962,10 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
                   </span>
                 </div>
                 {selectedRule.overrideBMS && (
-                  <div className="flex justify-between items-center p-2 rounded-lg bg-[var(--color-surface-subtle)]">
-                    <span className="text-sm text-[var(--color-text-muted)]">Override BMS</span>
+                <div className="flex justify-between items-center p-2 rounded-lg bg-[var(--color-surface-subtle)]">
+                  <span className="text-sm text-[var(--color-text-muted)]">Override BMS</span>
                     <span className="text-sm font-medium text-[var(--color-warning)]">Yes</span>
-                  </div>
+                </div>
                 )}
                 <div className="flex justify-between items-center p-2 rounded-lg bg-[var(--color-surface-subtle)]">
                   <span className="text-sm text-[var(--color-text-muted)]">Last Triggered</span>

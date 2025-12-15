@@ -228,17 +228,17 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect, onCompo
                 )}
                 <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
                   <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Signal</div>
-                  {selectedDevice.signal > 0 ? (
+                    {selectedDevice.signal > 0 ? (
                     <div className={getSignalTokenClass(selectedDevice.signal)}>
                       <Wifi size={10} />
                       <span>{selectedDevice.signal}%</span>
                     </div>
-                  ) : (
+                    ) : (
                     <div className="token token-data">
                       <WifiOff size={10} />
                       <span>—</span>
                     </div>
-                  )}
+                    )}
                 </div>
                 {selectedDevice.battery !== undefined && (
                   <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
@@ -357,17 +357,17 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect, onCompo
                   {getTypeLabel(device.type)}
                 </td>
                 <td className="py-3.5 px-5">
-                  {device.signal > 0 ? (
+                    {device.signal > 0 ? (
                     <div className={getSignalTokenClass(device.signal)}>
                       <Wifi size={16} />
                       <span>{device.signal}%</span>
                     </div>
-                  ) : (
+                    ) : (
                     <div className="token token-data">
                       <WifiOff size={16} />
                       <span>—</span>
                     </div>
-                  )}
+                    )}
                 </td>
                 <td className="py-3.5 px-5">
                   {device.battery !== undefined ? (

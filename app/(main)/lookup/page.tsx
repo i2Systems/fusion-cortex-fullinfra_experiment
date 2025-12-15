@@ -248,10 +248,10 @@ export default function LookupPage() {
 
         {/* Device Profile Panel - Right Side */}
         <div ref={panelRef}>
-          <DeviceProfilePanel 
-            device={selectedDevice} 
-            onComponentClick={handleComponentClick}
-          />
+        <DeviceProfilePanel 
+          device={selectedDevice} 
+          onComponentClick={handleComponentClick}
+        />
         </div>
       </div>
 

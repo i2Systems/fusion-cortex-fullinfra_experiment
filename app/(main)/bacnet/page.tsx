@@ -621,7 +621,7 @@ export default function BACnetPage() {
                               <td className="py-4 px-4">
                                 <div className="flex items-center gap-2">
                                   <span className={getStatusTokenClass(mapping.status)}>
-                                    {getStatusIcon(mapping.status)}
+                                  {getStatusIcon(mapping.status)}
                                     <span className="capitalize">{mapping.status === 'not-assigned' ? 'Not Assigned' : mapping.status}</span>
                                   </span>
                                   {mapping.lastConnected && (
@@ -672,13 +672,13 @@ export default function BACnetPage() {
 
         {/* Details Panel - Right Side */}
         <div ref={panelRef}>
-          <BACnetDetailsPanel
-            mapping={selectedMapping}
-            onEdit={handleEditSave}
-            onDelete={handleDelete}
-            onTestConnection={handleTestConnection}
-            onAdd={handleAddNew}
-          />
+        <BACnetDetailsPanel
+          mapping={selectedMapping}
+          onEdit={handleEditSave}
+          onDelete={handleDelete}
+          onTestConnection={handleTestConnection}
+          onAdd={handleAddNew}
+        />
         </div>
       </div>
     </div>

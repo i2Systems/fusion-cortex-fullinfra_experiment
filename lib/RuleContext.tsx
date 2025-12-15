@@ -32,7 +32,7 @@ export function RuleProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem('fusion_rules')
       
       // Initialize with mock rules (includes new overrides and schedules)
-      setRules(mockRules)
+        setRules(mockRules)
     } else {
       // Server-side: initialize with empty array, will be set on client
       setRules([])

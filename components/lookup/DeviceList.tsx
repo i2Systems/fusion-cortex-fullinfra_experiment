@@ -221,17 +221,17 @@ export function DeviceList({ devices, selectedDeviceId, onDeviceSelect, searchQu
                     {getTypeLabel(device.type)}
                   </td>
                   <td className="py-3 px-4">
-                    {device.signal > 0 ? (
+                      {device.signal > 0 ? (
                       <div className={getSignalTokenClass(device.signal)}>
                         <Wifi size={16} />
                         <span>{device.signal}%</span>
                       </div>
-                    ) : (
+                      ) : (
                       <div className="token token-data">
                         <WifiOff size={16} />
                         <span>—</span>
                       </div>
-                    )}
+                      )}
                   </td>
                   <td className="py-3 px-4">
                     {device.battery !== undefined ? (

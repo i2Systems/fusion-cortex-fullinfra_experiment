@@ -268,14 +268,14 @@ export function BACnetDetailsPanel({
           <h4 className="text-sm font-semibold text-[var(--color-text)] mb-3">Connection Status</h4>
           <div className="p-3 rounded-lg border border-[var(--color-border-subtle)]">
             <div className={getStatusTokenClass(mapping.status)}>
-              {getStatusIcon(mapping.status)}
+            {getStatusIcon(mapping.status)}
               <span className="font-medium capitalize">{mapping.status === 'not-assigned' ? 'Not Assigned' : mapping.status}</span>
             </div>
-            {mapping.lastConnected && (
+              {mapping.lastConnected && (
               <div className="text-xs opacity-80 mt-2 text-[var(--color-text-muted)]">
-                Last connected: {formatLastConnected(mapping.lastConnected)}
-              </div>
-            )}
+                  Last connected: {formatLastConnected(mapping.lastConnected)}
+                </div>
+              )}
           </div>
         </div>
 

@@ -285,14 +285,14 @@ export default function RulesPage() {
                 </button>
               </div>
               
-              {selectedZoneName && viewMode === 'map' && (
-                <button
-                  onClick={() => setSelectedZoneName(null)}
-                  className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
-                >
-                  Clear filter
-                </button>
-              )}
+            {selectedZoneName && viewMode === 'map' && (
+              <button
+                onClick={() => setSelectedZoneName(null)}
+                className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
+              >
+                Clear filter
+              </button>
+            )}
             </div>
           </div>
 
@@ -333,12 +333,12 @@ export default function RulesPage() {
 
         {/* Rules Panel - Right Side */}
         <div ref={panelRef}>
-          <RulesPanel
-            selectedRule={selectedRule}
-            onSave={handleSave}
-            onCancel={handleCancel}
-            onDelete={handleDelete}
-          />
+        <RulesPanel
+          selectedRule={selectedRule}
+          onSave={handleSave}
+          onCancel={handleCancel}
+          onDelete={handleDelete}
+        />
         </div>
       </div>
     </div>

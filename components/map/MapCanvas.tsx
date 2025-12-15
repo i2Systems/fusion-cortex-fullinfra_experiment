@@ -278,29 +278,25 @@ export function MapCanvas({
     }
   }, [])
 
-  // Pan to highlighted device when selected from table - optimized for performance
+  // Removed auto-centering on device selection - it was distracting
+  // Map now stays in place when selecting devices
+
+  // Escape key to deselect
   useEffect(() => {
-    if (highlightDeviceId && devices.length > 0) {
-      const device = devices.find(d => d.id === highlightDeviceId)
-      if (device) {
-        // Calculate device position in canvas coordinates
-        const deviceX = device.x * dimensions.width
-        const deviceY = device.y * dimensions.height
-        
-        // Center the device in the viewport
-        const centerX = dimensions.width / 2
-        const centerY = dimensions.height / 2
-        
-        // Calculate target position
-        const targetX = centerX - deviceX
-        const targetY = centerY - deviceY
-        
-        // Direct update for instant response, no animation to avoid stutter
-        setStagePosition({ x: targetX, y: targetY })
-        setScale(1) // Keep scale at 1 for performance
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && mode === 'select') {
+        onDevicesSelect?.([])
+        onDeviceSelect?.(null)
+        setDraggedDevice(null)
+        setIsSelecting(false)
+        setSelectionStart(null)
+        setSelectionEnd(null)
       }
     }
-  }, [highlightDeviceId, devices, dimensions])
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [mode, onDeviceSelect, onDevicesSelect])
 
   // Devices come from props now, no need for local device array
 
@@ -328,6 +324,32 @@ export function MapCanvas({
         scaleX={scale}
         scaleY={scale}
         draggable={mode === 'select' && !isSelecting && !isShiftHeld && draggedDevice === null} // Disable stage dragging when Shift is held or selecting
+        onDblClick={(e) => {
+          // Double-click on background, map image, or zones to deselect all devices
+          const stage = e.target.getStage()
+          if (!stage) return
+          
+          const target = e.target
+          const targetType = target.getType?.() || ''
+          
+          // Check if clicked on empty stage, layer, map image (Image), or zone (Line/Group)
+          // But NOT on a device (Circle or Group containing device elements)
+          const isDevice = targetType === 'Circle' || targetType === 'Rect'
+          const clickedOnMap = target === stage || 
+                              target === stage.findOne('Layer') ||
+                              targetType === 'Image' || // Map image
+                              targetType === 'Line' || // Zone boundaries
+                              (targetType === 'Group' && !isDevice) // Zone groups or map image group
+          
+          if (clickedOnMap && mode === 'select') {
+            onDevicesSelect?.([])
+            onDeviceSelect?.(null)
+            setDraggedDevice(null)
+            setIsSelecting(false)
+            setSelectionStart(null)
+            setSelectionEnd(null)
+          }
+        }}
         onMouseDown={(e) => {
           if (mode === 'select' && e.evt.button === 0 && !draggedDevice) {
             const stage = e.target.getStage()
@@ -504,11 +526,26 @@ export function MapCanvas({
         <Layer>
           {/* Floor Plan Background */}
           {mapImageUrl && (
-            <FloorPlanImage 
-              url={mapImageUrl} 
-              width={dimensions.width} 
-              height={dimensions.height}
-            />
+            <Group
+              onDblClick={(e) => {
+                // Double-click on map image to deselect
+                if (mode === 'select') {
+                  e.cancelBubble = true
+                  onDevicesSelect?.([])
+                  onDeviceSelect?.(null)
+                  setDraggedDevice(null)
+                  setIsSelecting(false)
+                  setSelectionStart(null)
+                  setSelectionEnd(null)
+                }
+              }}
+            >
+              <FloorPlanImage 
+                url={mapImageUrl} 
+                width={dimensions.width} 
+                height={dimensions.height}
+              />
+            </Group>
           )}
           
           {/* Zones Background - rendered before devices so they appear behind */}
@@ -532,6 +569,18 @@ export function MapCanvas({
                 onTap={() => {
                   if (onZoneClick && mode === 'select') {
                     onZoneClick(zone.id)
+                  }
+                }}
+                onDblClick={(e) => {
+                  // Double-click on zone to deselect
+                  if (mode === 'select') {
+                    e.cancelBubble = true
+                    onDevicesSelect?.([])
+                    onDeviceSelect?.(null)
+                    setDraggedDevice(null)
+                    setIsSelecting(false)
+                    setSelectionStart(null)
+                    setSelectionEnd(null)
                   }
                 }}
                 onMouseEnter={() => {
@@ -675,13 +724,13 @@ export function MapCanvas({
                                 const newSelection = [...selectedDeviceIds, device.id]
                                 onDevicesSelect?.(newSelection)
                                 if (newSelection.length === 1) {
-                                  onDeviceSelect?.(device.id)
+                            onDeviceSelect?.(device.id)
                                 }
                               }
                             } else {
                               // Single select
                               onDevicesSelect?.([device.id])
-                              onDeviceSelect?.(device.id)
+                            onDeviceSelect?.(device.id)
                             }
                           }
                         }}
@@ -762,15 +811,15 @@ export function MapCanvas({
                 {device.type !== 'fixture' && (
                   <>
                     {/* Large invisible hit area for easier clicking */}
-                    <Circle
-                      x={0}
-                      y={0}
+                  <Circle
+                    x={0}
+                    y={0}
                       radius={isSelected ? 20 : (isHovered ? 18 : 16)} // Much larger than visual circle
                       fill="transparent"
                       opacity={0}
                       onClick={(e) => {
                         e.cancelBubble = true
-                        if (mode === 'select') {
+                      if (mode === 'select') {
                           if (e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey) {
                             // Toggle selection
                             if (selectedDeviceIds.includes(device.id)) {
@@ -785,8 +834,8 @@ export function MapCanvas({
                               const newSelection = [...selectedDeviceIds, device.id]
                               onDevicesSelect?.(newSelection)
                               if (newSelection.length === 1) {
-                                onDeviceSelect?.(device.id)
-                              }
+                        onDeviceSelect?.(device.id)
+                      }
                             }
                           } else {
                             // Single select
@@ -794,47 +843,47 @@ export function MapCanvas({
                             onDeviceSelect?.(device.id)
                           }
                         }
-                      }}
+                    }}
                       onTap={(e) => {
                         e.cancelBubble = true
-                        if (mode === 'select') {
+                      if (mode === 'select') {
                           // For tap events, we don't have modifier keys, so just single select
                           onDevicesSelect?.([device.id])
-                          onDeviceSelect?.(device.id)
+                        onDeviceSelect?.(device.id)
+                      }
+                    }}
+                    onMouseEnter={(e) => {
+                      const container = e.target.getStage()?.container()
+                      if (container) {
+                        if (device.locked) {
+                          container.style.cursor = 'not-allowed'
+                        } else {
+                          container.style.cursor = mode === 'move' ? 'grab' : 'pointer'
                         }
-                      }}
-                      onMouseEnter={(e) => {
-                        const container = e.target.getStage()?.container()
-                        if (container) {
-                          if (device.locked) {
-                            container.style.cursor = 'not-allowed'
-                          } else {
-                            container.style.cursor = mode === 'move' ? 'grab' : 'pointer'
-                          }
+                      }
+                      setHoveredDevice(device)
+                      // Get mouse position relative to stage
+                      const stage = e.target.getStage()
+                      if (stage) {
+                        const pointerPos = stage.getPointerPosition()
+                        if (pointerPos) {
+                          setTooltipPosition({ x: pointerPos.x, y: pointerPos.y })
                         }
-                        setHoveredDevice(device)
-                        // Get mouse position relative to stage
-                        const stage = e.target.getStage()
-                        if (stage) {
-                          const pointerPos = stage.getPointerPosition()
-                          if (pointerPos) {
-                            setTooltipPosition({ x: pointerPos.x, y: pointerPos.y })
-                          }
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredDevice(null)
+                    }}
+                    onMouseMove={(e) => {
+                      const stage = e.target.getStage()
+                      if (stage) {
+                        const pointerPos = stage.getPointerPosition()
+                        if (pointerPos) {
+                          setTooltipPosition({ x: pointerPos.x, y: pointerPos.y })
                         }
-                      }}
-                      onMouseLeave={() => {
-                        setHoveredDevice(null)
-                      }}
-                      onMouseMove={(e) => {
-                        const stage = e.target.getStage()
-                        if (stage) {
-                          const pointerPos = stage.getPointerPosition()
-                          if (pointerPos) {
-                            setTooltipPosition({ x: pointerPos.x, y: pointerPos.y })
-                          }
-                        }
-                      }}
-                    />
+                      }
+                    }}
+                  />
                     {/* Visual circle - no interaction */}
                     <Circle
                       x={0}

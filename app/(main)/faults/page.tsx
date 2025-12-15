@@ -20,6 +20,7 @@ import { useDevices } from '@/lib/DeviceContext'
 import { useZones } from '@/lib/ZoneContext'
 import { Device } from '@/lib/mockData'
 import { FaultCategory, assignFaultCategory, generateFaultDescription, faultCategories } from '@/lib/faultDefinitions'
+import { Droplets, Zap, Thermometer, Plug, Settings, Package, Wrench, Lightbulb } from 'lucide-react'
 
 // Dynamically import FaultsMapCanvas to avoid SSR issues with Konva
 const FaultsMapCanvas = dynamic(() => import('@/components/faults/FaultsMapCanvas').then(mod => ({ default: mod.FaultsMapCanvas })), {
@@ -47,6 +48,16 @@ export default function FaultsPage() {
   const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
   const [mapUploaded, setMapUploaded] = useState(false)
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
+  const [showCategories, setShowCategories] = useState<Record<FaultCategory, boolean>>({
+    'environmental-ingress': true,
+    'electrical-driver': true,
+    'thermal-overheat': true,
+    'installation-wiring': true,
+    'control-integration': true,
+    'manufacturing-defect': true,
+    'mechanical-structural': true,
+    'optical-output': true,
+  })
   const listContainerRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -91,23 +102,62 @@ export default function FaultsPage() {
     }
   }
 
-  // Generate faults from devices
+  // Generate faults from devices - ensure at least one of each category
   const faults = useMemo<Fault[]>(() => {
     const faultList: Fault[] = []
+    const categoryMap: Record<string, FaultCategory> = {
+      'device-fault-grocery-001': 'environmental-ingress',
+      'device-fault-electronics-001': 'electrical-driver',
+      'device-fault-apparel-001': 'thermal-overheat',
+      'device-fault-home-001': 'installation-wiring',
+      'device-fault-electronics-002': 'control-integration',
+      'device-fault-toys-001': 'manufacturing-defect',
+      'device-fault-apparel-002': 'mechanical-structural',
+      'device-fault-grocery-002': 'optical-output',
+    }
+    
+    const detectedTimes: Record<string, number> = {
+      'device-fault-grocery-001': 45, // 45 minutes ago
+      'device-fault-electronics-001': 2 * 60, // 2 hours ago
+      'device-fault-apparel-001': 4 * 60, // 4 hours ago
+      'device-fault-home-001': 6 * 60, // 6 hours ago
+      'device-fault-electronics-002': 8 * 60, // 8 hours ago
+      'device-fault-toys-001': 12 * 60, // 12 hours ago
+      'device-fault-apparel-002': 18 * 60, // 18 hours ago
+      'device-fault-grocery-002': 24 * 60, // 24 hours ago
+    }
 
     devices.forEach(device => {
+      // Check if this is a specific fault device with assigned category
+      const assignedCategory = categoryMap[device.id]
+      
+      if (assignedCategory) {
+        // Use specific fault descriptions for these devices
+        const descriptions: Record<string, string> = {
+          'device-fault-grocery-001': 'Water intrusion detected in fixture housing. Device FLX-3158 shows signs of moisture damage. Inspect seals and gaskets. This is a repeat failure pattern in this location.',
+          'device-fault-electronics-001': 'Legacy 6043 driver burnout - no power output. Device FLX-2041 requires driver replacement. Check warranty status. Driver not responding to power-on sequence.',
+          'device-fault-apparel-001': 'Input cable melting detected due to excessive current. Device FLX-2125 shows thermal stress. Review power distribution. Thermal protection activated.',
+          'device-fault-home-001': 'Power landed on dim line instead of power line. Device FLX-2063 miswired during installation. Verify wiring diagram. Installation error causing device malfunction.',
+          'device-fault-electronics-002': 'GRX-TVI trim level issues causing incorrect dimming. Device FLX-2088 not responding to control signals. Check control module. Control signal not recognized by device.',
+          'device-fault-toys-001': 'Loose internal parts causing intermittent connection. Device FLX-2078 shows manufacturing defect. Document and contact manufacturer. Defect present from initial installation.',
+          'device-fault-apparel-002': 'Bezel detaching from fixture housing. Device FLX-2092 has structural mounting issue. Inspect bracket geometry. Hardware issue preventing proper operation.',
+          'device-fault-grocery-002': 'Single LED out in fixture array. Device FLX-2105 shows optical output abnormality. Check LED module connections. Visible output abnormality detected.',
+        }
+        
+        faultList.push({
+          device,
+          faultType: assignedCategory,
+          detectedAt: new Date(Date.now() - 1000 * 60 * (detectedTimes[device.id] || 60)),
+          description: descriptions[device.id] || generateFaultDescription(assignedCategory, device.deviceId),
+        })
+      }
       // Missing devices - assign realistic fault category
-      if (device.status === 'missing') {
-        // Ensure the story device (FLX-3158) always gets environmental-ingress for consistency
-        const faultCategory = device.id === 'device-fault-grocery-001' 
-          ? 'environmental-ingress' 
-          : assignFaultCategory(device)
+      else if (device.status === 'missing') {
+        const faultCategory = assignFaultCategory(device)
         faultList.push({
           device,
           faultType: faultCategory,
-          detectedAt: device.id === 'device-fault-grocery-001'
-            ? new Date(Date.now() - 1000 * 60 * 45) // 45 minutes ago for story consistency
-            : new Date(Date.now() - 1000 * 60 * 60 * (Math.floor(Math.random() * 24) + 1)),
+          detectedAt: new Date(Date.now() - 1000 * 60 * 60 * (Math.floor(Math.random() * 24) + 1)),
           description: generateFaultDescription(faultCategory, device.deviceId),
         })
       }
@@ -122,7 +172,7 @@ export default function FaultsPage() {
         })
       }
       // Low battery devices - still track separately but can also have other issues
-      if (device.battery !== undefined && device.battery < 20) {
+      if (device.battery !== undefined && device.battery < 20 && !assignedCategory) {
         // Low battery can be a symptom, but also create a separate entry
         const faultCategory = device.status === 'offline' || device.status === 'missing' 
           ? assignFaultCategory(device)
@@ -146,9 +196,14 @@ export default function FaultsPage() {
     return faults.find(f => f.device.id === selectedFaultId) || null
   }, [faults, selectedFaultId])
 
-  // Filter faults based on selected device
+  // Filter faults based on selected device, search, and category filters
   const filteredFaults = useMemo(() => {
     let filtered = faults
+    
+    // Apply category filters
+    filtered = filtered.filter(fault => {
+      return showCategories[fault.faultType] !== false
+    })
     
     // Apply search filter
     if (searchQuery.trim()) {
@@ -177,7 +232,7 @@ export default function FaultsPage() {
     }
     
     return filtered
-  }, [faults, searchQuery, selectedDeviceId])
+  }, [faults, searchQuery, selectedDeviceId, showCategories])
 
   // Prepare zones for map
   const mapZones = useMemo(() => {
@@ -323,20 +378,68 @@ export default function FaultsPage() {
           ref={listContainerRef}
           className="flex-1 min-w-0 flex flex-col"
         >
-          {/* View Toggle */}
-          <div className="mb-3 flex items-center justify-between">
+          {/* View Toggle and Category Filters */}
+          <div className="mb-3 flex items-center justify-between gap-3">
+            {/* Left side: View Toggle */}
             <MapViewToggle currentView={viewMode} onViewChange={setViewMode} />
-            {selectedDeviceId && viewMode === 'map' && (
-              <button
-                onClick={() => {
-                  setSelectedDeviceId(null)
-                  setSelectedFaultId(null)
-                }}
-                className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
-              >
-                Clear filter
-              </button>
-            )}
+            
+            {/* Right side: Category Filter Toggles */}
+            <div className="flex items-center gap-3">
+              {selectedDeviceId && viewMode === 'map' && (
+                <button
+                  onClick={() => {
+                    setSelectedDeviceId(null)
+                    setSelectedFaultId(null)
+                  }}
+                  className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
+                >
+                  Clear filter
+                </button>
+              )}
+              
+              {/* Category Filter Toggles - only show in list view */}
+              {viewMode === 'list' && (
+                <div className="flex items-center gap-1 p-0.5 bg-[var(--color-surface-subtle)] rounded-lg border border-[var(--color-border-subtle)]">
+                  {(Object.keys(faultCategories) as FaultCategory[]).map((category) => {
+                    const categoryInfo = faultCategories[category]
+                    const isActive = showCategories[category]
+                    
+                    // Get icon component
+                    const getIcon = () => {
+                      switch (category) {
+                        case 'environmental-ingress': return <Droplets size={14} />
+                        case 'electrical-driver': return <Zap size={14} />
+                        case 'thermal-overheat': return <Thermometer size={14} />
+                        case 'installation-wiring': return <Plug size={14} />
+                        case 'control-integration': return <Settings size={14} />
+                        case 'manufacturing-defect': return <Package size={14} />
+                        case 'mechanical-structural': return <Wrench size={14} />
+                        case 'optical-output': return <Lightbulb size={14} />
+                        default: return null
+                      }
+                    }
+                    
+                    return (
+                      <button
+                        key={category}
+                        onClick={() => setShowCategories(prev => ({ ...prev, [category]: !prev[category] }))}
+                        className={`
+                          p-1.5 rounded-md transition-all duration-200
+                          ${
+                            isActive
+                              ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)] shadow-[var(--shadow-soft)]'
+                              : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]'
+                          }
+                        `}
+                        title={categoryInfo.shortLabel}
+                      >
+                        {getIcon()}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Content Area */}
@@ -376,7 +479,7 @@ export default function FaultsPage() {
 
         {/* Fault Details Panel - Right Side */}
         <div ref={panelRef}>
-          <FaultDetailsPanel fault={selectedFault} />
+        <FaultDetailsPanel fault={selectedFault} />
         </div>
       </div>
     </div>

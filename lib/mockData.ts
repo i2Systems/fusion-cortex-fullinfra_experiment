@@ -347,30 +347,141 @@ function generateDevices(): Device[] {
     })
   }
 
-  // Add a specific device with environmental ingress fault for story consistency
-  // This device appears across dashboard, map, zones, and faults pages
-  const faultDeviceSerial = 'SN-2024-3158-F3'
-  const faultDeviceId = 'device-fault-grocery-001'
-  const faultBuildDate = new Date(2023, 5, 15)
-  const faultWarrantyExpiry = new Date(faultBuildDate)
-  faultWarrantyExpiry.setFullYear(faultWarrantyExpiry.getFullYear() + 5)
+  // Add specific devices with each fault category type for comprehensive fault coverage
+  // These devices appear across dashboard, map, zones, and faults pages
+  const faultDevices: Device[] = [
+    // Environmental Ingress - Grocery area (existing story device)
+    {
+      id: 'device-fault-grocery-001',
+      deviceId: 'FLX-3158',
+      serialNumber: 'SN-2024-3158-F3',
+      type: 'fixture',
+      signal: 12, // Low signal due to water damage
+      status: 'missing',
+      location: 'Grocery - Aisle 5',
+      zone: 'Zone 7 - Grocery',
+      x: 0.72,
+      y: 0.35,
+      components: generateComponentsForFixture('device-fault-grocery-001', 'SN-2024-3158-F3'),
+      warrantyStatus: 'Active',
+      warrantyExpiry: new Date(2028, 5, 15),
+    },
+    // Electrical Driver - Electronics section
+    {
+      id: 'device-fault-electronics-001',
+      deviceId: 'FLX-2041',
+      serialNumber: 'SN-2024-2041-F2',
+      type: 'fixture',
+      signal: 8, // Very low signal - driver burnout
+      status: 'offline',
+      location: 'Electronics Center',
+      zone: 'Electronics & Technology',
+      x: 0.50,
+      y: 0.15,
+      components: generateComponentsForFixture('device-fault-electronics-001', 'SN-2024-2041-F2'),
+      warrantyStatus: 'Active',
+      warrantyExpiry: new Date(2027, 2, 10),
+    },
+    // Thermal Overheat - Apparel section
+    {
+      id: 'device-fault-apparel-001',
+      deviceId: 'FLX-2125',
+      serialNumber: 'SN-2024-2125-F5',
+      type: 'fixture',
+      signal: 15, // Low signal due to thermal stress
+      status: 'offline',
+      location: 'Apparel Center',
+      zone: 'Apparel & Clothing',
+      x: 0.19,
+      y: 0.55,
+      components: generateComponentsForFixture('device-fault-apparel-001', 'SN-2024-2125-F5'),
+      warrantyStatus: 'Active',
+      warrantyExpiry: new Date(2026, 8, 22),
+    },
+    // Installation Wiring - Home section
+    {
+      id: 'device-fault-home-001',
+      deviceId: 'FLX-2063',
+      serialNumber: 'SN-2024-2063-F1',
+      type: 'fixture',
+      signal: 22, // Moderate signal but miswired
+      status: 'offline',
+      location: 'Home Center',
+      zone: 'Home & Garden',
+      x: 0.35,
+      y: 0.275,
+      components: generateComponentsForFixture('device-fault-home-001', 'SN-2024-2063-F1'),
+      warrantyStatus: 'Active',
+      warrantyExpiry: new Date(2029, 1, 5),
+    },
+    // Control Integration - Electronics section
+    {
+      id: 'device-fault-electronics-002',
+      deviceId: 'FLX-2088',
+      serialNumber: 'SN-2024-2088-F4',
+      type: 'fixture',
+      signal: 35, // Good signal but control issue
+      status: 'offline',
+      location: 'Electronics Top',
+      zone: 'Electronics & Technology',
+      x: 0.50,
+      y: 0.125,
+      components: generateComponentsForFixture('device-fault-electronics-002', 'SN-2024-2088-F4'),
+      warrantyStatus: 'Active',
+      warrantyExpiry: new Date(2027, 11, 18),
+    },
+    // Manufacturing Defect - Toys section
+    {
+      id: 'device-fault-toys-001',
+      deviceId: 'FLX-2078',
+      serialNumber: 'SN-2024-2078-F6',
+      type: 'fixture',
+      signal: 0, // No signal - out of box defect
+      status: 'missing',
+      location: 'Toys Center',
+      zone: 'Toys & Sporting Goods',
+      x: 0.45,
+      y: 0.60,
+      components: generateComponentsForFixture('device-fault-toys-001', 'SN-2024-2078-F6'),
+      warrantyStatus: 'Active',
+      warrantyExpiry: new Date(2029, 3, 12),
+    },
+    // Mechanical Structural - Apparel section
+    {
+      id: 'device-fault-apparel-002',
+      deviceId: 'FLX-2092',
+      serialNumber: 'SN-2024-2092-F7',
+      type: 'fixture',
+      signal: 28, // Signal OK but structural issue
+      status: 'offline',
+      location: 'Apparel Top',
+      zone: 'Apparel & Clothing',
+      x: 0.19,
+      y: 0.325,
+      components: generateComponentsForFixture('device-fault-apparel-002', 'SN-2024-2092-F7'),
+      warrantyStatus: 'Active',
+      warrantyExpiry: new Date(2028, 6, 30),
+    },
+    // Optical Output - Grocery section
+    {
+      id: 'device-fault-grocery-002',
+      deviceId: 'FLX-2105',
+      serialNumber: 'SN-2024-2105-F8',
+      type: 'fixture',
+      signal: 42, // Good signal but optical issue
+      status: 'online', // Online but with optical fault
+      location: 'Grocery - Aisle 3',
+      zone: 'Zone 7 - Grocery',
+      x: 0.68,
+      y: 0.25,
+      battery: 15, // Low battery indicating power issue
+      components: generateComponentsForFixture('device-fault-grocery-002', 'SN-2024-2105-F8'),
+      warrantyStatus: 'Active',
+      warrantyExpiry: new Date(2027, 4, 20),
+    },
+  ]
   
-  const faultDevice: Device = {
-    id: faultDeviceId,
-    deviceId: 'FLX-3158',
-    serialNumber: faultDeviceSerial,
-    type: 'fixture',
-    signal: 12, // Low signal due to water damage
-    status: 'missing', // Missing due to environmental ingress failure
-    location: 'Grocery - Aisle 5',
-    zone: 'Zone 7 - Grocery',
-    x: 0.72, // Position in Zone 7 - Grocery area
-    y: 0.35,
-    components: generateComponentsForFixture(faultDeviceId, faultDeviceSerial),
-    warrantyStatus: faultWarrantyExpiry > new Date() ? 'Active' : 'Expired',
-    warrantyExpiry: faultWarrantyExpiry,
-  }
-  devices.push(faultDevice)
+  devices.push(...faultDevices)
 
   return devices
 }

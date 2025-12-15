@@ -226,8 +226,8 @@ export function RulesList({ rules, selectedRuleId, onRuleSelect, searchQuery = '
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <h4 className="font-semibold text-sm text-[var(--color-text)]">
-                            {rule.name}
-                          </h4>
+                          {rule.name}
+                        </h4>
                           <span className={`token ${
                             rule.ruleType === 'override'
                               ? 'token-type-override'
