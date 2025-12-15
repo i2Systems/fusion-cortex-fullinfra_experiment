@@ -165,13 +165,6 @@ export function RulesList({ rules, selectedRuleId, onRuleSelect, searchQuery = '
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="p-4 border-b border-[var(--color-border-subtle)]">
-        <h3 className="text-lg font-semibold text-[var(--color-text)]">
-          Rules
-        </h3>
-      </div>
-
       {/* Rules List */}
       <div 
         className="flex-1 overflow-auto pb-2"
@@ -235,7 +228,13 @@ export function RulesList({ rules, selectedRuleId, onRuleSelect, searchQuery = '
                           <h4 className="font-semibold text-sm text-[var(--color-text)]">
                             {rule.name}
                           </h4>
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-[var(--color-surface)] text-[var(--color-text-muted)]">
+                          <span className={`token ${
+                            rule.ruleType === 'override'
+                              ? 'token-type-override'
+                              : rule.ruleType === 'schedule'
+                              ? 'token-type-schedule'
+                              : 'token-type-rule'
+                          }`}>
                             {rule.ruleType === 'schedule' ? 'Schedule' : rule.ruleType === 'override' ? 'Override' : 'Rule'}
                           </span>
                         </div>
@@ -249,12 +248,12 @@ export function RulesList({ rules, selectedRuleId, onRuleSelect, searchQuery = '
                     </div>
                     <div className="flex flex-col items-end gap-2 flex-shrink-0 ml-3">
                       {rule.enabled ? (
-                        <span className="text-xs px-2 py-1 rounded bg-[var(--color-success)]/20 text-[var(--color-success)] flex items-center gap-1">
+                        <span className="token token-status-active">
                           <CheckCircle2 size={12} />
                           Active
                         </span>
                       ) : (
-                        <span className="text-xs px-2 py-1 rounded bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)] flex items-center gap-1">
+                        <span className="token token-status-disabled">
                           <XCircle size={12} />
                           Disabled
                         </span>

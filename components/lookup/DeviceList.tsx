@@ -65,19 +65,25 @@ export function DeviceList({ devices, selectedDeviceId, onDeviceSelect, searchQu
     }
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusTokenClass = (status: string) => {
     switch (status) {
-      case 'online': return 'text-[var(--color-success)]'
-      case 'offline': return 'text-[var(--color-warning)]'
-      case 'missing': return 'text-[var(--color-danger)]'
-      default: return 'text-[var(--color-text-muted)]'
+      case 'online': return 'token token-status-online'
+      case 'offline': return 'token token-status-offline'
+      case 'missing': return 'token token-status-error'
+      default: return 'token token-status-offline'
     }
   }
 
-  const getSignalColor = (signal: number) => {
-    if (signal >= 80) return 'text-[var(--color-success)]'
-    if (signal >= 50) return 'text-[var(--color-warning)]'
-    return 'text-[var(--color-danger)]'
+  const getSignalTokenClass = (signal: number) => {
+    if (signal >= 80) return 'token token-data token-data-signal-high'
+    if (signal >= 50) return 'token token-data token-data-signal-medium'
+    return 'token token-data token-data-signal-low'
+  }
+
+  const getBatteryTokenClass = (battery: number) => {
+    if (battery >= 80) return 'token token-data token-data-battery-high'
+    if (battery >= 20) return 'token token-data token-data-battery-medium'
+    return 'token token-data token-data-battery-low'
   }
 
   // Scroll to selected device when it changes
@@ -128,13 +134,6 @@ export function DeviceList({ devices, selectedDeviceId, onDeviceSelect, searchQu
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="p-4 border-b border-[var(--color-border-subtle)]">
-        <h3 className="text-lg font-semibold text-[var(--color-text)]">
-          All Devices
-        </h3>
-      </div>
-
       {/* Table */}
       <div 
         ref={tableRef} 
@@ -222,31 +221,30 @@ export function DeviceList({ devices, selectedDeviceId, onDeviceSelect, searchQu
                     {getTypeLabel(device.type)}
                   </td>
                   <td className="py-3 px-4">
-                    <div className="flex items-center gap-2">
-                      {device.signal > 0 ? (
-                        <Wifi size={16} className={getSignalColor(device.signal)} />
-                      ) : (
-                        <WifiOff size={16} className="text-[var(--color-text-muted)]" />
-                      )}
-                      <span className={`text-sm ${getSignalColor(device.signal)}`}>
-                        {device.signal}%
-                      </span>
-                    </div>
+                    {device.signal > 0 ? (
+                      <div className={getSignalTokenClass(device.signal)}>
+                        <Wifi size={16} />
+                        <span>{device.signal}%</span>
+                      </div>
+                    ) : (
+                      <div className="token token-data">
+                        <WifiOff size={16} />
+                        <span>—</span>
+                      </div>
+                    )}
                   </td>
                   <td className="py-3 px-4">
                     {device.battery !== undefined ? (
-                      <div className="flex items-center gap-2">
-                        <Battery size={16} className={device.battery > 20 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'} />
-                        <span className="text-sm text-[var(--color-text-muted)]">
-                          {device.battery}%
-                        </span>
+                      <div className={getBatteryTokenClass(device.battery)}>
+                        <Battery size={16} />
+                        <span>{device.battery}%</span>
                       </div>
                     ) : (
                       <span className="text-sm text-[var(--color-text-soft)]">—</span>
                     )}
                   </td>
                   <td className="py-3 px-4">
-                    <span className={`text-xs px-2 py-1 rounded-md bg-[var(--color-surface-subtle)] ${getStatusColor(device.status)}`}>
+                    <span className={getStatusTokenClass(device.status)}>
                       {device.status}
                     </span>
                   </td>
@@ -263,4 +261,5 @@ export function DeviceList({ devices, selectedDeviceId, onDeviceSelect, searchQu
     </div>
   )
 }
+
 

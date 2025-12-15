@@ -31,10 +31,28 @@ const triggerOptions: Array<{ value: TriggerType; label: string; icon: any; desc
   { value: 'schedule', label: 'Time schedule', icon: Calendar, description: 'Trigger at specific times' },
 ]
 
-const ruleTypeOptions: Array<{ value: RuleType; label: string; icon: any; description: string }> = [
-  { value: 'rule', label: 'Rule', icon: Workflow, description: 'Automated logic-based control' },
-  { value: 'override', label: 'Override', icon: Zap, description: 'Manual override of normal operation' },
-  { value: 'schedule', label: 'Schedule', icon: CalendarClock, description: 'Time-based automation' },
+const ruleTypeOptions: Array<{ value: RuleType; label: string; icon: any; description: string; examples: string[] }> = [
+  { 
+    value: 'rule', 
+    label: 'Rule', 
+    icon: Workflow, 
+    description: 'Automated logic-based control that responds to conditions',
+    examples: ['Motion Activation - Clothing', 'Daylight Harvesting - Grocery', 'Auto-Off After Inactivity']
+  },
+  { 
+    value: 'override', 
+    label: 'Override', 
+    icon: Zap, 
+    description: 'Manual override that takes priority over rules and schedules',
+    examples: ['Maintenance Override - Grocery', 'Emergency Lighting Override', 'Device Override - FLX-3158']
+  },
+  { 
+    value: 'schedule', 
+    label: 'Schedule', 
+    icon: CalendarClock, 
+    description: 'Time-based automation that runs at specific times',
+    examples: ['Opening Hours - Retail', 'Weekend Schedule - Clothing', 'Closing Time Dimming']
+  },
 ]
 
 type PanelMode = 'create' | 'edit' | 'view'
@@ -294,7 +312,21 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
                       {selectedRule.name}
                     </h3>
                     <p className="text-xs text-[var(--color-text-muted)]">
-                      {ruleTypeOptions.find(opt => opt.value === selectedRule?.ruleType)?.label || selectedRule?.ruleType || 'Rule'} • {selectedRule?.targetType === 'device' ? 'Device' : 'Zone'}
+                      {(() => {
+                        const typeOption = ruleTypeOptions.find(opt => opt.value === selectedRule?.ruleType)
+                        const typeLabel = typeOption?.label || selectedRule?.ruleType || 'Rule'
+                        const targetLabel = selectedRule?.targetType === 'device' ? 'Device' : 'Zone'
+                        const isOverride = selectedRule?.ruleType === 'override'
+                        return (
+                          <span>
+                            <span className={isOverride ? 'text-[var(--color-warning)] font-semibold' : ''}>
+                              {typeLabel}
+                            </span>
+                            {' • '}
+                            {targetLabel}
+                          </span>
+                        )
+                      })()}
                     </p>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
@@ -324,7 +356,9 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
                 <div className="grid grid-cols-2 gap-2.5">
                   <div className={`px-2.5 py-1.5 rounded border ${selectedRule.enabled ? 'bg-[var(--color-success)]/20 text-[var(--color-success)] border-[var(--color-success)]/30' : 'bg-[var(--color-surface)]/50 border-[var(--color-border-subtle)]'} min-w-0`}>
                     <div className="text-xs opacity-80 mb-0.5 whitespace-nowrap">Status</div>
-                    <div className="text-sm font-semibold">{selectedRule.enabled ? 'Active' : 'Disabled'}</div>
+                    <div className={`token token-sm ${selectedRule.enabled ? 'token-status-active' : 'token-status-disabled'}`}>
+                      {selectedRule.enabled ? 'Active' : 'Disabled'}
+                    </div>
                   </div>
                   <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
                     <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1 whitespace-nowrap">
@@ -342,7 +376,19 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
                   {selectedRule.overrideBMS && (
                     <div className="px-2.5 py-1.5 rounded bg-[var(--color-warning)]/20 text-[var(--color-warning)] border-[var(--color-warning)]/30 min-w-0">
                       <div className="text-xs opacity-80 mb-0.5 whitespace-nowrap">BMS Override</div>
-                      <div className="text-xs font-semibold">Enabled</div>
+                      <div className="token token-sm token-status-warning">Enabled</div>
+                    </div>
+                  )}
+                  {selectedRule.ruleType === 'override' && (
+                    <div className="px-2.5 py-1.5 rounded bg-[var(--color-warning)]/20 text-[var(--color-warning)] border-[var(--color-warning)]/30 min-w-0">
+                      <div className="text-xs opacity-80 mb-0.5 whitespace-nowrap">Type</div>
+                      <div className="token token-sm token-type-override">Override</div>
+                    </div>
+                  )}
+                  {selectedRule.ruleType === 'schedule' && (
+                    <div className="px-2.5 py-1.5 rounded bg-[var(--color-primary)]/20 text-[var(--color-primary)] border-[var(--color-primary)]/30 min-w-0">
+                      <div className="text-xs opacity-80 mb-0.5 whitespace-nowrap">Type</div>
+                      <div className="token token-sm token-type-schedule">Schedule</div>
                     </div>
                   )}
                 </div>
@@ -433,17 +479,37 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
               <div className="space-y-2">
                 {ruleTypeOptions.map(option => {
                   const Icon = option.icon
+                  const isOverride = option.value === 'override'
+                  const isSchedule = option.value === 'schedule'
                   return (
                     <button
                       key={option.value}
                       onClick={() => handleRuleTypeSelect(option.value)}
-                      className="w-full p-4 rounded-lg border-2 border-[var(--color-border-subtle)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-soft)] transition-all text-left group"
+                      className={`w-full p-4 rounded-lg border-2 transition-all text-left group ${
+                        isOverride
+                          ? 'border-[var(--color-warning)]/50 hover:border-[var(--color-warning)] hover:bg-[var(--color-warning)]/10'
+                          : isSchedule
+                          ? 'border-[var(--color-primary)]/50 hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]'
+                          : 'border-[var(--color-border-subtle)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]'
+                      }`}
                     >
                       <div className="flex items-start gap-3">
-                        <Icon size={20} className="text-[var(--color-primary)] mt-0.5 flex-shrink-0 group-hover:scale-110 transition-transform" />
+                        <div className={`p-2 rounded-lg flex-shrink-0 ${
+                          isOverride
+                            ? 'bg-[var(--color-warning)]/20 text-[var(--color-warning)]'
+                            : isSchedule
+                            ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'
+                            : 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'
+                        }`}>
+                          <Icon size={18} className="group-hover:scale-110 transition-transform" />
+                        </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold text-sm text-[var(--color-text)] mb-1">{option.label}</div>
-                          <div className="text-xs text-[var(--color-text-muted)]">{option.description}</div>
+                          <div className="text-xs text-[var(--color-text-muted)] mb-2">{option.description}</div>
+                          <div className="text-xs text-[var(--color-text-soft)]">
+                            <span className="font-medium">Examples: </span>
+                            {option.examples.slice(0, 2).join(', ')}
+                          </div>
                         </div>
                       </div>
                     </button>
@@ -516,7 +582,13 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
                 type="text"
                 value={formData.name || ''}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder={`e.g., ${selectedRuleType === 'schedule' ? 'Morning Schedule' : selectedRuleType === 'override' ? 'Emergency Override' : 'Motion Activation'} - ${formData.targetName || selectedTargetType}`}
+                placeholder={
+                  selectedRuleType === 'schedule' 
+                    ? `e.g., Opening Hours - ${formData.targetName || selectedTargetType}, Weekend Schedule - ${formData.targetName || selectedTargetType}, Closing Time Dimming`
+                    : selectedRuleType === 'override'
+                    ? `e.g., Maintenance Override - ${formData.targetName || selectedTargetType}, Emergency Override, Device Override - ${formData.targetName || selectedTargetType}`
+                    : `e.g., Motion Activation - ${formData.targetName || selectedTargetType}, Daylight Harvesting - ${formData.targetName || selectedTargetType}, Auto-Off After Inactivity`
+                }
                 className="w-full px-3 py-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
               />
             </div>
@@ -628,18 +700,34 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
                 <div>
                   <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-2">
                     Trigger
+                    {selectedRuleType === 'override' && (
+                      <span className="ml-2 text-xs text-[var(--color-warning)]">(Overrides typically use BMS trigger)</span>
+                    )}
                   </label>
                   <select
-                    value={formData.trigger || 'motion'}
+                    value={formData.trigger || (selectedRuleType === 'override' ? 'bms' : 'motion')}
                     onChange={(e) => setFormData({ ...formData, trigger: e.target.value as TriggerType })}
                     className="w-full px-3 py-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
                   >
-                    {triggerOptions.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
+                    {triggerOptions
+                      .filter(option => {
+                        // For overrides, prioritize BMS trigger but allow others
+                        if (selectedRuleType === 'override') return true
+                        // For rules, exclude schedule (schedules use schedule trigger)
+                        if (selectedRuleType === 'rule') return option.value !== 'schedule'
+                        return true
+                      })
+                      .map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
                   </select>
+                  {selectedRuleType === 'override' && formData.trigger !== 'bms' && (
+                    <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                      Note: Overrides typically use BMS trigger for manual control
+                    </p>
+                  )}
                 </div>
 
                 {/* Condition Fields */}

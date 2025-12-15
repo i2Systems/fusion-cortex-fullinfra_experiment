@@ -94,16 +94,16 @@ export function FaultList({ faults, selectedFaultId, onFaultSelect, searchQuery 
     return faultCategories[faultType]?.shortLabel || faultType
   }
 
-  const getFaultColor = (faultType: FaultCategory) => {
+  const getFaultTokenClass = (faultType: FaultCategory) => {
     const categoryInfo = faultCategories[faultType]
     if (!categoryInfo) {
-      return 'bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)] border-[var(--color-border-subtle)]'
+      return 'token token-status-offline'
     }
     
     const colorMap = {
-      danger: 'bg-[var(--color-danger)]/20 text-[var(--color-danger)] border-[var(--color-danger)]/30',
-      warning: 'bg-[var(--color-warning)]/20 text-[var(--color-warning)] border-[var(--color-warning)]/30',
-      info: 'bg-[var(--color-primary)]/20 text-[var(--color-primary)] border-[var(--color-primary)]/30',
+      danger: 'token token-status-error',
+      warning: 'token token-status-warning',
+      info: 'token token-status-info',
     }
     
     return colorMap[categoryInfo.color] || colorMap.info
@@ -158,13 +158,6 @@ export function FaultList({ faults, selectedFaultId, onFaultSelect, searchQuery 
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="p-4 border-b border-[var(--color-border-subtle)]">
-        <h3 className="text-lg font-semibold text-[var(--color-text)]">
-          Recent Faults
-        </h3>
-      </div>
-
       {/* Fault List */}
       <div 
         className="flex-1 overflow-auto pb-2"
@@ -228,10 +221,7 @@ export function FaultList({ faults, selectedFaultId, onFaultSelect, searchQuery 
                             {fault.device.serialNumber}
                           </p>
                         </div>
-                        <span className={`
-                          text-xs px-2 py-1 rounded border flex items-center gap-1 flex-shrink-0 ml-2
-                          ${getFaultColor(fault.faultType)}
-                        `}>
+                        <span className={`${getFaultTokenClass(fault.faultType)} flex-shrink-0 ml-2`}>
                           {getFaultLabel(fault.faultType)}
                         </span>
                       </div>

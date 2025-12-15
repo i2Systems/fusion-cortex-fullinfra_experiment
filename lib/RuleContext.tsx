@@ -28,32 +28,11 @@ export function RuleProvider({ children }: { children: ReactNode }) {
   // Load rules from localStorage on mount, or initialize with mock rules
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedRules = localStorage.getItem('fusion_rules')
-      if (savedRules) {
-        try {
-          const parsed = JSON.parse(savedRules)
-          // If saved rules array is empty, use mock rules instead
-          if (Array.isArray(parsed) && parsed.length === 0) {
-            setRules(mockRules)
-            return
-          }
-          // Convert date strings back to Date objects
-          const rulesWithDates = parsed.map((r: any) => ({
-            ...r,
-            createdAt: new Date(r.createdAt),
-            updatedAt: new Date(r.updatedAt),
-            lastTriggered: r.lastTriggered ? new Date(r.lastTriggered) : undefined,
-          }))
-          setRules(rulesWithDates)
-        } catch (e) {
-          console.error('Failed to parse saved rules:', e)
-          // Initialize with mock rules if parsing fails
-          setRules(mockRules)
-        }
-      } else {
-        // No saved rules, initialize with mock rules
-        setRules(mockRules)
-      }
+      // Clear old localStorage to load updated mockRules with overrides and schedules
+      localStorage.removeItem('fusion_rules')
+      
+      // Initialize with mock rules (includes new overrides and schedules)
+      setRules(mockRules)
     } else {
       // Server-side: initialize with empty array, will be set on client
       setRules([])

@@ -62,29 +62,35 @@ export function DiscoveredDevicesList({
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'online':
-        return <CheckCircle2 size={16} className="text-[var(--color-success)]" />
+        return <CheckCircle2 size={14} />
       case 'offline':
-        return <XCircle size={16} className="text-[var(--color-warning)]" />
+        return <XCircle size={14} />
       case 'missing':
-        return <AlertCircle size={16} className="text-[var(--color-danger)]" />
+        return <AlertCircle size={14} />
       default:
         return null
     }
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusTokenClass = (status: string) => {
     switch (status) {
-      case 'online': return 'text-[var(--color-success)]'
-      case 'offline': return 'text-[var(--color-warning)]'
-      case 'missing': return 'text-[var(--color-danger)]'
-      default: return 'text-[var(--color-text-muted)]'
+      case 'online': return 'token token-status-online'
+      case 'offline': return 'token token-status-offline'
+      case 'missing': return 'token token-status-error'
+      default: return 'token token-status-offline'
     }
   }
 
-  const getSignalColor = (signal: number) => {
-    if (signal >= 80) return 'text-[var(--color-success)]'
-    if (signal >= 50) return 'text-[var(--color-warning)]'
-    return 'text-[var(--color-danger)]'
+  const getSignalTokenClass = (signal: number) => {
+    if (signal >= 80) return 'token token-data token-data-signal-high'
+    if (signal >= 50) return 'token token-data token-data-signal-medium'
+    return 'token token-data token-data-signal-low'
+  }
+
+  const getBatteryTokenClass = (battery: number) => {
+    if (battery >= 80) return 'token token-data token-data-battery-high'
+    if (battery >= 20) return 'token token-data token-data-battery-medium'
+    return 'token token-data token-data-battery-low'
   }
 
   // Keyboard navigation: up/down arrows
@@ -223,7 +229,6 @@ export function DiscoveredDevicesList({
                       <h4 className="font-semibold text-sm text-[var(--color-text)]">
                         {device.deviceId}
                       </h4>
-                      {getStatusIcon(device.status)}
                     </div>
                     <p className="text-xs text-[var(--color-text-muted)] font-mono mb-1">
                       {device.serialNumber}
@@ -232,23 +237,20 @@ export function DiscoveredDevicesList({
                       {getTypeLabel(device.type)}
                     </p>
                   </div>
-                  <span className={`text-xs px-2 py-1 rounded-md bg-[var(--color-surface-subtle)] ${getStatusColor(device.status)}`}>
+                  <span className={getStatusTokenClass(device.status)}>
+                    {getStatusIcon(device.status)}
                     {device.status}
                   </span>
                 </div>
                 <div className="flex items-center gap-4 mt-2">
-                  <div className="flex items-center gap-1.5">
-                    <Wifi size={14} className={getSignalColor(device.signal)} />
-                    <span className={`text-xs ${getSignalColor(device.signal)}`}>
-                      {device.signal}%
-                    </span>
+                  <div className={getSignalTokenClass(device.signal)}>
+                    <Wifi size={14} />
+                    <span>{device.signal}%</span>
                   </div>
                   {device.battery !== undefined && (
-                    <div className="flex items-center gap-1.5">
-                      <Battery size={14} className={device.battery > 20 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'} />
-                      <span className="text-xs text-[var(--color-text-muted)]">
-                        {device.battery}%
-                      </span>
+                    <div className={getBatteryTokenClass(device.battery)}>
+                      <Battery size={14} />
+                      <span>{device.battery}%</span>
                     </div>
                   )}
                 </div>
@@ -261,4 +263,5 @@ export function DiscoveredDevicesList({
     </div>
   )
 }
+
 

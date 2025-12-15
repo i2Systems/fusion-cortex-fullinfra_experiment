@@ -330,22 +330,22 @@ export default function BACnetPage() {
   const getStatusIcon = (status: BACnetMapping['status']) => {
     switch (status) {
       case 'connected':
-        return <CheckCircle2 size={16} className="text-[var(--color-success)]" />
+        return <CheckCircle2 size={14} />
       case 'error':
-        return <AlertCircle size={16} className="text-[var(--color-warning)]" />
+        return <AlertCircle size={14} />
       case 'not-assigned':
-        return <XCircle size={16} className="text-[var(--color-text-muted)]" />
+        return <XCircle size={14} />
     }
   }
 
-  const getStatusColor = (status: BACnetMapping['status']) => {
+  const getStatusTokenClass = (status: BACnetMapping['status']) => {
     switch (status) {
       case 'connected':
-        return 'bg-[var(--color-success)]/20 text-[var(--color-success)]'
+        return 'token token-status-success'
       case 'error':
-        return 'bg-[var(--color-warning)]/20 text-[var(--color-warning)]'
+        return 'token token-status-error'
       case 'not-assigned':
-        return 'bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)]'
+        return 'token token-status-not-assigned'
     }
   }
 
@@ -512,15 +512,6 @@ export default function BACnetPage() {
           <div className="flex-1 min-h-0">
             {viewMode === 'list' ? (
               <div className="fusion-card overflow-hidden h-full flex flex-col">
-                <div className="p-4 border-b border-[var(--color-border-subtle)]">
-                  <h2 className="text-lg font-semibold text-[var(--color-text)] mb-1">
-                    Zone to BMS Connections
-                  </h2>
-                  <p className="text-sm text-[var(--color-text-muted)]">
-                    Configure how lighting zones connect to your Building Management System via BACnet protocol
-                  </p>
-                </div>
-
                 <div 
                   className="flex-1 overflow-auto"
                   onClick={(e) => {
@@ -600,7 +591,7 @@ export default function BACnetPage() {
                                       return (
                                         <span
                                           key={cap}
-                                          className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-[var(--color-primary-soft)] text-[var(--color-primary)] border border-[var(--color-primary)]/20"
+                                          className="token token-status-info"
                                         >
                                           <Icon size={12} />
                                           {label}
@@ -629,9 +620,9 @@ export default function BACnetPage() {
                               {/* Status */}
                               <td className="py-4 px-4">
                                 <div className="flex items-center gap-2">
-                                  {getStatusIcon(mapping.status)}
-                                  <span className={`text-xs px-2 py-1 rounded capitalize ${getStatusColor(mapping.status)}`}>
-                                    {mapping.status === 'not-assigned' ? 'Not Assigned' : mapping.status}
+                                  <span className={getStatusTokenClass(mapping.status)}>
+                                    {getStatusIcon(mapping.status)}
+                                    <span className="capitalize">{mapping.status === 'not-assigned' ? 'Not Assigned' : mapping.status}</span>
                                   </span>
                                   {mapping.lastConnected && (
                                     <span className="text-xs text-[var(--color-text-muted)]">

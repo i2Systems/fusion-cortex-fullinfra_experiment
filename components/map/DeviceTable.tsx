@@ -57,19 +57,25 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect, onCompo
     }
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusTokenClass = (status: string) => {
     switch (status) {
-      case 'online': return 'text-[var(--color-success)]'
-      case 'offline': return 'text-[var(--color-warning)]'
-      case 'missing': return 'text-[var(--color-danger)]'
-      default: return 'text-[var(--color-text-muted)]'
+      case 'online': return 'token token-status-online'
+      case 'offline': return 'token token-status-offline'
+      case 'missing': return 'token token-status-error'
+      default: return 'token token-status-offline'
     }
   }
 
-  const getSignalColor = (signal: number) => {
-    if (signal >= 80) return 'text-[var(--color-success)]'
-    if (signal >= 50) return 'text-[var(--color-warning)]'
-    return 'text-[var(--color-danger)]'
+  const getSignalTokenClass = (signal: number) => {
+    if (signal >= 80) return 'token token-data token-data-signal-high'
+    if (signal >= 50) return 'token token-data token-data-signal-medium'
+    return 'token token-data token-data-signal-low'
+  }
+
+  const getBatteryTokenClass = (battery: number) => {
+    if (battery >= 80) return 'token token-data token-data-battery-high'
+    if (battery >= 20) return 'token token-data token-data-battery-medium'
+    return 'token token-data token-data-battery-low'
   }
 
   // Scroll to selected device when it changes
@@ -221,28 +227,33 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect, onCompo
                   </div>
                 )}
                 <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
-                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1 whitespace-nowrap">
-                    {selectedDevice.signal > 0 ? (
-                      <Wifi size={10} className={getSignalColor(selectedDevice.signal)} />
-                    ) : (
-                      <WifiOff size={10} className="text-[var(--color-text-muted)]" />
-                    )}
-                    Signal
-                  </div>
-                  <div className={`text-xs font-semibold ${getSignalColor(selectedDevice.signal)}`}>{selectedDevice.signal}%</div>
+                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Signal</div>
+                  {selectedDevice.signal > 0 ? (
+                    <div className={getSignalTokenClass(selectedDevice.signal)}>
+                      <Wifi size={10} />
+                      <span>{selectedDevice.signal}%</span>
+                    </div>
+                  ) : (
+                    <div className="token token-data">
+                      <WifiOff size={10} />
+                      <span>—</span>
+                    </div>
+                  )}
                 </div>
                 {selectedDevice.battery !== undefined && (
                   <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
-                    <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1 whitespace-nowrap">
-                      <Battery size={10} className={selectedDevice.battery > 20 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'} />
-                      Battery
+                    <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Battery</div>
+                    <div className={getBatteryTokenClass(selectedDevice.battery)}>
+                      <Battery size={10} />
+                      <span>{selectedDevice.battery}%</span>
                     </div>
-                    <div className={`text-xs font-semibold ${selectedDevice.battery > 20 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'}`}>{selectedDevice.battery}%</div>
                   </div>
                 )}
-                <div className={`px-2.5 py-1.5 rounded border ${getStatusColor(selectedDevice.status)} bg-[var(--color-surface)]/50 min-w-0`}>
+                <div className="px-2.5 py-1.5 rounded border border-[var(--color-border-subtle)] bg-[var(--color-surface)]/50 min-w-0">
                   <div className="text-xs opacity-80 mb-0.5 whitespace-nowrap">Status</div>
-                  <div className="text-xs font-semibold capitalize">{selectedDevice.status}</div>
+                  <div className={getStatusTokenClass(selectedDevice.status)}>
+                    {selectedDevice.status}
+                  </div>
                 </div>
               </div>
             </div>
@@ -346,31 +357,30 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect, onCompo
                   {getTypeLabel(device.type)}
                 </td>
                 <td className="py-3.5 px-5">
-                  <div className="flex items-center gap-2">
-                    {device.signal > 0 ? (
-                      <Wifi size={16} className={getSignalColor(device.signal)} />
-                    ) : (
-                      <WifiOff size={16} className="text-[var(--color-text-muted)]" />
-                    )}
-                    <span className={`text-sm font-medium ${getSignalColor(device.signal)}`}>
-                      {device.signal}%
-                    </span>
-                  </div>
+                  {device.signal > 0 ? (
+                    <div className={getSignalTokenClass(device.signal)}>
+                      <Wifi size={16} />
+                      <span>{device.signal}%</span>
+                    </div>
+                  ) : (
+                    <div className="token token-data">
+                      <WifiOff size={16} />
+                      <span>—</span>
+                    </div>
+                  )}
                 </td>
                 <td className="py-3.5 px-5">
                   {device.battery !== undefined ? (
-                    <div className="flex items-center gap-2">
-                      <Battery size={16} className={device.battery > 20 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'} />
-                      <span className="text-sm text-[var(--color-text-muted)] font-medium">
-                        {device.battery}%
-                      </span>
+                    <div className={getBatteryTokenClass(device.battery)}>
+                      <Battery size={16} />
+                      <span>{device.battery}%</span>
                     </div>
                   ) : (
                     <span className="text-sm text-[var(--color-text-soft)]">—</span>
                   )}
                 </td>
                 <td className="py-3.5 px-5">
-                  <span className={`text-xs px-2.5 py-1 rounded-md font-medium ${getStatusColor(device.status)} bg-[var(--color-surface-subtle)]`}>
+                  <span className={getStatusTokenClass(device.status)}>
                     {device.status}
                   </span>
                 </td>
@@ -407,4 +417,5 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect, onCompo
     </div>
   )
 }
+
 

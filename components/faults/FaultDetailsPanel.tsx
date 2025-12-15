@@ -99,10 +99,16 @@ export function FaultDetailsPanel({ fault }: FaultDetailsPanelProps) {
     }
   }
 
-  const getSignalColor = (signal: number) => {
-    if (signal >= 80) return 'text-[var(--color-success)]'
-    if (signal >= 50) return 'text-[var(--color-warning)]'
-    return 'text-[var(--color-danger)]'
+  const getSignalTokenClass = (signal: number) => {
+    if (signal >= 80) return 'token token-data token-data-signal-high'
+    if (signal >= 50) return 'token token-data token-data-signal-medium'
+    return 'token token-data token-data-signal-low'
+  }
+
+  const getBatteryTokenClass = (battery: number) => {
+    if (battery >= 80) return 'token token-data token-data-battery-high'
+    if (battery >= 20) return 'token token-data token-data-battery-medium'
+    return 'token token-data token-data-battery-low'
   }
 
   const troubleshootingSteps = getTroubleshootingSteps(fault.faultType)
@@ -156,20 +162,20 @@ export function FaultDetailsPanel({ fault }: FaultDetailsPanelProps) {
               </div>
               {fault.device.signal > 0 && (
                 <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
-                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1 whitespace-nowrap">
+                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Signal</div>
+                  <div className={getSignalTokenClass(fault.device.signal)}>
                     <Radio size={10} />
-                    Signal
+                    <span>{fault.device.signal}%</span>
                   </div>
-                  <div className={`text-xs font-semibold ${getSignalColor(fault.device.signal)}`}>{fault.device.signal}%</div>
                 </div>
               )}
               {fault.device.battery !== undefined && (
                 <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
-                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1 whitespace-nowrap">
+                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Battery</div>
+                  <div className={getBatteryTokenClass(fault.device.battery)}>
                     <Battery size={10} />
-                    Battery
+                    <span>{fault.device.battery}%</span>
                   </div>
-                  <div className={`text-xs font-semibold ${fault.device.battery > 20 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'}`}>{fault.device.battery}%</div>
                 </div>
               )}
             </div>

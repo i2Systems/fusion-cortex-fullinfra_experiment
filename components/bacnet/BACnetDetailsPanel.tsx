@@ -158,22 +158,22 @@ export function BACnetDetailsPanel({
   const getStatusIcon = (status: BACnetMapping['status']) => {
     switch (status) {
       case 'connected':
-        return <CheckCircle2 size={20} className="text-[var(--color-success)]" />
+        return <CheckCircle2 size={14} />
       case 'error':
-        return <AlertCircle size={20} className="text-[var(--color-warning)]" />
+        return <AlertCircle size={14} />
       case 'not-assigned':
-        return <XCircle size={20} className="text-[var(--color-text-muted)]" />
+        return <XCircle size={14} />
     }
   }
 
-  const getStatusColor = (status: BACnetMapping['status']) => {
+  const getStatusTokenClass = (status: BACnetMapping['status']) => {
     switch (status) {
       case 'connected':
-        return 'bg-[var(--color-success)]/20 text-[var(--color-success)] border-[var(--color-success)]/30'
+        return 'token token-status-success'
       case 'error':
-        return 'bg-[var(--color-warning)]/20 text-[var(--color-warning)] border-[var(--color-warning)]/30'
+        return 'token token-status-error'
       case 'not-assigned':
-        return 'bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)] border-[var(--color-border-subtle)]'
+        return 'token token-status-not-assigned'
     }
   }
 
@@ -237,9 +237,9 @@ export function BACnetDetailsPanel({
                   <div className="text-sm font-semibold text-[var(--color-text)]">{mapping.deviceCount}</div>
                 </div>
               )}
-              <div className={`px-2.5 py-1.5 rounded border ${getStatusColor(mapping.status)} min-w-0`}>
+              <div className="px-2.5 py-1.5 rounded border border-[var(--color-border-subtle)] min-w-0">
                 <div className="text-xs opacity-80 mb-0.5 whitespace-nowrap">Status</div>
-                <div className="text-sm font-semibold capitalize flex items-center gap-1">
+                <div className={getStatusTokenClass(mapping.status)}>
                   {getStatusIcon(mapping.status)}
                   <span className="truncate">{mapping.status === 'not-assigned' ? 'Not Assigned' : mapping.status}</span>
                 </div>
@@ -266,16 +266,16 @@ export function BACnetDetailsPanel({
         {/* Status */}
         <div>
           <h4 className="text-sm font-semibold text-[var(--color-text)] mb-3">Connection Status</h4>
-          <div className={`flex items-center gap-3 p-3 rounded-lg border ${getStatusColor(mapping.status)}`}>
-            {getStatusIcon(mapping.status)}
-            <div className="flex-1">
-              <div className="font-medium capitalize">{mapping.status === 'not-assigned' ? 'Not Assigned' : mapping.status}</div>
-              {mapping.lastConnected && (
-                <div className="text-xs opacity-80 mt-0.5">
-                  Last connected: {formatLastConnected(mapping.lastConnected)}
-                </div>
-              )}
+          <div className="p-3 rounded-lg border border-[var(--color-border-subtle)]">
+            <div className={getStatusTokenClass(mapping.status)}>
+              {getStatusIcon(mapping.status)}
+              <span className="font-medium capitalize">{mapping.status === 'not-assigned' ? 'Not Assigned' : mapping.status}</span>
             </div>
+            {mapping.lastConnected && (
+              <div className="text-xs opacity-80 mt-2 text-[var(--color-text-muted)]">
+                Last connected: {formatLastConnected(mapping.lastConnected)}
+              </div>
+            )}
           </div>
         </div>
 

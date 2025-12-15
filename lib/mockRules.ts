@@ -236,5 +236,155 @@ export const mockRules: Rule[] = [
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10), // 10 days ago
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10),
   },
+  {
+    id: 'override-1',
+    name: 'Maintenance Override - Grocery',
+    description: 'Manual override to keep lights at full brightness during maintenance',
+    ruleType: 'override',
+    targetType: 'zone',
+    targetId: 'zone-7',
+    targetName: 'Zone 7 - Grocery',
+    trigger: 'bms',
+    condition: {
+      zone: 'Zone 7 - Grocery',
+    },
+    action: {
+      zones: ['Zone 7 - Grocery'],
+      brightness: 100,
+      duration: 120,
+      returnToBMS: false,
+    },
+    overrideBMS: true,
+    enabled: true,
+    lastTriggered: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24),
+  },
+  {
+    id: 'override-2',
+    name: 'Emergency Lighting Override',
+    description: 'Override all rules to ensure maximum visibility during emergency',
+    ruleType: 'override',
+    targetType: 'zone',
+    targetId: 'zone-1',
+    targetName: 'Zone 1 - Electronics',
+    trigger: 'bms',
+    condition: {
+      zone: 'Zone 1 - Electronics',
+    },
+    action: {
+      zones: ['Zone 1 - Electronics', 'Zone 2 - Clothing', 'Zone 3 - Retail'],
+      brightness: 100,
+      returnToBMS: false,
+    },
+    overrideBMS: true,
+    enabled: true,
+    lastTriggered: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3), // 3 days ago
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3),
+  },
+  {
+    id: 'schedule-1',
+    name: 'Opening Hours - Retail',
+    description: 'Bright lighting during store opening hours',
+    ruleType: 'schedule',
+    targetType: 'zone',
+    targetId: 'zone-3',
+    targetName: 'Zone 3 - Retail',
+    trigger: 'schedule',
+    condition: {
+      zone: 'Zone 3 - Retail',
+      scheduleTime: '08:00',
+      scheduleFrequency: 'daily',
+    },
+    action: {
+      zones: ['Zone 3 - Retail'],
+      brightness: 80,
+      duration: 600,
+      returnToBMS: false,
+    },
+    overrideBMS: false,
+    enabled: true,
+    lastTriggered: new Date(Date.now() - 1000 * 60 * 60 * 5), // 5 hours ago
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7), // 7 days ago
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7),
+  },
+  {
+    id: 'schedule-2',
+    name: 'Weekend Schedule - Clothing',
+    description: 'Reduced lighting on weekends for energy savings',
+    ruleType: 'schedule',
+    targetType: 'zone',
+    targetId: 'zone-2',
+    targetName: 'Zone 2 - Clothing',
+    trigger: 'schedule',
+    condition: {
+      zone: 'Zone 2 - Clothing',
+      scheduleTime: '09:00',
+      scheduleFrequency: 'weekly',
+      scheduleDays: [0, 6], // Sunday and Saturday
+    },
+    action: {
+      zones: ['Zone 2 - Clothing'],
+      brightness: 50,
+      duration: 480,
+      returnToBMS: false,
+    },
+    overrideBMS: false,
+    enabled: true,
+    lastTriggered: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14), // 14 days ago
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14),
+  },
+  {
+    id: 'schedule-3',
+    name: 'Closing Time Dimming',
+    description: 'Gradual dimming before store closing',
+    ruleType: 'schedule',
+    targetType: 'zone',
+    targetId: 'zone-1',
+    targetName: 'Zone 1 - Electronics',
+    trigger: 'schedule',
+    condition: {
+      zone: 'Zone 1 - Electronics',
+      scheduleTime: '20:00',
+      scheduleFrequency: 'daily',
+    },
+    action: {
+      zones: ['Zone 1 - Electronics', 'Zone 2 - Clothing', 'Zone 3 - Retail'],
+      brightness: 30,
+      duration: 60,
+      returnToBMS: true,
+    },
+    overrideBMS: false,
+    enabled: true,
+    lastTriggered: new Date(Date.now() - 1000 * 60 * 60 * 3), // 3 hours ago
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), // 5 days ago
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5),
+  },
+  {
+    id: 'override-3',
+    name: 'Device Override - FLX-3158',
+    description: 'Manual override for specific device during troubleshooting',
+    ruleType: 'override',
+    targetType: 'device',
+    targetId: 'FLX-3158',
+    targetName: 'FLX-3158',
+    trigger: 'bms',
+    condition: {
+      deviceId: 'FLX-3158',
+    },
+    action: {
+      devices: ['FLX-3158'],
+      brightness: 75,
+      duration: 30,
+      returnToBMS: false,
+    },
+    overrideBMS: true,
+    enabled: true,
+    lastTriggered: new Date(Date.now() - 1000 * 60 * 15), // 15 minutes ago
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 12), // 12 hours ago
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 12),
+  },
 ]
 

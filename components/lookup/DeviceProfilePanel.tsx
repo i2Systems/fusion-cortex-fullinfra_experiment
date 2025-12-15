@@ -46,32 +46,34 @@ export function DeviceProfilePanel({ device, onComponentClick }: DeviceProfilePa
     }
   }
 
+  const getStatusTokenClass = (status: string) => {
+    switch (status) {
+      case 'online': return 'token token-status-online'
+      case 'offline': return 'token token-status-offline'
+      case 'missing': return 'token token-status-error'
+      default: return 'token token-status-offline'
+    }
+  }
+
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'online':
-        return <CheckCircle2 size={16} className="text-[var(--color-success)]" />
-      case 'offline':
-        return <AlertCircle size={16} className="text-[var(--color-warning)]" />
-      case 'missing':
-        return <XCircle size={16} className="text-[var(--color-danger)]" />
-      default:
-        return <AlertCircle size={16} className="text-[var(--color-text-muted)]" />
+      case 'online': return <CheckCircle2 size={14} />
+      case 'offline': return <XCircle size={14} />
+      case 'missing': return <AlertCircle size={14} />
+      default: return null
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'online': return 'bg-[var(--color-success)]/20 text-[var(--color-success)]'
-      case 'offline': return 'bg-[var(--color-warning)]/20 text-[var(--color-warning)]'
-      case 'missing': return 'bg-[var(--color-danger)]/20 text-[var(--color-danger)]'
-      default: return 'bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)]'
-    }
+  const getSignalTokenClass = (signal: number) => {
+    if (signal >= 80) return 'token token-data token-data-signal-high'
+    if (signal >= 50) return 'token token-data token-data-signal-medium'
+    return 'token token-data token-data-signal-low'
   }
 
-  const getSignalColor = (signal: number) => {
-    if (signal >= 80) return 'text-[var(--color-success)]'
-    if (signal >= 50) return 'text-[var(--color-warning)]'
-    return 'text-[var(--color-danger)]'
+  const getBatteryTokenClass = (battery: number) => {
+    if (battery >= 80) return 'token token-data token-data-battery-high'
+    if (battery >= 20) return 'token token-data token-data-battery-medium'
+    return 'token token-data token-data-battery-low'
   }
 
   // Generate fake I2QR data based on device
@@ -111,8 +113,8 @@ export function DeviceProfilePanel({ device, onComponentClick }: DeviceProfilePa
                 </p>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                {getStatusIcon(device.status)}
-                <span className={`text-xs px-1.5 py-0.5 rounded capitalize ${getStatusColor(device.status)}`}>
+                <span className={getStatusTokenClass(device.status)}>
+                  {getStatusIcon(device.status)}
                   {device.status}
                 </span>
               </div>
@@ -139,23 +141,26 @@ export function DeviceProfilePanel({ device, onComponentClick }: DeviceProfilePa
                 </div>
               )}
               <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
-                <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1 whitespace-nowrap">
-                  {device.signal > 0 ? (
-                    <Wifi size={10} className={getSignalColor(device.signal)} />
-                  ) : (
-                    <WifiOff size={10} className="text-[var(--color-text-muted)]" />
-                  )}
-                  Signal
-                </div>
-                <div className={`text-xs font-semibold ${getSignalColor(device.signal)}`}>{device.signal}%</div>
+                <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Signal</div>
+                {device.signal > 0 ? (
+                  <div className={getSignalTokenClass(device.signal)}>
+                    <Wifi size={10} />
+                    <span>{device.signal}%</span>
+                  </div>
+                ) : (
+                  <div className="token token-data">
+                    <WifiOff size={10} />
+                    <span>—</span>
+                  </div>
+                )}
               </div>
               {device.battery !== undefined && (
                 <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
-                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 flex items-center gap-1 whitespace-nowrap">
-                    <Battery size={10} className={device.battery > 20 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'} />
-                    Battery
+                  <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Battery</div>
+                  <div className={getBatteryTokenClass(device.battery)}>
+                    <Battery size={10} />
+                    <span>{device.battery}%</span>
                   </div>
-                  <div className={`text-xs font-semibold ${device.battery > 20 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'}`}>{device.battery}%</div>
                 </div>
               )}
             </div>
@@ -215,26 +220,29 @@ export function DeviceProfilePanel({ device, onComponentClick }: DeviceProfilePa
           <div className="space-y-2">
             <div className="flex justify-between items-center p-2 rounded-lg bg-[var(--color-surface-subtle)]">
               <span className="text-sm text-[var(--color-text-muted)] flex items-center gap-1">
-                {device.signal > 0 ? (
-                  <Wifi size={14} className={getSignalColor(device.signal)} />
-                ) : (
-                  <WifiOff size={14} className="text-[var(--color-text-muted)]" />
-                )}
                 Signal Strength
               </span>
-              <span className={`text-sm font-medium ${getSignalColor(device.signal)}`}>
-                {device.signal}%
-              </span>
+              {device.signal > 0 ? (
+                <div className={getSignalTokenClass(device.signal)}>
+                  <Wifi size={14} />
+                  <span>{device.signal}%</span>
+                </div>
+              ) : (
+                <div className="token token-data">
+                  <WifiOff size={14} />
+                  <span>—</span>
+                </div>
+              )}
             </div>
             {device.battery !== undefined && (
               <div className="flex justify-between items-center p-2 rounded-lg bg-[var(--color-surface-subtle)]">
                 <span className="text-sm text-[var(--color-text-muted)] flex items-center gap-1">
-                  <Battery size={14} className={device.battery > 20 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'} />
                   Battery Level
                 </span>
-                <span className={`text-sm font-medium ${device.battery > 20 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'}`}>
-                  {device.battery}%
-                </span>
+                <div className={getBatteryTokenClass(device.battery)}>
+                  <Battery size={14} />
+                  <span>{device.battery}%</span>
+                </div>
               </div>
             )}
           </div>
