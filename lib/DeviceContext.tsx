@@ -21,6 +21,7 @@ interface DeviceContextType {
   removeDevice: (deviceId: string) => void
   setDevices: (devices: Device[]) => void
   refreshDevices: () => void
+  saveDevices: () => void
   // Undo/Redo for position changes
   undo: () => void
   redo: () => void
