@@ -48,7 +48,7 @@ export default function NotificationsPage() {
   // Import generateRandomNotification from context (we'll need to export it)
   const handleGenerateRandom = () => {
     const now = new Date()
-    const types: NotificationType[] = ['discovery', 'fault', 'zone', 'bacnet', 'rule', 'device', 'system']
+    const types: NotificationType[] = ['discovery', 'fault', 'zone', 'bacnet', 'rule', 'device', 'system', 'warranty']
     const type = types[Math.floor(Math.random() * types.length)]
     
     const notifications: Record<NotificationType, { titles: string[], messages: string[], links: string[] }> = {
@@ -104,6 +104,11 @@ export default function NotificationsPage() {
         titles: ['System Health Check', 'System Update Available', 'Maintenance Reminder'],
         messages: ['System health check completed. Some devices require attention.', 'System update available. Review changelog.', 'Scheduled maintenance window approaching.'],
         links: ['/dashboard'],
+      },
+      warranty: {
+        titles: ['Warranty Expired', 'Warranty Expiring Soon', 'Component Warranty Expired'],
+        messages: ['Device warranty has expired. Consider replacement or extended warranty options.', 'Device warranty expires soon. Review replacement options before expiry.', 'Component warranty expired. Component replacement may be needed.'],
+        links: ['/lookup'],
       },
     }
     
