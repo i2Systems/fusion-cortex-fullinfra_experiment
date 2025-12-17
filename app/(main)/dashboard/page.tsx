@@ -51,6 +51,7 @@ interface StoreSummary {
   storeName: string
   totalDevices: number
   onlineDevices: number
+  offlineDevices: number
   healthPercentage: number
   totalZones: number
   criticalFaults: Array<{
@@ -219,6 +220,7 @@ export default function DashboardPage() {
         storeName: store.name,
         totalDevices: devices.length,
         onlineDevices,
+        offlineDevices: offlineDevices.length,
         healthPercentage,
         totalZones: zones.length,
         criticalFaults,
