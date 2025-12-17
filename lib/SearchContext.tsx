@@ -12,7 +12,7 @@
 import { createContext, useContext, ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 
-export type PageType = 'dashboard' | 'discovery' | 'map' | 'zones' | 'lookup' | 'bacnet' | 'rules' | 'faults' | 'notifications'
+export type PageType = 'dashboard' | 'map' | 'zones' | 'lookup' | 'bacnet' | 'rules' | 'faults' | 'notifications'
 
 interface Action {
   id: string
@@ -42,20 +42,6 @@ const pageActions: Record<PageType, (getActions: () => Action[]) => Action[]> = 
       id: 'view-zones',
       label: 'View zones',
       keywords: ['zones', 'show zones', 'list zones'],
-      action: () => {},
-    },
-  ],
-  discovery: (getActions) => [
-    {
-      id: 'start-scan',
-      label: 'Start discovery scan',
-      keywords: ['scan', 'discover', 'start scan', 'find devices', 'discovery'],
-      action: () => {},
-    },
-    {
-      id: 'add-manual',
-      label: 'Add device manually',
-      keywords: ['add device', 'manual', 'enter device', 'new device'],
       action: () => {},
     },
   ],
@@ -124,7 +110,6 @@ const pageActions: Record<PageType, (getActions: () => Action[]) => Action[]> = 
 
 function detectPageType(pathname: string): PageType {
   if (pathname === '/dashboard' || pathname === '/') return 'dashboard'
-  if (pathname.startsWith('/discovery')) return 'discovery'
   if (pathname.startsWith('/map')) return 'map'
   if (pathname.startsWith('/zones')) return 'zones'
   if (pathname.startsWith('/lookup')) return 'lookup'

@@ -4,6 +4,7 @@ import { TRPCProvider } from '@/lib/trpc/Provider'
 import { AuthProvider } from '@/lib/auth'
 import { ThemeProvider } from '@/lib/theme'
 import { RoleProvider } from '@/lib/role'
+import { StoreProvider } from '@/lib/StoreContext'
 import { DeviceProvider } from '@/lib/DeviceContext'
 import { ZoneProvider } from '@/lib/ZoneContext'
 import { RuleProvider } from '@/lib/RuleContext'
@@ -40,15 +41,17 @@ export default function RootLayout({
                       <I18nProvider>
                         <RoleProvider>
                           <AuthProvider>
-                            <DeviceProvider>
-                              <ZoneProvider>
-                                <RuleProvider>
-                                  <NotificationProvider>
-                                    {children}
-                                  </NotificationProvider>
-                                </RuleProvider>
-                              </ZoneProvider>
-                            </DeviceProvider>
+                            <StoreProvider>
+                              <DeviceProvider>
+                                <ZoneProvider>
+                                  <RuleProvider>
+                                    <NotificationProvider>
+                                      {children}
+                                    </NotificationProvider>
+                                  </RuleProvider>
+                                </ZoneProvider>
+                              </DeviceProvider>
+                            </StoreProvider>
                           </AuthProvider>
                         </RoleProvider>
                       </I18nProvider>

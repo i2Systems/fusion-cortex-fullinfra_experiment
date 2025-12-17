@@ -3,13 +3,13 @@
  * 
  * This layout provides the core structure:
  * - Left navigation (persistent, minimal icons)
- * - Top app bar (site selector, user menu, search)
+ * - Top app bar (store selector, breadcrumbs)
  * - Main content area (center)
- * - Right context panel (slide-in, optional)
- * - Bottom drawer (optional, for status/faults)
+ * - Right context panel (always visible on relevant pages)
+ * - Bottom drawer (collapsible, for status/notifications)
  * 
  * AI Note: This is the primary layout wrapper. All main sections
- * (Discovery, Map, Zones, etc.) are rendered as children here.
+ * (Dashboard, Map, Zones, Lookup, etc.) are rendered as children here.
  */
 
 import { MainNav } from '@/components/layout/MainNav'

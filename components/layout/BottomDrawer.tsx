@@ -2,8 +2,8 @@
  * Bottom Drawer Component
  * 
  * Slide-up drawer for:
- * - Discovery status (last run, issues)
- * - Fault summary
+ * - Page-specific status information
+ * - Notifications
  * - Background tasks (exports, syncs)
  * 
  * AI Note: This should be collapsible and show summary info
@@ -12,7 +12,7 @@
 
 'use client'
 
-import { ChevronUp, ChevronDown, Radar, AlertTriangle, Layers, Network, Workflow, Search, Home, X } from 'lucide-react'
+import { ChevronUp, ChevronDown, AlertTriangle, Layers, Network, Workflow, Search, Home, X } from 'lucide-react'
 import { useState, useMemo, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { useNotifications } from '@/lib/NotificationContext'
@@ -28,7 +28,6 @@ interface BottomDrawerProps {
 }
 
 const typeIcons: Record<string, any> = {
-  discovery: Radar,
   fault: AlertTriangle,
   zone: Layers,
   bacnet: Network,
@@ -62,10 +61,6 @@ export function BottomDrawer({ children }: BottomDrawerProps) {
     }
     if (pathname?.startsWith('/map')) {
       return `${devices.length.toLocaleString()} device${devices.length !== 1 ? 's' : ''} found`
-    }
-    if (pathname?.startsWith('/discovery')) {
-      const missing = devices.filter(d => d.status === 'missing').length
-      return `${devices.length.toLocaleString()} device${devices.length !== 1 ? 's' : ''} found${missing > 0 ? ` — ${missing} missing` : ''}`
     }
     if (pathname?.startsWith('/faults')) {
       const faults = devices.filter(d => 

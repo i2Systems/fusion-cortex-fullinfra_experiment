@@ -2,9 +2,12 @@
  * Device Context
  * 
  * Shared state management for devices across the entire app.
- * Ensures all pages (Discovery, Map, Zones, Lookup) use the same device data.
+ * Ensures all pages (Map, Zones, Lookup, Faults) use the same device data.
  * 
- * AI Note: In production, this would sync with tRPC/API and persist to database.
+ * AI Note: 
+ * - Store-aware: Data is namespaced by store ID in localStorage
+ * - Automatically reloads when active store changes
+ * - In production, this would sync with tRPC/API and persist to database
  */
 
 'use client'
@@ -12,6 +15,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { Device, mockDevices as initialMockDevices } from './mockData'
 import { seedDevices } from './seedDevices'
+import { useStore } from './StoreContext'
+import { generateStoreData } from './storeData'
 
 interface DeviceContextType {
   devices: Device[]
@@ -33,22 +38,36 @@ interface DeviceContextType {
 const DeviceContext = createContext<DeviceContextType | undefined>(undefined)
 
 export function DeviceProvider({ children }: { children: ReactNode }) {
+  const { activeStoreId } = useStore()
   const [devices, setDevices] = useState<Device[]>([])
   const [history, setHistory] = useState<Device[][]>([[]])
   const [historyIndex, setHistoryIndex] = useState(0)
 
-  // Load initial devices from mockData on mount
+  // Helper to get store-scoped localStorage keys
+  const getStorageKey = (key: string) => {
+    return activeStoreId ? `fusion_${key}_${activeStoreId}` : `fusion_${key}`
+  }
+
+  // Load devices when store changes or on mount
   useEffect(() => {
-    // In production, this would load from tRPC/API
-    const initialDevices = initialMockDevices
+    if (!activeStoreId) return // Wait for store to be initialized
     
-    // Check for data version to force regeneration when positioning logic changes
-    const DATA_VERSION = 'v3-warranty-fix'
-    const savedVersion = typeof window !== 'undefined' ? localStorage.getItem('fusion_devices_version') : null
-    const devicesSaved = typeof window !== 'undefined' ? localStorage.getItem('fusion_devices_saved') === 'true' : false
+    // In production, this would load from tRPC/API
+    const DATA_VERSION = 'v4-store-aware'
+    const storageKey = getStorageKey('devices')
+    const versionKey = getStorageKey('devices_version')
+    const savedKey = getStorageKey('devices_saved')
+    
+    const savedVersion = typeof window !== 'undefined' ? localStorage.getItem(versionKey) : null
+    const devicesSaved = typeof window !== 'undefined' ? localStorage.getItem(savedKey) === 'true' : false
+    
+    // Generate store-specific initial data
+    const storeData = generateStoreData(activeStoreId)
+    const initialDevices = storeData.devices
     
     // PRIORITY 0: Check for seed data (committed to repo) - use this for fresh deployments
-    if (seedDevices && seedDevices.length > 0) {
+    // Note: Seed data is store-agnostic, so we'll use it as fallback only
+    if (seedDevices && seedDevices.length > 0 && !devicesSaved) {
       const restored = seedDevices.map((device: Device) => {
         if (device.components) {
           return {
@@ -68,16 +87,16 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       setHistoryIndex(0)
       // Also save to localStorage so it persists in this session
       if (typeof window !== 'undefined') {
-        localStorage.setItem('fusion_devices', JSON.stringify(restored))
-        localStorage.setItem('fusion_devices_version', DATA_VERSION)
+        localStorage.setItem(storageKey, JSON.stringify(restored))
+        localStorage.setItem(versionKey, DATA_VERSION)
       }
-      console.log(`✅ Loaded ${restored.length} devices from seed data (committed to repo)`)
+      console.log(`✅ Loaded ${restored.length} devices from seed data for ${activeStoreId}`)
       return
     }
     
     // PRIORITY 1: If devices are marked as saved, always load them (regardless of version)
     if (devicesSaved && typeof window !== 'undefined') {
-      const savedDevices = localStorage.getItem('fusion_devices')
+      const savedDevices = localStorage.getItem(storageKey)
       if (savedDevices) {
         try {
           const parsed = JSON.parse(savedDevices)
@@ -99,7 +118,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
             setDevices(restored)
             setHistory([restored])
             setHistoryIndex(0)
-            console.log(`✅ Loaded ${restored.length} saved devices from localStorage (protected from reset)`)
+            console.log(`✅ Loaded ${restored.length} saved devices from localStorage for ${activeStoreId} (protected from reset)`)
             return
           }
         } catch (e) {
@@ -108,9 +127,9 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       }
     }
     
-    // Also check localStorage for any manually added devices (if version matches)
+    // PRIORITY 2: Check localStorage for any manually added devices (if version matches)
     if (typeof window !== 'undefined' && savedVersion === DATA_VERSION) {
-      const savedDevices = localStorage.getItem('fusion_devices')
+      const savedDevices = localStorage.getItem(storageKey)
       if (savedDevices) {
         try {
           const parsed = JSON.parse(savedDevices)
@@ -129,16 +148,6 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
             }
             return device
           })
-          // Ensure the fault story device (FLX-3158) is always present
-          const faultDeviceId = 'device-fault-grocery-001'
-          const faultDeviceExists = restored.some((d: Device) => d.id === faultDeviceId || d.deviceId === 'FLX-3158')
-          if (!faultDeviceExists) {
-            // Add the fault device if it doesn't exist
-            const faultDevice = initialDevices.find(d => d.id === faultDeviceId)
-            if (faultDevice) {
-              restored.push(faultDevice)
-            }
-          }
           // Merge with fresh mock data to ensure all devices have components
           const merged = restored.map((saved: Device) => {
             const fresh = initialDevices.find(d => d.id === saved.id || d.deviceId === saved.deviceId)
@@ -150,6 +159,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
           setDevices(merged)
           setHistory([merged])
           setHistoryIndex(0)
+          console.log(`✅ Loaded ${merged.length} devices from localStorage for ${activeStoreId}`)
           return
         } catch (e) {
           console.error('Failed to parse saved devices:', e)
@@ -157,22 +167,24 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       }
     }
     
-    // If version doesn't match or no saved data, use fresh data and set version
+    // PRIORITY 3: If version doesn't match or no saved data, use fresh store-specific data
     if (typeof window !== 'undefined') {
-      localStorage.setItem('fusion_devices_version', DATA_VERSION)
+      localStorage.setItem(versionKey, DATA_VERSION)
     }
     
     setDevices(initialDevices)
     setHistory([initialDevices])
     setHistoryIndex(0)
-  }, [])
+    console.log(`✅ Loaded ${initialDevices.length} devices for ${activeStoreId} (fresh data)`)
+  }, [activeStoreId])
 
-  // Save to localStorage whenever devices change
+  // Save to localStorage whenever devices change (store-scoped)
   useEffect(() => {
-    if (typeof window !== 'undefined' && devices.length > 0) {
-      localStorage.setItem('fusion_devices', JSON.stringify(devices))
+    if (typeof window !== 'undefined' && devices.length > 0 && activeStoreId) {
+      const storageKey = getStorageKey('devices')
+      localStorage.setItem(storageKey, JSON.stringify(devices))
     }
-  }, [devices])
+  }, [devices, activeStoreId])
 
   const addDevice = (device: Device) => {
     setDevices(prev => {
@@ -262,13 +274,16 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
 
   const saveDevices = () => {
     // Mark devices as saved - this prevents them from being reset
-    if (typeof window !== 'undefined' && devices.length > 0) {
-      localStorage.setItem('fusion_devices', JSON.stringify(devices))
-      localStorage.setItem('fusion_devices_saved', 'true')
-      localStorage.setItem('fusion_devices_version', 'v2-grid-placement')
-      console.log(`✅ Saved ${devices.length} devices to system (protected from reset)`)
+    if (typeof window !== 'undefined' && devices.length > 0 && activeStoreId) {
+      const storageKey = getStorageKey('devices')
+      const savedKey = getStorageKey('devices_saved')
+      const versionKey = getStorageKey('devices_version')
+      localStorage.setItem(storageKey, JSON.stringify(devices))
+      localStorage.setItem(savedKey, 'true')
+      localStorage.setItem(versionKey, 'v4-store-aware')
+      console.log(`✅ Saved ${devices.length} devices to system for ${activeStoreId} (protected from reset)`)
     } else {
-      console.warn('Cannot save: No devices to save')
+      console.warn('Cannot save: No devices to save or no active store')
     }
   }
 

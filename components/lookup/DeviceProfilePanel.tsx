@@ -9,7 +9,7 @@
 
 'use client'
 
-import { Image, Calendar, Thermometer, Shield, Package, MapPin, Radio, Battery, Wifi, WifiOff, CheckCircle2, AlertCircle, XCircle, QrCode, AlertTriangle, ExternalLink } from 'lucide-react'
+import { Image, Calendar, Thermometer, Shield, Package, MapPin, Radio, Battery, Wifi, WifiOff, CheckCircle2, AlertCircle, XCircle, QrCode, AlertTriangle, ExternalLink, Plus, Upload, Download } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Device, Component } from '@/lib/mockData'
 import { ComponentTree } from '@/components/shared/ComponentTree'
@@ -20,25 +20,67 @@ import { useDevices } from '@/lib/DeviceContext'
 interface DeviceProfilePanelProps {
   device: Device | null
   onComponentClick?: (component: Component, parentDevice: Device) => void
+  onManualEntry?: () => void
+  onQRScan?: () => void
+  onImport?: () => void
+  onExport?: () => void
 }
 
-export function DeviceProfilePanel({ device, onComponentClick }: DeviceProfilePanelProps) {
+export function DeviceProfilePanel({ device, onComponentClick, onManualEntry, onQRScan, onImport, onExport }: DeviceProfilePanelProps) {
   const router = useRouter()
   const { devices } = useDevices()
   
   if (!device) {
     return (
       <div className="w-96 min-w-[20rem] max-w-[32rem] bg-[var(--color-surface)] backdrop-blur-xl rounded-2xl border border-[var(--color-border-subtle)] flex flex-col shadow-[var(--shadow-strong)] overflow-hidden flex-shrink-0 h-full">
-        <div className="p-8 text-center">
-          <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center">
-            <QrCode size={40} className="text-[var(--color-text-muted)]" />
+        <div className="flex-1 flex flex-col">
+          {/* Empty State Content */}
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center">
+              <QrCode size={40} className="text-[var(--color-text-muted)]" />
+            </div>
+            <h3 className="text-lg font-semibold text-[var(--color-text)] mb-2">
+              No Device Selected
+            </h3>
+            <p className="text-sm text-[var(--color-text-muted)] mb-8">
+              Select a device from the list to view detailed information
+            </p>
           </div>
-          <h3 className="text-lg font-semibold text-[var(--color-text)] mb-2">
-            No Device Selected
-          </h3>
-          <p className="text-sm text-[var(--color-text-muted)]">
-            Select a device from the list to view detailed information
-          </p>
+
+          {/* Action Buttons Bar */}
+          <div className="p-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)]">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={onManualEntry}
+                className="px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)] transition-all flex items-center gap-2"
+              >
+                <Plus size={16} />
+                Add Device Manually
+              </button>
+              <button
+                onClick={onQRScan}
+                className="px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)] transition-all flex items-center gap-2"
+              >
+                <QrCode size={16} />
+                Scan QR Code
+              </button>
+              <div className="flex-1" />
+              <button
+                onClick={onImport}
+                className="px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-border-strong)] transition-all flex items-center gap-2"
+              >
+                <Upload size={16} />
+                Import List
+              </button>
+              <button
+                onClick={onExport}
+                className="px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-border-strong)] transition-all flex items-center gap-2"
+              >
+                <Download size={16} />
+                Export
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     )

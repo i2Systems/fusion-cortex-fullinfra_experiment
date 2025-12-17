@@ -66,7 +66,7 @@ RootLayout (app/layout.tsx)
         └─ Content Area
            ├─ TopBar (top, 64px)
            ├─ Main Content (center, flexible)
-           │  └─ Section Pages (discovery, map, zones, etc.)
+           │  └─ Section Pages (dashboard, map, zones, lookup, etc.)
            ├─ ContextPanel (right, 384px, slide-in)
            └─ BottomDrawer (bottom, collapsible)
 ```

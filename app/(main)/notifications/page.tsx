@@ -12,11 +12,10 @@
 import { useState, useMemo } from 'react'
 import { useNotifications, NotificationType } from '@/lib/NotificationContext'
 import { useRouter } from 'next/navigation'
-import { Radar, AlertTriangle, Layers, Network, Workflow, Search, Home, X, CheckCheck, Mail, ArrowUpDown, Clock, Filter, Sparkles, List, Grid3x3, LayoutGrid } from 'lucide-react'
+import { AlertTriangle, Layers, Network, Workflow, Search, Home, X, CheckCheck, Mail, ArrowUpDown, Clock, Filter, Sparkles, List, Grid3x3, LayoutGrid } from 'lucide-react'
 import Link from 'next/link'
 
 const typeIcons: Record<string, any> = {
-  discovery: Radar,
   fault: AlertTriangle,
   zone: Layers,
   bacnet: Network,
@@ -26,7 +25,6 @@ const typeIcons: Record<string, any> = {
 }
 
 const typeColors: Record<string, string> = {
-  discovery: 'var(--color-primary)',
   fault: 'var(--color-danger)',
   zone: 'var(--color-accent)',
   bacnet: 'var(--color-warning)',
@@ -48,15 +46,10 @@ export default function NotificationsPage() {
   // Import generateRandomNotification from context (we'll need to export it)
   const handleGenerateRandom = () => {
     const now = new Date()
-    const types: NotificationType[] = ['discovery', 'fault', 'zone', 'bacnet', 'rule', 'device', 'system', 'warranty']
+    const types: NotificationType[] = ['fault', 'zone', 'bacnet', 'rule', 'device', 'system', 'warranty']
     const type = types[Math.floor(Math.random() * types.length)]
     
     const notifications: Record<NotificationType, { titles: string[], messages: string[], links: string[] }> = {
-      discovery: {
-        titles: ['Discovery Scan Completed', 'New Devices Detected', 'Background Scan Finished', 'Network Discovery Update'],
-        messages: ['New devices discovered in the network. Review and map devices.', 'Devices found during background scan. Map them to zones.', 'Network scan completed. Review discovered devices.', 'Additional devices detected. Update device inventory.'],
-        links: ['/discovery', '/map'],
-      },
       fault: {
         titles: [
           'Environmental Ingress Detected',

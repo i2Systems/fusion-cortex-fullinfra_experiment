@@ -22,6 +22,7 @@ import { MapFiltersPanel, type MapFilters } from '@/components/map/MapFiltersPan
 import { MapViewToggle, MapViewMode } from '@/components/shared/MapViewToggle'
 import { useDevices } from '@/lib/DeviceContext'
 import { useZones } from '@/lib/ZoneContext'
+import { useStore } from '@/lib/StoreContext'
 import { useRole } from '@/lib/role'
 
 // Dynamically import ZoneCanvas to avoid SSR issues with Konva
@@ -39,7 +40,13 @@ import { ZONE_COLORS } from '@/lib/zoneColors'
 export default function ZonesPage() {
   const { devices, updateMultipleDevices, saveDevices } = useDevices()
   const { zones, addZone, updateZone, deleteZone, getDevicesInZone, syncZoneDeviceIds, saveZones, isZonesSaved } = useZones()
+  const { activeStoreId } = useStore()
   const { role } = useRole()
+
+  // Helper to get store-scoped localStorage key
+  const getMapImageKey = () => {
+    return activeStoreId ? `fusion_map-image-url_${activeStoreId}` : 'map-image-url'
+  }
   const [selectedZone, setSelectedZone] = useState<string | null>(null)
   const [mapUploaded, setMapUploaded] = useState(false)
   const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
@@ -57,16 +64,17 @@ export default function ZonesPage() {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
-  // Load saved map image on mount
+  // Load saved map image on mount or when store changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedImageUrl = localStorage.getItem('map-image-url')
+    if (typeof window !== 'undefined' && activeStoreId) {
+      const imageKey = getMapImageKey()
+      const savedImageUrl = localStorage.getItem(imageKey)
       if (savedImageUrl) {
         setMapImageUrl(savedImageUrl)
         setMapUploaded(true)
       }
     }
-  }, [])
+  }, [activeStoreId])
 
   const handleMapUpload = (imageUrl: string) => {
     setMapImageUrl(imageUrl)
@@ -77,8 +85,9 @@ export default function ZonesPage() {
     setMapImageUrl(null)
     setMapUploaded(false)
     setSelectedZone(null)
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('map-image-url')
+    if (typeof window !== 'undefined' && activeStoreId) {
+      const imageKey = getMapImageKey()
+      localStorage.removeItem(imageKey)
     }
   }
 
@@ -398,10 +407,12 @@ export default function ZonesPage() {
                   // Also save devices to ensure their positions and zone assignments are preserved
                   saveDevices()
                   // Mark BACnet mappings as saved too (they're already in localStorage)
-                  if (typeof window !== 'undefined') {
-                    const bacnetMappings = localStorage.getItem('fusion_bacnet_mappings')
+                  if (typeof window !== 'undefined' && activeStoreId) {
+                    const bacnetKey = activeStoreId ? `fusion_bacnet_mappings_${activeStoreId}` : 'fusion_bacnet_mappings'
+                    const bacnetSavedKey = activeStoreId ? `fusion_bacnet_mappings_saved_${activeStoreId}` : 'fusion_bacnet_mappings_saved'
+                    const bacnetMappings = localStorage.getItem(bacnetKey)
                     if (bacnetMappings) {
-                      localStorage.setItem('fusion_bacnet_mappings_saved', 'true')
+                      localStorage.setItem(bacnetSavedKey, 'true')
                     }
                   }
                   // Show confirmation

@@ -18,9 +18,10 @@ import { FaultList } from '@/components/faults/FaultList'
 import { FaultDetailsPanel } from '@/components/faults/FaultDetailsPanel'
 import { useDevices } from '@/lib/DeviceContext'
 import { useZones } from '@/lib/ZoneContext'
+import { useStore } from '@/lib/StoreContext'
 import { Device } from '@/lib/mockData'
 import { FaultCategory, assignFaultCategory, generateFaultDescription, faultCategories } from '@/lib/faultDefinitions'
-import { Droplets, Zap, Thermometer, Plug, Settings, Package, Wrench, Lightbulb } from 'lucide-react'
+import { Droplets, Zap, Thermometer, Plug, Settings, Package, Wrench, Lightbulb, TrendingUp, TrendingDown, AlertTriangle, Clock, ArrowUp, ArrowDown, Minus } from 'lucide-react'
 
 // Dynamically import FaultsMapCanvas to avoid SSR issues with Konva
 const FaultsMapCanvas = dynamic(() => import('@/components/faults/FaultsMapCanvas').then(mod => ({ default: mod.FaultsMapCanvas })), {
@@ -42,67 +43,20 @@ interface Fault {
 export default function FaultsPage() {
   const { devices } = useDevices()
   const { zones } = useZones()
+  const { activeStoreId } = useStore()
+
+  // Helper to get store-scoped localStorage key
+  const getMapImageKey = () => {
+    return activeStoreId ? `fusion_map-image-url_${activeStoreId}` : 'map-image-url'
+  }
   const [selectedFaultId, setSelectedFaultId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<MapViewMode>('list')
   const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
   const [mapUploaded, setMapUploaded] = useState(false)
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
-  const [showCategories, setShowCategories] = useState<Record<FaultCategory, boolean>>({
-    'environmental-ingress': true,
-    'electrical-driver': true,
-    'thermal-overheat': true,
-    'installation-wiring': true,
-    'control-integration': true,
-    'manufacturing-defect': true,
-    'mechanical-structural': true,
-    'optical-output': true,
-  })
-  const listContainerRef = useRef<HTMLDivElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-
-  // Load saved map image on mount
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedImageUrl = localStorage.getItem('map-image-url')
-      if (savedImageUrl) {
-        setMapImageUrl(savedImageUrl)
-        setMapUploaded(true)
-      }
-    }
-  }, [])
-
-  const handleMapUpload = (imageUrl: string) => {
-    setMapImageUrl(imageUrl)
-    setMapUploaded(true)
-  }
-
-  // Check if we should highlight a specific device (from dashboard navigation)
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const highlightDevice = sessionStorage.getItem('highlightDevice')
-      if (highlightDevice) {
-        // Find the device by deviceId
-        const device = devices.find(d => d.deviceId === highlightDevice)
-        if (device) {
-          setSelectedFaultId(device.id)
-          setSelectedDeviceId(device.id)
-          // Clear the highlight after selecting
-          sessionStorage.removeItem('highlightDevice')
-        }
-      }
-    }
-  }, [devices])
-
-  // Handle device selection from map
-  const handleDeviceSelect = (deviceId: string | null) => {
-    setSelectedDeviceId(deviceId)
-    if (deviceId) {
-      setSelectedFaultId(deviceId)
-    }
-  }
-
-  // Generate faults from devices - ensure at least one of each category
+  
+  // Generate faults from devices
   const faults = useMemo<Fault[]>(() => {
     const faultList: Fault[] = []
     const categoryMap: Record<string, FaultCategory> = {
@@ -192,6 +146,119 @@ export default function FaultsPage() {
     return faultList.sort((a, b) => b.detectedAt.getTime() - a.detectedAt.getTime())
   }, [devices])
 
+  // Initialize category filters - will be updated based on actual faults
+  const [showCategories, setShowCategories] = useState<Record<FaultCategory, boolean>>({
+    'environmental-ingress': false,
+    'electrical-driver': false,
+    'thermal-overheat': false,
+    'installation-wiring': false,
+    'control-integration': false,
+    'manufacturing-defect': false,
+    'mechanical-structural': false,
+    'optical-output': false,
+  })
+
+  // Update category filters when faults change - enable only categories that have faults
+  useEffect(() => {
+    const categoriesWithFaults = new Set(faults.map(f => f.faultType))
+    setShowCategories(prev => {
+      const updated: Record<FaultCategory, boolean> = {
+        'environmental-ingress': categoriesWithFaults.has('environmental-ingress'),
+        'electrical-driver': categoriesWithFaults.has('electrical-driver'),
+        'thermal-overheat': categoriesWithFaults.has('thermal-overheat'),
+        'installation-wiring': categoriesWithFaults.has('installation-wiring'),
+        'control-integration': categoriesWithFaults.has('control-integration'),
+        'manufacturing-defect': categoriesWithFaults.has('manufacturing-defect'),
+        'mechanical-structural': categoriesWithFaults.has('mechanical-structural'),
+        'optical-output': categoriesWithFaults.has('optical-output'),
+      }
+      return updated
+    })
+  }, [faults])
+  const listContainerRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  // Load saved map image on mount or when store changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && activeStoreId) {
+      const imageKey = getMapImageKey()
+      const savedImageUrl = localStorage.getItem(imageKey)
+      if (savedImageUrl) {
+        setMapImageUrl(savedImageUrl)
+        setMapUploaded(true)
+      }
+    }
+  }, [activeStoreId])
+
+  const handleMapUpload = (imageUrl: string) => {
+    setMapImageUrl(imageUrl)
+    setMapUploaded(true)
+  }
+
+  const handleAddNewFault = () => {
+    // Mock: Show a dialog to add a new fault
+    const deviceId = prompt('Enter Device ID for the new fault:')
+    if (!deviceId) return
+    
+    const device = devices.find(d => d.deviceId === deviceId)
+    if (!device) {
+      alert(`Device ${deviceId} not found. Please enter a valid device ID.`)
+      return
+    }
+    
+    // Show category selection
+    const categoryOptions = Object.entries(faultCategories)
+      .map(([key, info]) => `${key}: ${info.label}`)
+      .join('\n')
+    
+    const categoryInput = prompt(`Enter fault category:\n\n${categoryOptions}`)
+    if (!categoryInput) return
+    
+    const selectedCategory = categoryInput.split(':')[0].trim() as FaultCategory
+    if (!faultCategories[selectedCategory]) {
+      alert('Invalid category. Please try again.')
+      return
+    }
+    
+    // Create a new fault
+    const newFault: Fault = {
+      device,
+      faultType: selectedCategory,
+      detectedAt: new Date(),
+      description: generateFaultDescription(selectedCategory, device.deviceId),
+    }
+    
+    // Note: In a real app, this would be added via tRPC/API
+    // For now, we'll just show a message
+    alert(`Fault added for ${deviceId}:\n\nType: ${faultCategories[selectedCategory].label}\n\nNote: In production, this would be saved to the database.`)
+  }
+
+  // Check if we should highlight a specific device (from dashboard navigation)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const highlightDevice = sessionStorage.getItem('highlightDevice')
+      if (highlightDevice) {
+        // Find the device by deviceId
+        const device = devices.find(d => d.deviceId === highlightDevice)
+        if (device) {
+          setSelectedFaultId(device.id)
+          setSelectedDeviceId(device.id)
+          // Clear the highlight after selecting
+          sessionStorage.removeItem('highlightDevice')
+        }
+      }
+    }
+  }, [devices])
+
+  // Handle device selection from map
+  const handleDeviceSelect = (deviceId: string | null) => {
+    setSelectedDeviceId(deviceId)
+    if (deviceId) {
+      setSelectedFaultId(deviceId)
+    }
+  }
+
+
   const selectedFault = useMemo(() => {
     return faults.find(f => f.device.id === selectedFaultId) || null
   }, [faults, selectedFaultId])
@@ -270,38 +337,97 @@ export default function FaultsPage() {
     })
   }, [devices, faults])
 
-  // Calculate summary counts by category
-  const summary = useMemo(() => {
-    const categoryMap: Record<string, FaultCategory> = {
-      environmental: 'environmental-ingress',
-      electrical: 'electrical-driver',
-      installation: 'installation-wiring',
-      control: 'control-integration',
-      thermal: 'thermal-overheat',
-      optical: 'optical-output',
-      mechanical: 'mechanical-structural',
-      manufacturing: 'manufacturing-defect',
+  // Calculate fault insights with deltas and trends
+  const insights = useMemo(() => {
+    const now = Date.now()
+    const last24h = now - (24 * 60 * 60 * 1000)
+    const last48h = now - (48 * 60 * 60 * 1000)
+    
+    // Insight 1: New Faults (Last 24h)
+    const newFaults24h = faults.filter(f => f.detectedAt.getTime() >= last24h)
+    const newFaultsPrevious24h = faults.filter(f => {
+      const time = f.detectedAt.getTime()
+      return time >= last48h && time < last24h
+    })
+    const newFaultsDelta = newFaults24h.length - newFaultsPrevious24h.length
+    const newFaultsTrend = newFaultsDelta > 0 ? 'up' : newFaultsDelta < 0 ? 'down' : 'stable'
+    
+    // Insight 2: Trending Category (category with most new faults in last 24h)
+    const categoryNewCounts: Record<FaultCategory, number> = {
+      'environmental-ingress': 0,
+      'electrical-driver': 0,
+      'thermal-overheat': 0,
+      'installation-wiring': 0,
+      'control-integration': 0,
+      'manufacturing-defect': 0,
+      'mechanical-structural': 0,
+      'optical-output': 0,
     }
     
-    const counts: Record<string, { category: FaultCategory; count: number }> = {}
-    
-    Object.entries(categoryMap).forEach(([key, category]) => {
-      counts[key] = {
-        category,
-        count: faults.filter(f => f.faultType === category).length,
-      }
+    newFaults24h.forEach(fault => {
+      categoryNewCounts[fault.faultType] = (categoryNewCounts[fault.faultType] || 0) + 1
     })
     
-    // Top 3 most common for summary cards
-    const topCategories = Object.entries(counts)
-      .filter(([, data]) => data.count > 0)
-      .sort(([, a], [, b]) => b.count - a.count)
-      .slice(0, 3)
-      .map(([, data]) => data)
+    const trendingCategory = Object.entries(categoryNewCounts)
+      .filter(([, count]) => count > 0)
+      .sort(([, a], [, b]) => b - a)[0]
+    
+    const trendingCategoryInfo = trendingCategory 
+      ? {
+          category: trendingCategory[0] as FaultCategory,
+          newCount: trendingCategory[1],
+          totalCount: faults.filter(f => f.faultType === trendingCategory[0]).length,
+        }
+      : null
+    
+    // Insight 3: Critical Faults (faults older than 6 hours that are still active)
+    const criticalThreshold = now - (6 * 60 * 60 * 1000) // 6 hours
+    const criticalFaults = faults.filter(f => f.detectedAt.getTime() < criticalThreshold)
+    const criticalCount = criticalFaults.length
+    
+    // Calculate critical delta (compare to 12 hours ago)
+    const criticalThreshold12h = now - (12 * 60 * 60 * 1000)
+    const criticalFaultsPrevious = faults.filter(f => {
+      const time = f.detectedAt.getTime()
+      return time >= criticalThreshold12h && time < criticalThreshold
+    })
+    const criticalDelta = criticalCount - criticalFaultsPrevious.length
+    
+    // Insight 4: Average Resolution Time (mock - simulate based on fault age distribution)
+    const recentFaults = faults.filter(f => f.detectedAt.getTime() >= last24h)
+    const olderFaults = faults.filter(f => f.detectedAt.getTime() < last24h)
+    const avgAge = olderFaults.length > 0
+      ? olderFaults.reduce((sum, f) => sum + (now - f.detectedAt.getTime()), 0) / olderFaults.length
+      : 0
+    const avgAgeHours = Math.floor(avgAge / (1000 * 60 * 60))
     
     return {
-      topCategories,
-      total: faults.length,
+      newFaults24h: {
+        count: newFaults24h.length,
+        delta: newFaultsDelta,
+        trend: newFaultsTrend,
+        label: 'New Faults (24h)',
+        description: `${newFaults24h.length} detected in last 24 hours`,
+      },
+      trendingCategory: trendingCategoryInfo ? {
+        category: trendingCategoryInfo.category,
+        newCount: trendingCategoryInfo.newCount,
+        totalCount: trendingCategoryInfo.totalCount,
+        label: 'Trending Up',
+        description: `${faultCategories[trendingCategoryInfo.category].shortLabel} with ${trendingCategoryInfo.newCount} new`,
+      } : null,
+      criticalFaults: {
+        count: criticalCount,
+        delta: criticalDelta,
+        trend: criticalDelta > 0 ? 'up' : criticalDelta < 0 ? 'down' : 'stable',
+        label: 'Critical Priority',
+        description: `${criticalCount} faults older than 6 hours`,
+      },
+      avgResolutionTime: {
+        hours: avgAgeHours,
+        label: 'Avg. Age',
+        description: olderFaults.length > 0 ? `${avgAgeHours}h average age` : 'All faults recent',
+      },
     }
   }, [faults])
 
@@ -335,45 +461,6 @@ export default function FaultsPage() {
         />
       </div>
 
-      {/* Summary Cards */}
-      <div className="flex-shrink-0 px-[20px] pb-3">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {summary.topCategories.map((item, index) => {
-            const categoryInfo = faultCategories[item.category]
-            const colorClass = index === 0 
-              ? 'text-[var(--color-danger)]' 
-              : index === 1 
-              ? 'text-[var(--color-warning)]' 
-              : 'text-[var(--color-warning)]'
-            
-            return (
-              <div key={item.category} className="fusion-card">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-[var(--color-text-muted)]">
-                    {categoryInfo.shortLabel}
-                  </span>
-                  <span className={`text-2xl font-bold ${colorClass}`}>
-                    {item.count}
-                  </span>
-                </div>
-                <div className="text-xs text-[var(--color-text-muted)]">
-                  {categoryInfo.description.split('.')[0]}
-                </div>
-              </div>
-            )
-          })}
-          {summary.topCategories.length === 0 && (
-            <div className="fusion-card md:col-span-3">
-              <div className="text-center py-4">
-                <p className="text-sm text-[var(--color-text-muted)]">
-                  No faults detected. All devices are healthy.
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Main Content: Fault List/Map + Details Panel */}
       <div 
         className="main-content-area flex-1 flex min-h-0 gap-4 px-[20px] pt-2 pb-14 overflow-hidden"
@@ -382,7 +469,7 @@ export default function FaultsPage() {
         {/* Fault List/Map - Left Side */}
         <div 
           ref={listContainerRef}
-          className="flex-1 min-w-0 flex flex-col"
+          className="flex-1 min-w-0 flex flex-col overflow-auto"
         >
           {/* View Toggle and Category Filters */}
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -409,6 +496,8 @@ export default function FaultsPage() {
                   {(Object.keys(faultCategories) as FaultCategory[]).map((category) => {
                     const categoryInfo = faultCategories[category]
                     const isActive = showCategories[category]
+                    const hasFaults = faults.some(f => f.faultType === category)
+                    const isDisabled = !hasFaults
                     
                     // Get icon component
                     const getIcon = () => {
@@ -428,16 +517,23 @@ export default function FaultsPage() {
                     return (
                       <button
                         key={category}
-                        onClick={() => setShowCategories(prev => ({ ...prev, [category]: !prev[category] }))}
+                        onClick={() => {
+                          if (!isDisabled) {
+                            setShowCategories(prev => ({ ...prev, [category]: !prev[category] }))
+                          }
+                        }}
+                        disabled={isDisabled}
                         className={`
                           p-1.5 rounded-md transition-all duration-200
                           ${
-                            isActive
+                            isDisabled
+                              ? 'opacity-40 cursor-not-allowed text-[var(--color-text-soft)]'
+                              : isActive
                               ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)] shadow-[var(--shadow-soft)]'
                               : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]'
                           }
                         `}
-                        title={categoryInfo.shortLabel}
+                        title={isDisabled ? `${categoryInfo.shortLabel} (no faults)` : categoryInfo.shortLabel}
                       >
                         {getIcon()}
                       </button>
@@ -481,11 +577,145 @@ export default function FaultsPage() {
               </div>
             )}
           </div>
+
+          {/* Insight Cards - Pushed to Bottom */}
+          {faults.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-auto pt-6 flex-shrink-0">
+              {/* Insight 1: New Faults (24h) */}
+              <div className="fusion-card">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Clock size={16} className="text-[var(--color-primary)]" />
+                    <span className="text-sm font-medium text-[var(--color-text-muted)]">
+                      {insights.newFaults24h.label}
+                    </span>
+                  </div>
+                  {insights.newFaults24h.delta !== 0 && (
+                    <div className={`flex items-center gap-1 text-xs font-semibold ${
+                      insights.newFaults24h.trend === 'up' 
+                        ? 'text-[var(--color-danger)]' 
+                        : 'text-[var(--color-success)]'
+                    }`}>
+                      {insights.newFaults24h.trend === 'up' ? (
+                        <ArrowUp size={12} />
+                      ) : (
+                        <ArrowDown size={12} />
+                      )}
+                      {Math.abs(insights.newFaults24h.delta)}
+                    </div>
+                  )}
+                </div>
+                <div className="text-2xl font-bold text-[var(--color-text)] mb-1">
+                  {insights.newFaults24h.count}
+                </div>
+                <div className="text-xs text-[var(--color-text-muted)]">
+                  {insights.newFaults24h.description}
+                </div>
+              </div>
+
+              {/* Insight 2: Trending Category */}
+              {insights.trendingCategory ? (
+                <div className="fusion-card">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp size={16} className="text-[var(--color-warning)]" />
+                      <span className="text-sm font-medium text-[var(--color-text-muted)]">
+                        {insights.trendingCategory.label}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs font-semibold text-[var(--color-warning)]">
+                      <ArrowUp size={12} />
+                      {insights.trendingCategory.newCount}
+                    </div>
+                  </div>
+                  <div className="text-2xl font-bold text-[var(--color-warning)] mb-1">
+                    {faultCategories[insights.trendingCategory.category].shortLabel}
+                  </div>
+                  <div className="text-xs text-[var(--color-text-muted)]">
+                    {insights.trendingCategory.description} • {insights.trendingCategory.totalCount} total
+                  </div>
+                </div>
+              ) : (
+                <div className="fusion-card opacity-50">
+                  <div className="flex items-center gap-2 mb-3">
+                    <TrendingUp size={16} className="text-[var(--color-text-muted)]" />
+                    <span className="text-sm font-medium text-[var(--color-text-muted)]">
+                      Trending Up
+                    </span>
+                  </div>
+                  <div className="text-2xl font-bold text-[var(--color-text-muted)] mb-1">
+                    —
+                  </div>
+                  <div className="text-xs text-[var(--color-text-muted)]">
+                    No trending category
+                  </div>
+                </div>
+              )}
+
+              {/* Insight 3: Critical Faults */}
+              <div className="fusion-card">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={16} className="text-[var(--color-danger)]" />
+                    <span className="text-sm font-medium text-[var(--color-text-muted)]">
+                      {insights.criticalFaults.label}
+                    </span>
+                  </div>
+                  {insights.criticalFaults.delta !== 0 && (
+                    <div className={`flex items-center gap-1 text-xs font-semibold ${
+                      insights.criticalFaults.trend === 'up' 
+                        ? 'text-[var(--color-danger)]' 
+                        : 'text-[var(--color-success)]'
+                    }`}>
+                      {insights.criticalFaults.trend === 'up' ? (
+                        <ArrowUp size={12} />
+                      ) : (
+                        <ArrowDown size={12} />
+                      )}
+                      {Math.abs(insights.criticalFaults.delta)}
+                    </div>
+                  )}
+                </div>
+                <div className="text-2xl font-bold text-[var(--color-danger)] mb-1">
+                  {insights.criticalFaults.count}
+                </div>
+                <div className="text-xs text-[var(--color-text-muted)]">
+                  {insights.criticalFaults.description}
+                </div>
+              </div>
+
+              {/* Insight 4: Average Age */}
+              <div className="fusion-card">
+                <div className="flex items-center gap-2 mb-3">
+                  <TrendingDown size={16} className="text-[var(--color-primary)]" />
+                  <span className="text-sm font-medium text-[var(--color-text-muted)]">
+                    {insights.avgResolutionTime.label}
+                  </span>
+                </div>
+                <div className="text-2xl font-bold text-[var(--color-text)] mb-1">
+                  {insights.avgResolutionTime.hours}h
+                </div>
+                <div className="text-xs text-[var(--color-text-muted)]">
+                  {insights.avgResolutionTime.description}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-auto pt-6 flex-shrink-0">
+              <div className="fusion-card md:col-span-3">
+                <div className="text-center py-4">
+                  <p className="text-sm text-[var(--color-text-muted)]">
+                    No faults detected. All devices are healthy.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Fault Details Panel - Right Side */}
         <div ref={panelRef}>
-        <FaultDetailsPanel fault={selectedFault} />
+        <FaultDetailsPanel fault={selectedFault} onAddNewFault={handleAddNewFault} />
         </div>
       </div>
     </div>

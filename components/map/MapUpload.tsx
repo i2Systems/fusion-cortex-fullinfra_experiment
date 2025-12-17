@@ -12,14 +12,21 @@
 
 import { Upload, Map as MapIcon } from 'lucide-react'
 import { useState, useRef } from 'react'
+import { useStore } from '@/lib/StoreContext'
 
 interface MapUploadProps {
   onMapUpload: (imageUrl: string) => void
 }
 
 export function MapUpload({ onMapUpload }: MapUploadProps) {
+  const { activeStoreId } = useStore()
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Helper to get store-scoped localStorage key
+  const getStorageKey = () => {
+    return activeStoreId ? `fusion_map-image-url_${activeStoreId}` : 'map-image-url'
+  }
 
   const handleFileSelect = async (file: File) => {
     // Validate file type
@@ -37,8 +44,8 @@ export function MapUpload({ onMapUpload }: MapUploadProps) {
     const reader = new FileReader()
     reader.onloadend = () => {
       const base64String = reader.result as string
-      // Store in localStorage with a key based on the page context
-      const storageKey = 'map-image-url'
+      // Store in localStorage with store-scoped key
+      const storageKey = getStorageKey()
       localStorage.setItem(storageKey, base64String)
       onMapUpload(base64String)
       // Reset input after successful upload
@@ -74,8 +81,8 @@ export function MapUpload({ onMapUpload }: MapUploadProps) {
   const handleLoadDefault = () => {
     // Load the default Walmart floorplan
     const defaultUrl = '/floorplans/walmart-default.svg'
-    // Store default in localStorage too
-    const storageKey = 'map-image-url'
+    // Store default in localStorage too (store-scoped)
+    const storageKey = getStorageKey()
     localStorage.setItem(storageKey, defaultUrl)
     onMapUpload(defaultUrl)
   }

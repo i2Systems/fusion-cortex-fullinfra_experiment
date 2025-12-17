@@ -10,7 +10,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Signal, Battery, Wifi, WifiOff, Shield } from 'lucide-react'
+import { Signal, Battery, Wifi, WifiOff, Shield, Plus, QrCode, Upload, Download } from 'lucide-react'
 import { Device } from '@/lib/mockData'
 import { calculateWarrantyStatus, getWarrantyStatusLabel, getWarrantyStatusTokenClass } from '@/lib/warranty'
 
@@ -170,8 +170,61 @@ export function DeviceList({ devices, selectedDeviceId, onDeviceSelect, searchQu
         }}
       >
         {sortedDevices.length === 0 ? (
-          <div className="p-8 text-center text-sm text-[var(--color-text-muted)]">
-            {searchQuery ? `No devices found matching "${searchQuery}"` : 'No devices found'}
+          <div className="p-8 flex flex-col items-center justify-center min-h-[400px]">
+            <div className="text-center mb-6">
+              <p className="text-sm text-[var(--color-text-muted)] mb-8">
+                {searchQuery ? `No devices found matching "${searchQuery}"` : 'No devices found. Add devices to get started.'}
+              </p>
+            </div>
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center justify-center gap-3 max-w-2xl">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  // Trigger manual entry - will be handled by parent
+                  const event = new CustomEvent('manualEntry')
+                  window.dispatchEvent(event)
+                }}
+                className="px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)] transition-all flex items-center gap-2"
+              >
+                <Plus size={16} />
+                Add Device Manually
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const event = new CustomEvent('qrScan')
+                  window.dispatchEvent(event)
+                }}
+                className="px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)] transition-all flex items-center gap-2"
+              >
+                <QrCode size={16} />
+                Scan QR Code
+              </button>
+              <div className="flex-1 min-w-full md:min-w-0" />
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const event = new CustomEvent('importList')
+                  window.dispatchEvent(event)
+                }}
+                className="px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-border-strong)] transition-all flex items-center gap-2"
+              >
+                <Upload size={16} />
+                Import List
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const event = new CustomEvent('exportList')
+                  window.dispatchEvent(event)
+                }}
+                className="px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-border-strong)] transition-all flex items-center gap-2"
+              >
+                <Download size={16} />
+                Export List
+              </button>
+            </div>
           </div>
         ) : (
           <table className="w-full">

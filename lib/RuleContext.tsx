@@ -11,6 +11,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { Rule, mockRules } from './mockRules'
+import { useStore } from './StoreContext'
 
 interface RuleContextType {
   rules: Rule[]
@@ -23,28 +24,68 @@ interface RuleContextType {
 const RuleContext = createContext<RuleContextType | undefined>(undefined)
 
 export function RuleProvider({ children }: { children: ReactNode }) {
+  const { activeStoreId } = useStore()
   const [rules, setRules] = useState<Rule[]>([])
 
-  // Load rules from localStorage on mount, or initialize with mock rules
+  // Helper to get store-scoped localStorage keys
+  const getStorageKey = (key: string) => {
+    return activeStoreId ? `fusion_${key}_${activeStoreId}` : `fusion_${key}`
+  }
+
+  // Load rules when store changes or on mount
   useEffect(() => {
+    if (!activeStoreId) return // Wait for store to be initialized
+    
     if (typeof window !== 'undefined') {
-      // Clear old localStorage to load updated mockRules with overrides and schedules
-      localStorage.removeItem('fusion_rules')
+      const storageKey = getStorageKey('rules')
+      const savedRules = localStorage.getItem(storageKey)
+      
+      if (savedRules) {
+        try {
+          const parsed = JSON.parse(savedRules)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            // Restore Date objects
+            const restored = parsed.map((rule: any) => ({
+              ...rule,
+              createdAt: rule.createdAt ? new Date(rule.createdAt) : new Date(),
+              updatedAt: rule.updatedAt ? new Date(rule.updatedAt) : new Date(),
+              lastTriggered: rule.lastTriggered ? new Date(rule.lastTriggered) : undefined,
+            }))
+            setRules(restored)
+            console.log(`✅ Loaded ${restored.length} rules from localStorage for ${activeStoreId}`)
+            return
+          }
+        } catch (e) {
+          console.error('Failed to parse saved rules:', e)
+        }
+      }
       
       // Initialize with mock rules (includes new overrides and schedules)
-        setRules(mockRules)
+      // Add store prefix to rule IDs to make them unique per store
+      const storeRules = mockRules.map(rule => ({
+        ...rule,
+        id: `${activeStoreId}-${rule.id}`,
+        targetId: rule.targetId ? `${activeStoreId}-${rule.targetId}` : undefined,
+        action: {
+          ...rule.action,
+          zones: rule.action.zones?.map(z => z), // Keep zone names as-is (they'll be matched by name)
+        },
+      }))
+      setRules(storeRules)
+      console.log(`✅ Loaded ${storeRules.length} rules for ${activeStoreId} (fresh data)`)
     } else {
       // Server-side: initialize with empty array, will be set on client
       setRules([])
     }
-  }, [])
+  }, [activeStoreId])
 
-  // Save to localStorage whenever rules change (but not on initial mount with empty array)
+  // Save to localStorage whenever rules change (store-scoped)
   useEffect(() => {
-    if (typeof window !== 'undefined' && rules.length > 0) {
-      localStorage.setItem('fusion_rules', JSON.stringify(rules))
+    if (typeof window !== 'undefined' && rules.length > 0 && activeStoreId) {
+      const storageKey = getStorageKey('rules')
+      localStorage.setItem(storageKey, JSON.stringify(rules))
     }
-  }, [rules])
+  }, [rules, activeStoreId])
 
   const addRule = (ruleData: Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>): Rule => {
     const newRule: Rule = {

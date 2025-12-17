@@ -9,7 +9,7 @@
 
 'use client'
 
-import { AlertCircle, Droplets, Zap, Thermometer, Plug, Settings, Package, Wrench, Lightbulb, MapPin, Radio, RefreshCw, CheckCircle2, Clock, TrendingDown, XCircle, Battery, Shield, ExternalLink } from 'lucide-react'
+import { AlertCircle, Droplets, Zap, Thermometer, Plug, Settings, Package, Wrench, Lightbulb, MapPin, Radio, RefreshCw, CheckCircle2, Clock, TrendingDown, XCircle, Battery, Shield, ExternalLink, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Device } from '@/lib/mockData'
 import { FaultCategory, faultCategories } from '@/lib/faultDefinitions'
@@ -24,24 +24,41 @@ interface Fault {
 
 interface FaultDetailsPanelProps {
   fault: Fault | null
+  onAddNewFault?: () => void
 }
 
-export function FaultDetailsPanel({ fault }: FaultDetailsPanelProps) {
+export function FaultDetailsPanel({ fault, onAddNewFault }: FaultDetailsPanelProps) {
   const router = useRouter()
   
   if (!fault) {
     return (
       <div className="w-96 min-w-[20rem] max-w-[32rem] bg-[var(--color-surface)] backdrop-blur-xl rounded-2xl border border-[var(--color-border-subtle)] flex flex-col shadow-[var(--shadow-strong)] overflow-hidden flex-shrink-0 h-full">
-        <div className="p-8 text-center">
-          <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center">
-            <AlertCircle size={40} className="text-[var(--color-text-muted)]" />
+        <div className="flex-1 flex flex-col">
+          {/* Empty State Content */}
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center">
+              <AlertCircle size={40} className="text-[var(--color-text-muted)]" />
+            </div>
+            <h3 className="text-lg font-semibold text-[var(--color-text)] mb-2">
+              No Fault Selected
+            </h3>
+            <p className="text-sm text-[var(--color-text-muted)] mb-8">
+              Select a fault from the list to view detailed information and troubleshooting steps
+            </p>
           </div>
-          <h3 className="text-lg font-semibold text-[var(--color-text)] mb-2">
-            No Fault Selected
-          </h3>
-          <p className="text-sm text-[var(--color-text-muted)]">
-            Select a fault from the list to view detailed information and troubleshooting steps
-          </p>
+
+          {/* Add New Fault Button */}
+          {onAddNewFault && (
+            <div className="p-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)]">
+              <button
+                onClick={onAddNewFault}
+                className="w-full px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)] transition-all flex items-center justify-center gap-2"
+              >
+                <Plus size={16} />
+                Add New Fault
+              </button>
+            </div>
+          )}
         </div>
       </div>
     )

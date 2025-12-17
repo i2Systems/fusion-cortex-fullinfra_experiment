@@ -5,7 +5,6 @@
 // - Zones (groupings of devices)
 // - BACnet mappings
 // - Rules & overrides
-// - Discovery sessions
 // - Sites/stores
 //
 // Extend as needed for your specific requirements.
@@ -29,7 +28,6 @@ model Site {
 
   devices     Device[]
   zones       Zone[]
-  discoverySessions DiscoverySession[]
 }
 
 model Device {
@@ -170,27 +168,29 @@ model Rule {
   @@index([zoneId])
 }
 
-model DiscoverySession {
-  id          String   @id @default(cuid())
-  siteId      String
-  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  
-  status      DiscoveryStatus @default(RUNNING)
-  devicesFound Int     @default(0)
-  devicesMissing Int   @default(0)
-  devicesOffline Int   @default(0)
-  
-  startedAt   DateTime @default(now())
-  completedAt DateTime?
-  
-  @@index([siteId])
-  @@index([status])
-}
+// NOTE: DiscoverySession model kept for potential future use
+// Currently, device entry is manual via the lookup page
+// model DiscoverySession {
+//   id          String   @id @default(cuid())
+//   siteId      String
+//   site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+//   
+//   status      DiscoveryStatus @default(RUNNING)
+//   devicesFound Int     @default(0)
+//   devicesMissing Int   @default(0)
+//   devicesOffline Int   @default(0)
+//   
+//   startedAt   DateTime @default(now())
+//   completedAt DateTime?
+//   
+//   @@index([siteId])
+//   @@index([status])
+// }
 
-enum DiscoveryStatus {
-  RUNNING
-  COMPLETED
-  FAILED
-  STOPPED
-}
+// enum DiscoveryStatus {
+//   RUNNING
+//   COMPLETED
+//   FAILED
+//   STOPPED
+// }
 

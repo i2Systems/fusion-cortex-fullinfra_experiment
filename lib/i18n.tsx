@@ -42,7 +42,6 @@ const translations: Record<Language, Translations> = {
     search: 'Search',
     // Navigation
     dashboard: 'Dashboard',
-    discovery: 'Discovery',
     map: 'Map & Devices',
     zones: 'Zones',
     lookup: 'Device Lookup',
@@ -81,7 +80,6 @@ const translations: Record<Language, Translations> = {
     search: 'Buscar',
     // Navigation
     dashboard: 'Panel',
-    discovery: 'Detección',
     map: 'Mapa y Dispositivos',
     zones: 'Zonas',
     lookup: 'Búsqueda de Dispositivos',
@@ -120,7 +118,6 @@ const translations: Record<Language, Translations> = {
     search: 'Rechercher',
     // Navigation
     dashboard: 'Tableau de bord',
-    discovery: 'Découverte',
     map: 'Carte et Appareils',
     zones: 'Zones',
     lookup: 'Recherche d\'Appareils',

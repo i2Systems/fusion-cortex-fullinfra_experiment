@@ -1,0 +1,380 @@
+/**
+ * Store Details Panel Component
+ * 
+ * Right-side panel showing comprehensive details about a selected store.
+ * Displays metrics, faults, warranties, zones, rules, and recent activity.
+ * 
+ * AI Note: This panel appears when a store card is selected on the dashboard.
+ */
+
+'use client'
+
+import { useRouter } from 'next/navigation'
+import { Store, useStore } from '@/lib/StoreContext'
+import { Device } from '@/lib/mockData'
+import { Zone } from '@/lib/ZoneContext'
+import { Rule } from '@/lib/mockRules'
+import { FaultCategory } from '@/lib/faultDefinitions'
+import { calculateWarrantyStatus } from '@/lib/warranty'
+import {
+  MapPin,
+  Phone,
+  User,
+  Calendar,
+  Activity,
+  AlertTriangle,
+  Shield,
+  Map,
+  Zap,
+  Layers,
+  Workflow,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  ExternalLink,
+  ArrowRight
+} from 'lucide-react'
+
+interface StoreDetailsPanelProps {
+  store: Store | null
+  devices: Device[]
+  zones: Zone[]
+  rules: Rule[]
+  criticalFaults: Array<{
+    deviceId: string
+    deviceName: string
+    faultType: FaultCategory
+    description: string
+    location: string
+  }>
+  warrantiesExpiring: number
+  warrantiesExpired: number
+  mapUploaded: boolean
+  healthPercentage: number
+  onlineDevices: number
+  offlineDevices: number
+  missingDevices: number
+}
+
+export function StoreDetailsPanel({
+  store,
+  devices,
+  zones,
+  rules,
+  criticalFaults,
+  warrantiesExpiring,
+  warrantiesExpired,
+  mapUploaded,
+  healthPercentage,
+  onlineDevices,
+  offlineDevices,
+  missingDevices,
+}: StoreDetailsPanelProps) {
+  const router = useRouter()
+  const { setActiveStore } = useStore()
+
+  if (!store) {
+    return (
+      <div className="w-96 min-w-[20rem] max-w-[32rem] bg-[var(--color-surface)] backdrop-blur-xl rounded-2xl border border-[var(--color-border-subtle)] flex flex-col shadow-[var(--shadow-strong)] overflow-hidden flex-shrink-0 h-full">
+        <div className="p-8 text-center">
+          <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center">
+            <MapPin size={40} className="text-[var(--color-text-muted)]" />
+          </div>
+          <h3 className="text-lg font-semibold text-[var(--color-text)] mb-2">
+            No Store Selected
+          </h3>
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Select a store from the dashboard to view detailed information
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  const handleNavigate = (path: string) => {
+    setActiveStore(store.id)
+    router.push(path)
+  }
+
+  const getHealthColor = (percentage: number) => {
+    if (percentage >= 95) return 'var(--color-success)'
+    if (percentage >= 85) return 'var(--color-warning)'
+    return 'var(--color-danger)'
+  }
+
+  const getHealthIcon = (percentage: number) => {
+    if (percentage >= 95) return <CheckCircle2 size={16} className="text-[var(--color-success)]" />
+    if (percentage >= 85) return <AlertCircle size={16} className="text-[var(--color-warning)]" />
+    return <XCircle size={16} className="text-[var(--color-danger)]" />
+  }
+
+  // Calculate recent activity (mock data for now)
+  const recentActivity = [
+    ...criticalFaults.slice(0, 2).map(fault => ({
+      type: 'fault' as const,
+      title: `Fault: ${fault.deviceName}`,
+      description: fault.location,
+      time: '45 minutes ago',
+      icon: AlertTriangle,
+      color: 'var(--color-danger)',
+      onClick: () => handleNavigate('/faults'),
+    })),
+    ...(zones.length > 0 ? [{
+      type: 'zone' as const,
+      title: `Zone configured`,
+      description: zones[0]?.name || 'Zone updated',
+      time: '1 day ago',
+      icon: Layers,
+      color: 'var(--color-primary)',
+      onClick: () => handleNavigate('/zones'),
+    }] : []),
+  ].slice(0, 5)
+
+  return (
+    <div className="w-96 min-w-[20rem] max-w-[32rem] bg-[var(--color-surface)] backdrop-blur-xl rounded-2xl border border-[var(--color-border-subtle)] flex flex-col shadow-[var(--shadow-strong)] overflow-hidden flex-shrink-0 h-full">
+      <div className="flex-1 overflow-auto p-6 space-y-6">
+      {/* Store Header */}
+      <div>
+        <h2 className="text-xl font-bold text-[var(--color-text)] mb-2">{store.name}</h2>
+        <div className="space-y-2 text-sm text-[var(--color-text-muted)]">
+          {store.address && (
+            <div className="flex items-center gap-2">
+              <MapPin size={14} />
+              <span>{store.address}, {store.city}, {store.state} {store.zipCode}</span>
+            </div>
+          )}
+          {store.phone && (
+            <div className="flex items-center gap-2">
+              <Phone size={14} />
+              <span>{store.phone}</span>
+            </div>
+          )}
+          {store.manager && (
+            <div className="flex items-center gap-2">
+              <User size={14} />
+              <span>Manager: {store.manager}</span>
+            </div>
+          )}
+          {store.squareFootage && (
+            <div className="flex items-center gap-2">
+              <Map size={14} />
+              <span>{store.squareFootage.toLocaleString()} sq ft</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Health Status */}
+      <div className="p-4 rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)]">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Activity size={18} />
+            <span className="font-semibold text-[var(--color-text)]">System Health</span>
+          </div>
+          {getHealthIcon(healthPercentage)}
+        </div>
+        <div className="text-3xl font-bold mb-2" style={{ color: getHealthColor(healthPercentage) }}>
+          {healthPercentage}%
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-xs">
+          <div>
+            <div className="text-[var(--color-text-muted)]">Online</div>
+            <div className="font-semibold text-[var(--color-success)]">{onlineDevices}</div>
+          </div>
+          <div>
+            <div className="text-[var(--color-text-muted)]">Offline</div>
+            <div className="font-semibold text-[var(--color-warning)]">{offlineDevices}</div>
+          </div>
+          <div>
+            <div className="text-[var(--color-text-muted)]">Missing</div>
+            <div className="font-semibold text-[var(--color-danger)]">{missingDevices}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Key Metrics */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="p-3 rounded-lg bg-[var(--color-surface-subtle)]">
+          <div className="text-xs text-[var(--color-text-muted)] mb-1">Total Devices</div>
+          <div className="text-xl font-bold text-[var(--color-text)]">{devices.length}</div>
+        </div>
+        <div className="p-3 rounded-lg bg-[var(--color-surface-subtle)]">
+          <div className="text-xs text-[var(--color-text-muted)] mb-1">Zones</div>
+          <div className="text-xl font-bold text-[var(--color-text)]">{zones.length}</div>
+        </div>
+        <div className="p-3 rounded-lg bg-[var(--color-surface-subtle)]">
+          <div className="text-xs text-[var(--color-text-muted)] mb-1">Rules</div>
+          <div className="text-xl font-bold text-[var(--color-text)]">{rules.length}</div>
+        </div>
+        <div className="p-3 rounded-lg bg-[var(--color-surface-subtle)]">
+          <div className="text-xs text-[var(--color-text-muted)] mb-1">Map Status</div>
+          <div className="text-sm font-semibold flex items-center gap-1">
+            {mapUploaded ? (
+              <>
+                <CheckCircle2 size={14} className="text-[var(--color-success)]" />
+                <span className="text-[var(--color-success)]">Uploaded</span>
+              </>
+            ) : (
+              <>
+                <AlertCircle size={14} className="text-[var(--color-warning)]" />
+                <span className="text-[var(--color-warning)]">Not uploaded</span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Critical Faults */}
+      {criticalFaults.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={16} className="text-[var(--color-danger)]" />
+              <span className="font-semibold text-[var(--color-text)]">Critical Faults</span>
+            </div>
+            <button
+              onClick={() => handleNavigate('/faults')}
+              className="text-xs text-[var(--color-primary)] hover:underline flex items-center gap-1"
+            >
+              View all
+              <ArrowRight size={12} />
+            </button>
+          </div>
+          <div className="space-y-2">
+            {criticalFaults.slice(0, 3).map((fault, idx) => (
+              <div
+                key={idx}
+                className="p-3 rounded-lg bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20 cursor-pointer hover:bg-[var(--color-danger)]/15 transition-colors"
+                onClick={() => handleNavigate('/faults')}
+              >
+                <div className="font-medium text-sm text-[var(--color-text)] mb-1">
+                  {fault.deviceName}
+                </div>
+                <div className="text-xs text-[var(--color-text-muted)] mb-1 line-clamp-2">
+                  {fault.description}
+                </div>
+                <div className="text-xs text-[var(--color-text-soft)] flex items-center gap-1">
+                  <MapPin size={10} />
+                  {fault.location}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Warranty Alerts */}
+      {(warrantiesExpiring > 0 || warrantiesExpired > 0) && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Shield size={16} className="text-[var(--color-warning)]" />
+              <span className="font-semibold text-[var(--color-text)]">Warranty Alerts</span>
+            </div>
+            <button
+              onClick={() => handleNavigate('/lookup')}
+              className="text-xs text-[var(--color-primary)] hover:underline flex items-center gap-1"
+            >
+              View devices
+              <ArrowRight size={12} />
+            </button>
+          </div>
+          <div className="space-y-2">
+            {warrantiesExpiring > 0 && (
+              <div className="p-3 rounded-lg bg-[var(--color-warning)]/10 border border-[var(--color-warning)]/20">
+                <div className="text-sm font-medium text-[var(--color-warning)] mb-1">
+                  {warrantiesExpiring} warranty{warrantiesExpiring !== 1 ? 'ies' : ''} expiring soon
+                </div>
+                <div className="text-xs text-[var(--color-text-muted)]">
+                  Expiring within 30 days
+                </div>
+              </div>
+            )}
+            {warrantiesExpired > 0 && (
+              <div className="p-3 rounded-lg bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20">
+                <div className="text-sm font-medium text-[var(--color-danger)] mb-1">
+                  {warrantiesExpired} expired warranty{warrantiesExpired !== 1 ? 'ies' : ''}
+                </div>
+                <div className="text-xs text-[var(--color-text-muted)]">
+                  Requires attention
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Recent Activity */}
+      {recentActivity.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Clock size={16} className="text-[var(--color-text-muted)]" />
+            <span className="font-semibold text-[var(--color-text)]">Recent Activity</span>
+          </div>
+          <div className="space-y-2">
+            {recentActivity.map((activity, idx) => {
+              const Icon = activity.icon
+              return (
+                <div
+                  key={idx}
+                  className="p-3 rounded-lg bg-[var(--color-surface-subtle)] cursor-pointer hover:bg-[var(--color-surface)] transition-colors"
+                  onClick={activity.onClick}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="p-1.5 rounded bg-[var(--color-surface)] flex-shrink-0">
+                      <Icon size={14} style={{ color: activity.color }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-[var(--color-text)] mb-0.5">
+                        {activity.title}
+                      </div>
+                      <div className="text-xs text-[var(--color-text-muted)] mb-1">
+                        {activity.description}
+                      </div>
+                      <div className="text-xs text-[var(--color-text-soft)]">
+                        {activity.time}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Quick Actions */}
+      <div>
+        <div className="font-semibold text-sm text-[var(--color-text)] mb-3">Quick Actions</div>
+        <div className="space-y-2">
+          <button
+            onClick={() => handleNavigate('/map')}
+            className="w-full fusion-button fusion-button-primary text-left justify-start text-sm"
+          >
+            <Map size={16} />
+            View Map
+          </button>
+          <button
+            onClick={() => handleNavigate('/zones')}
+            className="w-full fusion-button text-left justify-start text-sm"
+            style={{ background: 'var(--color-surface-subtle)', color: 'var(--color-text)' }}
+          >
+            <Layers size={16} />
+            Manage Zones
+          </button>
+          <button
+            onClick={() => handleNavigate('/rules')}
+            className="w-full fusion-button text-left justify-start text-sm"
+            style={{ background: 'var(--color-surface-subtle)', color: 'var(--color-text)' }}
+          >
+            <Workflow size={16} />
+            Configure Rules
+          </button>
+        </div>
+      </div>
+      </div>
+    </div>
+  )
+}
+

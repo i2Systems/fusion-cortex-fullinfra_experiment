@@ -14,7 +14,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { useRouter } from 'next/navigation'
 import { faultCategories, FaultCategory } from '@/lib/faultDefinitions'
 
-export type NotificationType = 'discovery' | 'zone' | 'fault' | 'bacnet' | 'rule' | 'device' | 'system' | 'warranty'
+export type NotificationType = 'zone' | 'fault' | 'bacnet' | 'rule' | 'device' | 'system' | 'warranty'
 
 export interface Notification {
   id: string
@@ -124,7 +124,7 @@ function generateWarrantyNotification(): Notification {
 // Generate a single random notification
 function generateRandomNotification(): Notification {
   const now = new Date()
-  const types: NotificationType[] = ['discovery', 'fault', 'zone', 'bacnet', 'rule', 'device', 'system', 'warranty']
+  const types: NotificationType[] = ['fault', 'zone', 'bacnet', 'rule', 'device', 'system', 'warranty']
   const type = types[Math.floor(Math.random() * types.length)]
   
   // Use specialized notification generators
@@ -137,17 +137,6 @@ function generateRandomNotification(): Notification {
   }
   
   const notifications: Record<NotificationType, { titles: string[], messages: string[], links: string[] }> = {
-    discovery: {
-      titles: [
-        'Discovery Scan Completed',
-        'New Devices Detected',
-      ],
-      messages: [
-        'New devices discovered in the network. Review and map devices to zones.',
-        'Devices found during background scan. Map them to zones.',
-      ],
-      links: ['/discovery', '/map'],
-    },
     fault: {
       titles: [
         'Environmental Ingress Detected',
@@ -255,15 +244,6 @@ function generateFakeNotifications(): Notification[] {
   const now = new Date()
   
   return [
-    {
-      id: '1',
-      type: 'discovery',
-      title: 'Discovery Scan Completed',
-      message: '116 devices discovered in the network. Review and map devices to zones.',
-      timestamp: new Date(now.getTime() - 5 * 60 * 1000), // 5 minutes ago
-      read: false,
-      link: '/discovery',
-    },
     {
       id: '2',
       type: 'fault',

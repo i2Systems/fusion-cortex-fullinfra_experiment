@@ -17,6 +17,7 @@ import { MapViewToggle, type MapViewMode } from '@/components/shared/MapViewTogg
 import { MapUpload } from '@/components/map/MapUpload'
 import { useZones } from '@/lib/ZoneContext'
 import { useDevices } from '@/lib/DeviceContext'
+import { useStore } from '@/lib/StoreContext'
 import { BACnetDetailsPanel } from '@/components/bacnet/BACnetDetailsPanel'
 import { initialBACnetMappings, type ControlCapability } from '@/lib/initialBACnetMappings'
 import { Power, Sun, Clock, Radio, CheckCircle2, AlertCircle, XCircle, Plus } from 'lucide-react'
@@ -131,6 +132,7 @@ const capabilityLabels: Record<ControlCapability, { label: string; icon: any }> 
 export default function BACnetPage() {
   const { zones } = useZones()
   const { devices } = useDevices()
+  const { activeStoreId } = useStore()
   const [mappings, setMappings] = useState<BACnetMapping[]>([])
   const [selectedMappingId, setSelectedMappingId] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -141,6 +143,11 @@ export default function BACnetPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const listContainerRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+
+  // Helper to get store-scoped localStorage keys
+  const getStorageKey = (key: string) => {
+    return activeStoreId ? `fusion_${key}_${activeStoreId}` : `fusion_${key}`
+  }
 
   // Generate mappings for all zones (limit to 12)
   const zoneMappings = useMemo(() => {
@@ -159,12 +166,17 @@ export default function BACnetPage() {
     })
   }, [zones, devices, mappings])
 
-  // Auto-create BACnet mappings when new zones are detected
+  // Auto-create BACnet mappings when new zones are detected or store changes
   useEffect(() => {
+    if (!activeStoreId) return // Wait for store to be initialized
+    
     if (typeof window !== 'undefined' && zones.length > 0) {
+      const storageKey = getStorageKey('bacnet_mappings')
+      const savedKey = getStorageKey('bacnet_mappings_saved')
+      
       // Check if mappings are saved - if so, always load them and don't auto-create
-      const mappingsSaved = localStorage.getItem('fusion_bacnet_mappings_saved') === 'true'
-      const saved = localStorage.getItem('fusion_bacnet_mappings')
+      const mappingsSaved = localStorage.getItem(savedKey) === 'true'
+      const saved = localStorage.getItem(storageKey)
       let existingMappings: BACnetMapping[] = []
       
       if (saved) {
@@ -198,7 +210,8 @@ export default function BACnetPage() {
 
       // Only auto-create mappings if zones are not marked as saved
       // This prevents overwriting user's saved BACnet mappings
-      const zonesSaved = localStorage.getItem('fusion_zones_saved') === 'true'
+      const zonesSavedKey = getStorageKey('zones_saved')
+      const zonesSaved = localStorage.getItem(zonesSavedKey) === 'true'
       if (zonesWithoutMappings.length > 0 && !zonesSaved) {
         // Create mappings for new zones
         const newMappings: BACnetMapping[] = zonesWithoutMappings.map((zone, index) => {
@@ -232,7 +245,7 @@ export default function BACnetPage() {
         // Merge with existing mappings (only for zones that still exist)
         const allMappings = [...existingMappings, ...newMappings]
         setMappings(allMappings)
-        localStorage.setItem('fusion_bacnet_mappings', JSON.stringify(allMappings))
+        localStorage.setItem(storageKey, JSON.stringify(allMappings))
       } else if (existingMappings.length > 0) {
         // Update device counts for existing mappings
         const updatedMappings = existingMappings.map(m => {
@@ -247,16 +260,17 @@ export default function BACnetPage() {
       } else if (zones.length === 0) {
         // Clear mappings if all zones are cleared
         setMappings([])
-        localStorage.removeItem('fusion_bacnet_mappings')
+        localStorage.removeItem(storageKey)
       }
     } else if (zones.length === 0) {
       // Clear mappings when zones are cleared
       setMappings([])
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('fusion_bacnet_mappings')
+        const storageKey = getStorageKey('bacnet_mappings')
+        localStorage.removeItem(storageKey)
       }
     }
-  }, [zones.length]) // Only depend on zones.length to avoid infinite loops
+  }, [zones.length, activeStoreId]) // Reload when store changes
 
 
   const selectedMapping = zoneMappings.find(m => m.zoneId === selectedMappingId) || null
@@ -283,8 +297,9 @@ export default function BACnetPage() {
         : m
     )
     setMappings(updated)
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('fusion_bacnet_mappings', JSON.stringify(updated))
+    if (typeof window !== 'undefined' && activeStoreId) {
+      const storageKey = getStorageKey('bacnet_mappings')
+      localStorage.setItem(storageKey, JSON.stringify(updated))
     }
   }
 
@@ -305,8 +320,9 @@ export default function BACnetPage() {
           : m
       )
       setMappings(updated)
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('fusion_bacnet_mappings', JSON.stringify(updated))
+      if (typeof window !== 'undefined' && activeStoreId) {
+        const storageKey = getStorageKey('bacnet_mappings')
+        localStorage.setItem(storageKey, JSON.stringify(updated))
       }
       setSelectedMappingId(null)
     }
@@ -321,8 +337,9 @@ export default function BACnetPage() {
           : m
       )
       setMappings(updated)
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('fusion_bacnet_mappings', JSON.stringify(updated))
+      if (typeof window !== 'undefined' && activeStoreId) {
+        const storageKey = getStorageKey('bacnet_mappings')
+        localStorage.setItem(storageKey, JSON.stringify(updated))
       }
     }
   }
@@ -363,7 +380,8 @@ export default function BACnetPage() {
   // Load saved map image on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedImageUrl = localStorage.getItem('map-image-url')
+      const imageKey = getStorageKey('map-image-url')
+      const savedImageUrl = localStorage.getItem(imageKey)
       if (savedImageUrl) {
         setMapImageUrl(savedImageUrl)
         setMapUploaded(true)

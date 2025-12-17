@@ -1,7 +1,7 @@
 # Fusion/Cortex - Cursor AI Rules
 
 ## Project Context
-This is a web-based commissioning & configuration UI for large-scale retail lighting deployments. Focus on discovery, mapping, zones, BACnet mapping, rules, overrides, and device lookup.
+This is a web-based commissioning & configuration UI for large-scale retail lighting deployments. Focus on mapping, zones, BACnet mapping, rules, overrides, and device lookup. Supports multi-store management with store-scoped data isolation.
 
 ## Code Style
 - Use TypeScript strict mode

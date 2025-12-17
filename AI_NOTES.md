@@ -7,6 +7,7 @@ This file contains helpful context for AI assistants working on this codebase.
 **Project**: Fusion/Cortex - Commissioning & Configuration UI for retail lighting
 **Purpose**: Setup, mapping, and rules platform (NOT a dashboard or analytics tool)
 **Tech**: Next.js 14 App Router, React, tRPC, Prisma, PostgreSQL, Tailwind
+**Architecture**: Multi-store aware with store-scoped data isolation
 
 ## Key Principles
 
@@ -14,6 +15,24 @@ This file contains helpful context for AI assistants working on this codebase.
 2. **Type safety first** - Use tRPC for all API calls, Zod for validation, TypeScript strict mode
 3. **Server Components by default** - Only use `'use client'` when needed (interactivity, hooks, browser APIs)
 4. **Plain language** - No jargon, simple UX (per brief requirements)
+5. **Store-aware** - All data contexts are store-scoped using localStorage keys with store ID prefix
+
+## Multi-Store Architecture
+
+The app supports multiple stores with isolated data:
+
+- **StoreContext**: Manages active store selection (`activeStoreId`, `stores`, `setActiveStore`)
+- **Store-Scoped Storage**: All data uses keys like `fusion_devices_store_{storeId}`
+- **Auto-Reload**: Contexts (Device, Zone, Rule) automatically reload when `activeStoreId` changes
+- **Dashboard**: Shows overview of all stores, detailed panel for selected store
+- **Store Switching**: Dropdown in PageTitle component
+
+**Storage Key Format:**
+- `fusion_devices_store_{storeId}`
+- `fusion_zones_store_{storeId}`
+- `fusion_rules_store_{storeId}`
+- `fusion_map-image-url_store_{storeId}`
+- `fusion_bacnet_mappings_store_{storeId}`
 
 ## Common Patterns
 
@@ -33,7 +52,7 @@ const navItems = [
   { href: '/newsection', label: 'New Section', icon: IconName },
 ]
 
-// 3. Create router
+// 3. Create router (if needed)
 // server/trpc/routers/newsection.ts
 export const newsectionRouter = router({
   list: publicProcedure.query(async () => { ... }),
@@ -45,6 +64,24 @@ export const appRouter = router({
   // ... existing routers
   newsection: newsectionRouter,
 })
+```
+
+### Making a Component Store-Aware
+
+```typescript
+import { useStore } from '@/lib/StoreContext'
+
+export function MyComponent() {
+  const { activeStoreId } = useStore()
+  
+  // Use store-scoped localStorage key
+  const storageKey = `fusion_myData_store_${activeStoreId}`
+  
+  // Reload when store changes
+  useEffect(() => {
+    // Load data for activeStoreId
+  }, [activeStoreId])
+}
 ```
 
 ### Using tRPC in Components
@@ -71,21 +108,21 @@ export function MyComponent() {
 <div className="bg-[#111322] p-6 rounded-lg">
 ```
 
-### Database Queries
+### Layout Pattern
 
 ```typescript
-// In tRPC router
-import { prisma } from '@/lib/prisma' // You'll need to create this
-
-export const deviceRouter = router({
-  search: publicProcedure
-    .input(z.object({ query: z.string() }))
-    .query(async ({ input }) => {
-      return await prisma.device.findMany({
-        where: { deviceId: { contains: input.query } },
-      })
-    }),
-})
+// Main content area pattern (used across all pages)
+<div className="flex-1 flex min-h-0 gap-4 px-[20px] pb-14">
+  {/* Left: Main content */}
+  <div className="flex-1 min-w-0 flex flex-col">
+    {/* Content here */}
+  </div>
+  
+  {/* Right: Panel (always visible) */}
+  <div className="flex-shrink-0">
+    <SomePanel />
+  </div>
+</div>
 ```
 
 ## File Locations
@@ -93,6 +130,7 @@ export const deviceRouter = router({
 - **Pages**: `app/(main)/[section]/page.tsx`
 - **Layout Components**: `components/layout/`
 - **Feature Components**: `components/[feature]/`
+- **Context Providers**: `lib/[Feature]Context.tsx`
 - **tRPC Routers**: `server/trpc/routers/[feature].ts`
 - **Database Schema**: `prisma/schema.prisma`
 - **Design Tokens**: `app/globals.css` (look for `:root`)
@@ -131,6 +169,11 @@ export const deviceRouter = router({
 - Check Tailwind classes are valid
 - Verify `globals.css` is imported in root layout
 
+**Store data not switching**
+- Ensure using `activeStoreId` from `StoreContext`
+- Check localStorage keys include store ID
+- Verify context reloads when `activeStoreId` changes
+
 **Database connection errors**
 - Verify `DATABASE_URL` in `.env`
 - Check PostgreSQL is running
@@ -143,6 +186,7 @@ export const deviceRouter = router({
 - Analytics dashboards
 - Store manager operations dashboards
 - Legacy energy/analytics features
+- Device discovery/scanning (removed - use manual entry in lookup page)
 
 ## Testing Checklist
 
@@ -151,17 +195,18 @@ When adding features:
 - [ ] Type-safe (tRPC + TypeScript)
 - [ ] Server Component unless client features needed
 - [ ] Added to navigation if it's a main section
-- [ ] tRPC router created and added to app router
+- [ ] tRPC router created and added to app router (if needed)
 - [ ] Database schema updated if needed
 - [ ] Plain language, no jargon
+- [ ] Store-aware if dealing with data (uses store-scoped keys)
+- [ ] Reloads when active store changes
 
 ## Next Steps for Full Implementation
 
 1. **Connect tRPC to Prisma**: Create `lib/prisma.ts`, use in routers
-2. **Implement discovery logic**: Device scanning, status tracking
-3. **Map canvas**: Blueprint upload, device rendering, interactions
-4. **Zone management**: Create/edit zones, device assignment
-5. **Rule engine**: Rule builder, evaluation, BMS integration
-6. **Auth setup**: Configure Auth.js, protect routes
-7. **Real-time updates**: WebSockets or polling for device status
-
+2. **Map canvas**: Blueprint upload, device rendering, interactions
+3. **Zone management**: Create/edit zones, device assignment
+4. **Rule engine**: Rule builder, evaluation, BMS integration
+5. **Auth setup**: Configure Auth.js, protect routes
+6. **Real-time updates**: WebSockets or polling for device status
+7. **Image storage**: Connect IndexedDB for store images

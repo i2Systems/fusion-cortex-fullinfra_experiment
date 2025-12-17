@@ -15,7 +15,6 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { 
   Home,
-  Radar, 
   Map, 
   Layers, 
   Network, 
@@ -33,10 +32,9 @@ import { SettingsModal } from '@/components/settings/SettingsModal'
 
 // Navigation groups with subtle gestalt grouping
 const navGroups = [
-  // Group 1: Overview & Discovery
+  // Group 1: Overview
   [
     { href: '/dashboard', label: 'Dashboard', icon: Home },
-    { href: '/discovery', label: 'Discovery', icon: Radar },
   ],
   // Group 2: Mapping & Organization
   [

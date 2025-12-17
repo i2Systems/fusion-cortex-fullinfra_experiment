@@ -13,6 +13,8 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { Device } from './mockData'
 import { initialZones } from './initialZones'
 import { seedZones } from './seedZones'
+import { useStore } from './StoreContext'
+import { generateStoreData } from './storeData'
 
 export interface Zone {
   id: string
@@ -56,51 +58,70 @@ function pointInPolygon(point: { x: number; y: number }, polygon: Array<{ x: num
 }
 
 export function ZoneProvider({ children }: { children: ReactNode }) {
+  const { activeStoreId } = useStore()
   const [zones, setZones] = useState<Zone[]>([])
   const [isInitialized, setIsInitialized] = useState(false)
 
+  // Helper to get store-scoped localStorage keys
+  const getStorageKey = (key: string) => {
+    return activeStoreId ? `fusion_${key}_${activeStoreId}` : `fusion_${key}`
+  }
+
   // Initialize default zones function - defined before useEffect
   const initializeDefaultZones = () => {
+    if (!activeStoreId) return
+    
+    const storeData = generateStoreData(activeStoreId)
     const now = new Date()
-    const defaultZones: Zone[] = initialZones.map((zoneData, index) => {
+    const defaultZones: Zone[] = storeData.zones.map((zoneData, index) => {
       return {
         ...zoneData,
-        id: `zone-default-${index}-${zoneData.name.toLowerCase().replace(/\s+/g, '-')}`,
+        id: `${activeStoreId}-zone-default-${index}-${zoneData.name.toLowerCase().replace(/\s+/g, '-')}`,
         deviceIds: [], // Will be populated when devices are loaded/discovered
         createdAt: now,
         updatedAt: now,
       }
     })
-    console.log(`Initializing ${defaultZones.length} default zones:`, defaultZones.map(z => z.name))
+    console.log(`Initializing ${defaultZones.length} default zones for ${activeStoreId}:`, defaultZones.map(z => z.name))
     setZones(defaultZones)
     setIsInitialized(true)
     if (typeof window !== 'undefined') {
-      localStorage.setItem('fusion_zones', JSON.stringify(defaultZones))
-      localStorage.setItem('fusion_zones_version', 'v3-fitted-zones')
+      const storageKey = getStorageKey('zones')
+      const versionKey = getStorageKey('zones_version')
+      localStorage.setItem(storageKey, JSON.stringify(defaultZones))
+      localStorage.setItem(versionKey, 'v4-store-aware')
     }
   }
 
-  // Load zones from localStorage on mount, or initialize defaults
+  // Load zones from localStorage on mount or when store changes, or initialize defaults
   useEffect(() => {
+    if (!activeStoreId) return // Wait for store to be initialized
+    
     if (typeof window !== 'undefined') {
-      const savedZones = localStorage.getItem('fusion_zones')
-      const zonesVersion = localStorage.getItem('fusion_zones_version')
-      const zonesSaved = localStorage.getItem('fusion_zones_saved') === 'true'
-      const CURRENT_VERSION = 'v3-fitted-zones'
+      const storageKey = getStorageKey('zones')
+      const versionKey = getStorageKey('zones_version')
+      const savedKey = getStorageKey('zones_saved')
+      
+      const savedZones = localStorage.getItem(storageKey)
+      const zonesVersion = localStorage.getItem(versionKey)
+      const zonesSaved = localStorage.getItem(savedKey) === 'true'
+      const CURRENT_VERSION = 'v4-store-aware'
       
       // PRIORITY 0: Check for seed data (committed to repo) - use this for fresh deployments
-      if (seedZones && seedZones.length > 0) {
+      // Note: Seed data is store-agnostic, so we'll use it as fallback only
+      if (seedZones && seedZones.length > 0 && !zonesSaved) {
         const zonesWithDates = seedZones.map((z: any) => ({
           ...z,
+          id: `${activeStoreId}-${z.id || `zone-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`}`,
           createdAt: z.createdAt ? new Date(z.createdAt) : new Date(),
           updatedAt: z.updatedAt ? new Date(z.updatedAt) : new Date(),
         }))
         setZones(zonesWithDates)
         setIsInitialized(true)
         // Also save to localStorage so it persists in this session
-        localStorage.setItem('fusion_zones', JSON.stringify(zonesWithDates))
-        localStorage.setItem('fusion_zones_version', CURRENT_VERSION)
-        console.log(`✅ Loaded ${zonesWithDates.length} zones from seed data (committed to repo)`)
+        localStorage.setItem(storageKey, JSON.stringify(zonesWithDates))
+        localStorage.setItem(versionKey, CURRENT_VERSION)
+        console.log(`✅ Loaded ${zonesWithDates.length} zones from seed data for ${activeStoreId}`)
         return
       }
       
@@ -116,7 +137,7 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
             }))
             setZones(zonesWithDates)
             setIsInitialized(true)
-            console.log(`Loaded ${zonesWithDates.length} saved zones from localStorage (protected from reset)`)
+            console.log(`Loaded ${zonesWithDates.length} saved zones from localStorage for ${activeStoreId} (protected from reset)`)
             return
           }
         } catch (e) {
@@ -142,9 +163,9 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
             setIsInitialized(true)
             // Update version to current if zones were loaded
             if (zonesVersion !== CURRENT_VERSION) {
-              localStorage.setItem('fusion_zones_version', CURRENT_VERSION)
+              localStorage.setItem(versionKey, CURRENT_VERSION)
             }
-            console.log(`Loaded ${zonesWithDates.length} zones from localStorage`)
+            console.log(`Loaded ${zonesWithDates.length} zones from localStorage for ${activeStoreId}`)
             return
           }
         } catch (e) {
@@ -154,33 +175,36 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
       
       // PRIORITY 3: Only initialize default zones if no saved zones exist
       // This preserves user edits and prevents constant resets
-      console.log('No saved zones found, initializing default zones...')
+      console.log(`No saved zones found for ${activeStoreId}, initializing default zones...`)
       initializeDefaultZones()
     }
-  }, [])
+  }, [activeStoreId])
 
-  // Save to localStorage whenever zones change
+  // Save to localStorage whenever zones change (store-scoped)
   // BUT: Only if zones are not marked as saved (to prevent overwriting saved state during initialization)
   useEffect(() => {
-    if (typeof window !== 'undefined' && zones.length >= 0 && isInitialized) {
-      const zonesSaved = localStorage.getItem('fusion_zones_saved') === 'true'
+    if (typeof window !== 'undefined' && zones.length >= 0 && isInitialized && activeStoreId) {
+      const storageKey = getStorageKey('zones')
+      const savedKey = getStorageKey('zones_saved')
+      const zonesSaved = localStorage.getItem(savedKey) === 'true'
       // Always save zones, but if they're marked as saved, ensure the flag persists
-      localStorage.setItem('fusion_zones', JSON.stringify(zones))
+      localStorage.setItem(storageKey, JSON.stringify(zones))
       if (zonesSaved) {
         // Ensure saved flag persists
-        localStorage.setItem('fusion_zones_saved', 'true')
+        localStorage.setItem(savedKey, 'true')
       }
     }
-  }, [zones, isInitialized])
+  }, [zones, isInitialized, activeStoreId])
   
   // Safety check: If zones are empty after initialization, try to recover
   // Only run this check once after initial mount to avoid repeated warnings
   // BUT: Never reset if zones are marked as saved
   const [hasCheckedInitialization, setHasCheckedInitialization] = useState(false)
   useEffect(() => {
-    if (!hasCheckedInitialization && isInitialized && typeof window !== 'undefined') {
+    if (!hasCheckedInitialization && isInitialized && typeof window !== 'undefined' && activeStoreId) {
       setHasCheckedInitialization(true)
-      const zonesSaved = localStorage.getItem('fusion_zones_saved') === 'true'
+      const savedKey = getStorageKey('zones_saved')
+      const zonesSaved = localStorage.getItem(savedKey) === 'true'
       
       // NEVER reset if zones are marked as saved
       if (zonesSaved) {
@@ -191,7 +215,8 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
       // Small delay to allow initial useEffect to complete
       const timer = setTimeout(() => {
         if (zones.length === 0 && isInitialized) {
-          const savedZones = localStorage.getItem('fusion_zones')
+          const storageKey = getStorageKey('zones')
+          const savedZones = localStorage.getItem(storageKey)
           if (!savedZones) {
             console.log('Zones array is empty after initialization, re-initializing default zones...')
             initializeDefaultZones()
@@ -244,12 +269,14 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
           : zone
       )
       // Ensure localStorage is updated immediately
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('fusion_zones', JSON.stringify(updated))
+      if (typeof window !== 'undefined' && activeStoreId) {
+        const storageKey = getStorageKey('zones')
+        const savedKey = getStorageKey('zones_saved')
+        localStorage.setItem(storageKey, JSON.stringify(updated))
         // Preserve saved flag if zones were previously saved
-        const zonesSaved = localStorage.getItem('fusion_zones_saved') === 'true'
+        const zonesSaved = localStorage.getItem(savedKey) === 'true'
         if (zonesSaved) {
-          localStorage.setItem('fusion_zones_saved', 'true')
+          localStorage.setItem(savedKey, 'true')
         }
       }
       return updated
@@ -261,11 +288,13 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
       const zoneToDelete = prev.find(z => z.id === zoneId)
       const updated = prev.filter(zone => zone.id !== zoneId)
       // Save to localStorage immediately
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('fusion_zones', JSON.stringify(updated))
-        const zonesSaved = localStorage.getItem('fusion_zones_saved') === 'true'
+      if (typeof window !== 'undefined' && activeStoreId) {
+        const storageKey = getStorageKey('zones')
+        const savedKey = getStorageKey('zones_saved')
+        localStorage.setItem(storageKey, JSON.stringify(updated))
+        const zonesSaved = localStorage.getItem(savedKey) === 'true'
         if (zonesSaved) {
-          localStorage.setItem('fusion_zones_saved', 'true')
+          localStorage.setItem(savedKey, 'true')
         }
       }
       return updated
@@ -298,11 +327,13 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
         }
       })
       // Save to localStorage immediately
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('fusion_zones', JSON.stringify(updated))
-        const zonesSaved = localStorage.getItem('fusion_zones_saved') === 'true'
+      if (typeof window !== 'undefined' && activeStoreId) {
+        const storageKey = getStorageKey('zones')
+        const savedKey = getStorageKey('zones_saved')
+        localStorage.setItem(storageKey, JSON.stringify(updated))
+        const zonesSaved = localStorage.getItem(savedKey) === 'true'
         if (zonesSaved) {
-          localStorage.setItem('fusion_zones_saved', 'true')
+          localStorage.setItem(savedKey, 'true')
         }
       }
       return updated
@@ -322,22 +353,26 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
 
   const saveZones = () => {
     // Mark zones as saved - this prevents them from being reset
-    if (typeof window !== 'undefined' && zones.length > 0) {
+    if (typeof window !== 'undefined' && zones.length > 0 && activeStoreId) {
+      const storageKey = getStorageKey('zones')
+      const savedKey = getStorageKey('zones_saved')
+      const versionKey = getStorageKey('zones_version')
       // Save zones first
-      localStorage.setItem('fusion_zones', JSON.stringify(zones))
+      localStorage.setItem(storageKey, JSON.stringify(zones))
       // Then mark as saved - this is the critical flag that prevents resets
-      localStorage.setItem('fusion_zones_saved', 'true')
-      localStorage.setItem('fusion_zones_version', 'v3-fitted-zones')
-      console.log(`✅ Saved ${zones.length} zones to system (protected from reset)`)
+      localStorage.setItem(savedKey, 'true')
+      localStorage.setItem(versionKey, 'v4-store-aware')
+      console.log(`✅ Saved ${zones.length} zones to system for ${activeStoreId} (protected from reset)`)
       console.log('Saved zones:', zones.map(z => z.name))
     } else {
-      console.warn('Cannot save: No zones to save')
+      console.warn('Cannot save: No zones to save or no active store')
     }
   }
 
   const isZonesSaved = (): boolean => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('fusion_zones_saved') === 'true'
+    if (typeof window !== 'undefined' && activeStoreId) {
+      const savedKey = getStorageKey('zones_saved')
+      return localStorage.getItem(savedKey) === 'true'
     }
     return false
   }

@@ -14,11 +14,11 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { usePathname } from 'next/navigation'
 import { useRole } from '@/lib/role'
+import { useStore } from '@/lib/StoreContext'
 import { ChevronDown } from 'lucide-react'
 
 const pageTitles: Record<string, { primary: string; secondary?: string }> = {
   '/dashboard': { primary: 'Fusion', secondary: 'i2 Cloud' },
-  '/discovery': { primary: 'Fusion', secondary: 'i2 Cloud' },
   '/map': { primary: 'Fusion', secondary: 'i2 Cloud' },
   '/zones': { primary: 'Fusion', secondary: 'i2 Cloud' },
   '/bacnet': { primary: 'Fusion', secondary: 'i2 Cloud' },
@@ -27,20 +27,11 @@ const pageTitles: Record<string, { primary: string; secondary?: string }> = {
   '/faults': { primary: 'Fusion', secondary: 'i2 Cloud' },
 }
 
-const STORES = [
-  'Store #1234 - Main St',
-  'Store #2156 - Oak Avenue',
-  'Store #3089 - Commerce Blvd',
-  'Store #4421 - River Road',
-  'Store #5567 - Park Plaza',
-  'Store #6789 - Central Square',
-]
-
 export function PageTitle() {
   const pathname = usePathname()
   const { role } = useRole()
+  const { stores, activeStore, setActiveStore } = useStore()
   const title = pageTitles[pathname || '/dashboard'] || { primary: 'Fusion', secondary: 'i2 Cloud' }
-  const [currentSite, setCurrentSite] = useState(STORES[0])
   const [showStoreDropdown, setShowStoreDropdown] = useState(false)
   const [mounted, setMounted] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -90,7 +81,7 @@ export function PageTitle() {
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors border border-[var(--color-border-subtle)]"
           >
             <span className="text-sm font-medium text-[var(--color-text)] whitespace-nowrap max-w-[180px] truncate">
-              {currentSite}
+              {activeStore?.name || 'Select Store'}
             </span>
             <ChevronDown size={14} className="text-[var(--color-text-muted)] flex-shrink-0" />
           </button>
@@ -106,20 +97,20 @@ export function PageTitle() {
                 className="fixed w-64 bg-[var(--color-surface)] backdrop-blur-xl rounded-lg border border-[var(--color-border-subtle)] shadow-[var(--shadow-strong)] overflow-hidden z-[9999]"
                 style={dropdownStyle}
               >
-                {STORES.map((store) => (
+                {stores.map((store) => (
                   <button
-                    key={store}
+                    key={store.id}
                     onClick={() => {
-                      setCurrentSite(store)
+                      setActiveStore(store.id)
                       setShowStoreDropdown(false)
                     }}
                     className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
-                      currentSite === store
+                      activeStore?.id === store.id
                         ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]'
                         : 'text-[var(--color-text)] hover:bg-[var(--color-surface-subtle)]'
                     }`}
                   >
-                    {store}
+                    {store.name}
                   </button>
                 ))}
               </div>

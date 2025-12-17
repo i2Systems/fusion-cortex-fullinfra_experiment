@@ -9,14 +9,12 @@
 import { router } from '../trpc'
 import { deviceRouter } from './device'
 import { zoneRouter } from './zone'
-import { discoveryRouter } from './discovery'
 import { bacnetRouter } from './bacnet'
 import { ruleRouter } from './rule'
 
 export const appRouter = router({
   device: deviceRouter,
   zone: zoneRouter,
-  discovery: discoveryRouter,
   bacnet: bacnetRouter,
   rule: ruleRouter,
 })

@@ -24,6 +24,7 @@ import { RulesPanel } from '@/components/rules/RulesPanel'
 import { useRules } from '@/lib/RuleContext'
 import { useZones } from '@/lib/ZoneContext'
 import { useDevices } from '@/lib/DeviceContext'
+import { useStore } from '@/lib/StoreContext'
 import { Rule } from '@/lib/mockRules'
 
 // Dynamically import RulesZoneCanvas to avoid SSR issues with Konva
@@ -40,6 +41,12 @@ export default function RulesPage() {
   const { rules, addRule, updateRule, deleteRule } = useRules()
   const { zones } = useZones()
   const { devices } = useDevices()
+  const { activeStoreId } = useStore()
+
+  // Helper to get store-scoped localStorage key
+  const getMapImageKey = () => {
+    return activeStoreId ? `fusion_map-image-url_${activeStoreId}` : 'map-image-url'
+  }
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<MapViewMode>('list')
@@ -52,16 +59,17 @@ export default function RulesPage() {
   const listContainerRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
-  // Load saved map image on mount
+  // Load saved map image on mount or when store changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedImageUrl = localStorage.getItem('map-image-url')
+    if (typeof window !== 'undefined' && activeStoreId) {
+      const imageKey = getMapImageKey()
+      const savedImageUrl = localStorage.getItem(imageKey)
       if (savedImageUrl) {
         setMapImageUrl(savedImageUrl)
         setMapUploaded(true)
       }
     }
-  }, [])
+  }, [activeStoreId])
 
   const handleMapUpload = (imageUrl: string) => {
     setMapImageUrl(imageUrl)

@@ -36,6 +36,7 @@ const MapCanvas = dynamic(() => import('@/components/map/MapCanvas').then(mod =>
 
 import { useDevices } from '@/lib/DeviceContext'
 import { useZones } from '@/lib/ZoneContext'
+import { useStore } from '@/lib/StoreContext'
 import { useRole } from '@/lib/role'
 
 // Helper function to check if a point is inside a polygon
@@ -77,7 +78,13 @@ export default function MapPage() {
     canRedo
   } = useDevices()
   const { role } = useRole()
+  const { activeStoreId } = useStore()
   const { zones, syncZoneDeviceIds, getDevicesInZone } = useZones()
+
+  // Helper to get store-scoped localStorage key
+  const getMapImageKey = () => {
+    return activeStoreId ? `fusion_map-image-url_${activeStoreId}` : 'map-image-url'
+  }
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null)
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([])
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null) // Zone to arrange devices into
@@ -187,16 +194,17 @@ export default function MapPage() {
   })
   const uploadInputRef = useRef<HTMLInputElement>(null)
 
-  // Load saved map image on mount
+  // Load saved map image on mount or when store changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedImageUrl = localStorage.getItem('map-image-url')
+    if (typeof window !== 'undefined' && activeStoreId) {
+      const imageKey = getMapImageKey()
+      const savedImageUrl = localStorage.getItem(imageKey)
       if (savedImageUrl) {
         setMapImageUrl(savedImageUrl)
         setMapUploaded(true)
       }
     }
-  }, [])
+  }, [activeStoreId])
 
   const handleMapUpload = (imageUrl: string) => {
     setMapImageUrl(imageUrl)
@@ -207,8 +215,9 @@ export default function MapPage() {
     setMapImageUrl(null)
     setMapUploaded(false)
     setSelectedDevice(null)
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('map-image-url')
+    if (typeof window !== 'undefined' && activeStoreId) {
+      const imageKey = getMapImageKey()
+      localStorage.removeItem(imageKey)
     }
     // Reset file input if it exists
     if (uploadInputRef.current) {
@@ -553,7 +562,10 @@ export default function MapPage() {
                   const reader = new FileReader()
                   reader.onloadend = () => {
                     const base64String = reader.result as string
-                    localStorage.setItem('map-image-url', base64String)
+                    if (activeStoreId) {
+                      const imageKey = getMapImageKey()
+                      localStorage.setItem(imageKey, base64String)
+                    }
                     handleMapUpload(base64String)
                     // Reset input after upload
                     if (uploadInputRef.current) {

@@ -8,6 +8,7 @@ Fusion/Cortex is:
 - A setup, mapping, and rules platform
 - A bridge between physical devices (fixtures, motion sensors, light sensors) and BACnet/BMS
 - Optimized for remote commissioning at scale (thousands of devices, thousands of sites)
+- **Multi-store aware** - supports managing multiple stores with isolated data per store
 
 Fusion/Cortex is **not**:
 - A lighting control dashboard
@@ -24,6 +25,8 @@ Fusion/Cortex is **not**:
 - **Canvas Rendering**: react-konva for map/blueprint visualization
 - **API**: tRPC for type-safe API calls
 - **Database**: PostgreSQL with Prisma ORM
+- **State Management**: React Context (DeviceContext, ZoneContext, RuleContext, StoreContext)
+- **Data Persistence**: localStorage (client-side, store-scoped) + IndexedDB (for future image storage)
 - **Caching**: Redis (for future use)
 - **Auth**: Auth.js (NextAuth) (to be configured)
 - **Workers**: Node.js workers (for background tasks)
@@ -34,12 +37,12 @@ Fusion/Cortex is **not**:
 /
 ├── app/                    # Next.js App Router
 │   ├── (main)/            # Main layout group
-│   │   ├── discovery/     # Discovery section
+│   │   ├── dashboard/      # Multi-store dashboard
 │   │   ├── map/           # Map & Devices section
 │   │   ├── zones/         # Zones section
 │   │   ├── bacnet/        # BACnet Mapping section
 │   │   ├── rules/         # Rules & Overrides section
-│   │   ├── lookup/        # Device Lookup section
+│   │   ├── lookup/        # Device Lookup section (with manual entry)
 │   │   ├── faults/        # Faults / Health section
 │   │   └── layout.tsx     # Main layout wrapper
 │   ├── api/trpc/          # tRPC API route
@@ -47,14 +50,25 @@ Fusion/Cortex is **not**:
 │   └── layout.tsx         # Root layout
 ├── components/
 │   ├── layout/            # Layout components (Nav, TopBar, Panels)
-│   └── map/               # Map visualization components
+│   ├── map/               # Map visualization components
+│   ├── lookup/            # Device lookup components
+│   ├── zones/             # Zone management components
+│   ├── rules/             # Rules & overrides components
+│   ├── dashboard/         # Dashboard components
+│   └── shared/            # Shared components
 ├── server/
 │   └── trpc/              # tRPC setup & routers
 │       ├── routers/       # Feature-specific routers
 │       └── trpc.ts        # Base tRPC config
 ├── prisma/
 │   └── schema.prisma      # Database schema
-└── lib/                   # Shared utilities (to be added)
+└── lib/                   # Shared utilities & contexts
+    ├── DeviceContext.tsx  # Device state management
+    ├── ZoneContext.tsx    # Zone state management
+    ├── RuleContext.tsx    # Rule state management
+    ├── StoreContext.tsx   # Multi-store management
+    ├── mockData.ts        # Mock data generators
+    └── storeData.ts       # Store-specific data generation
 ```
 
 ## 🎨 Design System
@@ -83,36 +97,37 @@ The app uses a **main + panel** system:
 
 1. **Left Navigation** (80px wide, persistent)
    - Minimal icons only
-   - Logo + product name at top
    - Navigation items with active states
+   - Profile & settings at bottom
 
-2. **Top App Bar** (64px high)
-   - Site/store selector
-   - Global search (device/serial lookup)
-   - User menu
+2. **Top App Bar** (via PageTitle component)
+   - Store selector dropdown
+   - Breadcrumb navigation
 
 3. **Main Content Area** (center, flexible)
    - Primary working surface per section
    - Scrollable when needed
+   - Uses `px-[20px]` padding for consistency
 
-4. **Right Context Panel** (384px wide, slide-in)
+4. **Right Context Panel** (384px wide, always visible on relevant pages)
    - Device details
    - Zone properties
    - Rule preview
-   - Controlled by section components
+   - Store details (on dashboard)
 
 5. **Bottom Drawer** (collapsible)
-   - Discovery status
+   - Status information
    - Fault summary
-   - Background tasks
+   - Notifications
 
 ## 📋 Core Features
 
-### 1. Discovery
-- Start/stop device discovery
-- Progress tracking with counts
-- Results as table and map
-- Status in bottom drawer
+### 1. Multi-Store Dashboard
+- Overview of all stores in a grid
+- Store health, device counts, critical faults
+- Warranty alerts and map status
+- Quick navigation to store-specific pages
+- Detailed store information panel
 
 ### 2. Map & Devices
 - Point cloud visualization over blueprint
@@ -120,18 +135,21 @@ The app uses a **main + panel** system:
 - Zoom, pan, drag-select
 - Layer toggles
 - Device selection → right panel details
+- Store-scoped map images
 
 ### 3. Zones
 - Drag-select devices on map → create zone
 - Name + color code zones
 - Adjust membership with Ctrl-click
 - Zones are the unit of control for BMS + rules
+- Store-scoped zone data
 
 ### 4. BACnet Mapping
 - Table: Zone ↔ BACnet Object ID
 - Inline editing of IDs
 - Status: Connected / Error / Not Assigned
 - Validation help in right panel
+- Store-scoped mappings
 
 ### 5. Rules & Overrides
 - Alexa-style rule builder:
@@ -140,23 +158,44 @@ The app uses a **main + panel** system:
   - Action (set zones, dim, return to BMS)
 - Override BMS checkbox + duration
 - Human-readable preview in right panel
+- Store-scoped rules
 
 ### 6. Device Lookup
 - Search by device ID or serial number
 - Map highlight of device location
 - I2QR details: build date, CCT, warranty, parts list
+- Empty state with actions: Add Device Manually, Scan QR Code, Import/Export List
+- Store-scoped device data
 
 ### 7. Faults / Health
 - Summary counts (missing, offline, duplicates)
 - Click to see filtered device table
 - Detailed device info in right panel
+- Store-scoped fault data
+
+## 🏪 Multi-Store Architecture
+
+The app supports managing multiple stores with isolated data:
+
+- **Store Context**: Manages active store selection and store metadata
+- **Store-Scoped Data**: All data (devices, zones, rules, maps, BACnet mappings) is namespaced by store ID in localStorage
+- **Store Switching**: Dropdown in PageTitle allows switching between stores
+- **Data Isolation**: Each store has its own device list, zones, rules, and map images
+- **Dashboard**: Shows overview of all stores, with detailed panel for selected store
+
+**Storage Keys Format:**
+- Devices: `fusion_devices_store_{storeId}`
+- Zones: `fusion_zones_store_{storeId}`
+- Rules: `fusion_rules_store_{storeId}`
+- Map Images: `fusion_map-image-url_store_{storeId}`
+- BACnet Mappings: `fusion_bacnet_mappings_store_{storeId}`
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
 - Node.js 18+ 
-- PostgreSQL database
+- PostgreSQL database (optional, for future use)
 - Redis (optional, for future caching)
 
 ### Installation
@@ -174,7 +213,7 @@ The app uses a **main + panel** system:
    NEXTAUTH_URL="http://localhost:3000"
    ```
 
-3. **Set up database:**
+3. **Set up database (optional):**
    ```bash
    npx prisma generate
    npx prisma db push
@@ -203,8 +242,10 @@ The app uses a **main + panel** system:
 **File Organization:**
 - Each section has its own route under `app/(main)/[section]/`
 - Layout components are in `components/layout/`
+- Feature components are in `components/[feature]/`
 - tRPC routers are organized by feature in `server/trpc/routers/`
 - Design tokens are centralized in `app/globals.css`
+- Context providers are in `lib/` for state management
 
 **Adding New Features:**
 1. Create route in `app/(main)/[feature]/page.tsx`
@@ -212,12 +253,19 @@ The app uses a **main + panel** system:
 3. Create tRPC router in `server/trpc/routers/[feature].ts`
 4. Add router to `server/trpc/routers/_app.ts`
 5. Update Prisma schema if needed
+6. Use design tokens, not hard-coded values
 
 **Styling Guidelines:**
 - Always use design tokens (`var(--color-primary)`)
 - Use Tailwind for layout utilities
-- Custom components use `.fusion-*` classes when needed
+- Custom components use `.fusion-*` classes when appropriate
 - Avoid inline styles except for dynamic values
+- Use `px-[20px]` for main content padding
+
+**State Management:**
+- Use React Context for global state (DeviceContext, ZoneContext, etc.)
+- All contexts are store-aware and use localStorage with store-scoped keys
+- Contexts automatically reload when active store changes
 
 **tRPC Usage:**
 - All API calls go through tRPC for type safety
@@ -236,11 +284,11 @@ The app uses a **main + panel** system:
 
 ### Immediate
 - [ ] Implement tRPC procedures with Prisma queries
-- [ ] Add device discovery logic
 - [ ] Implement map canvas with blueprint upload
 - [ ] Add zone creation/editing
 - [ ] Build rule engine
 - [ ] Configure Auth.js
+- [ ] Connect IndexedDB for image storage
 
 ### Future
 - [ ] Blueprint import (PDF/DXF/SVG)
@@ -249,6 +297,7 @@ The app uses a **main + panel** system:
 - [ ] Export functionality (CSV/Excel)
 - [ ] Background task queue (Redis + workers)
 - [ ] Multi-tenant support
+- [ ] Image upload for store placeholders
 
 ## 🎯 Non-Goals
 
@@ -257,6 +306,7 @@ The app uses a **main + panel** system:
 - Heatmaps / occupancy maps
 - Analytics dashboards for store managers
 - Legacy spec content about energy/analytics beyond what's defined
+- Device discovery/scanning (removed - use manual entry in lookup page)
 
 ## 📚 Resources
 
@@ -273,4 +323,3 @@ The app uses a **main + panel** system:
 ---
 
 **Built with ❤️ for large-scale retail lighting deployments**
-
