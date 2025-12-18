@@ -157,6 +157,8 @@ export function FloorPlanImage({ url, width, height, onImageBoundsChange, zoomBo
   }
 
   // Normal display without zoom
+  if (!imageBounds) return null
+  
   return (
     <KonvaImage
       image={image}

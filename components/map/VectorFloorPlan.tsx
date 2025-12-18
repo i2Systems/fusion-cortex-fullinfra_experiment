@@ -40,8 +40,8 @@ export const VectorFloorPlan = memo(function VectorFloorPlan({
   // Validate bounds and provide fallbacks
   const boundsWidth = vectorData.bounds?.width || 1000
   const boundsHeight = vectorData.bounds?.height || 1000
-  const boundsX = vectorData.bounds?.x || 0
-  const boundsY = vectorData.bounds?.y || 0
+  const boundsX = 0 // PDF bounds typically start at 0,0
+  const boundsY = 0
   
   // Prevent division by zero
   if (boundsWidth <= 0 || boundsHeight <= 0) {

@@ -102,7 +102,7 @@ export default function MapPage() {
   const [currentLocationId, setCurrentLocationId] = useState<string | null>(null)
   const [showZoomCreator, setShowZoomCreator] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
-  const [imageBounds, setImageBounds] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
+  const [imageBounds, setImageBounds] = useState<{ x: number; y: number; width: number; height: number; naturalWidth: number; naturalHeight: number } | null>(null)
   
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null)
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([])
@@ -230,7 +230,7 @@ export default function MapPage() {
       }
       
       // If location has storageKey, load from IndexedDB
-      if (currentLocation.storageKey) {
+      if (currentLocation.storageKey && activeStoreId) {
         try {
           const { getVectorData } = await import('@/lib/indexedDB')
           const stored = await getVectorData(activeStoreId, currentLocation.storageKey)
@@ -260,7 +260,7 @@ export default function MapPage() {
         if (parentLocation) {
           // Use parent's data if zoom view doesn't have its own
           if (!currentLocation.storageKey && !currentLocation.imageUrl && !currentLocation.vectorData) {
-            if (parentLocation.storageKey) {
+            if (parentLocation.storageKey && activeStoreId) {
               try {
                 const { getVectorData } = await import('@/lib/indexedDB')
                 const stored = await getVectorData(activeStoreId, parentLocation.storageKey)
@@ -323,8 +323,10 @@ export default function MapPage() {
           
           // Try IndexedDB first
           try {
-            const { getVectorData } = await import('@/lib/indexedDB')
-            vectorData = await getVectorData(activeStoreId, vectorKey)
+            if (activeStoreId) {
+              const { getVectorData } = await import('@/lib/indexedDB')
+              vectorData = await getVectorData(activeStoreId, vectorKey)
+            }
           } catch (e) {
             // Fallback to localStorage
             const savedVectorData = localStorage.getItem(vectorKey)
@@ -369,14 +371,14 @@ export default function MapPage() {
     
     // Store large images in IndexedDB if they're too big for localStorage
     let storageKey: string | undefined = undefined
-    if (imageUrl.length > 100000) {
+    if (imageUrl.length > 100000 && activeStoreId) {
       try {
         const { storeVectorData } = await import('@/lib/indexedDB')
         const vectorKey = `location_image_${Date.now()}`
         // Store as vector data (it's just a blob of data)
         await storeVectorData(activeStoreId, { data: imageUrl } as any, vectorKey)
         storageKey = vectorKey
-        imageUrl = undefined // Don't store in location object
+        // Don't store large images in location object - use storageKey instead
       } catch (e) {
         console.warn('Failed to store large image in IndexedDB, using localStorage:', e)
       }
@@ -399,6 +401,10 @@ export default function MapPage() {
     if (!locationName) return
     
     // Always store vector data in IndexedDB (it's usually large)
+    if (!activeStoreId) {
+      alert('No store selected. Please select a store first.')
+      return
+    }
     let storageKey: string | undefined = undefined
     try {
       const { storeVectorData } = await import('@/lib/indexedDB')
@@ -853,7 +859,7 @@ export default function MapPage() {
         orientation: d.orientation,
         components: d.components,
       }
-    }).filter(Boolean)
+    }).filter((d): d is NonNullable<typeof d> => d !== null).filter(Boolean)
   }, [filteredDevices, currentLocation])
 
   const handleComponentExpand = (deviceId: string, expanded: boolean) => {
