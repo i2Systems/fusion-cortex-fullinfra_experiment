@@ -138,7 +138,7 @@ export default function ZonesPage() {
     setMapUploaded(false)
     setSelectedZone(null)
     if (typeof window !== 'undefined' && activeStoreId) {
-      const imageKey = getMapImageKey()
+      const imageKey = activeStoreId ? `fusion_map-image-url_${activeStoreId}` : 'map-image-url'
       const vectorKey = `${imageKey}_vector`
       
       // Delete from localStorage
