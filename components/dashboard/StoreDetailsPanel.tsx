@@ -33,7 +33,13 @@ import {
   XCircle,
   AlertCircle,
   ExternalLink,
-  ArrowRight
+  ArrowRight,
+  Plus,
+  Upload,
+  Download,
+  Building2,
+  Trash2,
+  Edit2
 } from 'lucide-react'
 
 interface StoreDetailsPanelProps {
@@ -55,6 +61,11 @@ interface StoreDetailsPanelProps {
   onlineDevices: number
   offlineDevices: number
   missingDevices: number
+  onAddSite?: () => void
+  onEditSite?: (store: Store) => void
+  onRemoveSite?: (storeId: string) => void
+  onImportSites?: () => void
+  onExportSites?: () => void
 }
 
 export function StoreDetailsPanel({
@@ -70,23 +81,59 @@ export function StoreDetailsPanel({
   onlineDevices,
   offlineDevices,
   missingDevices,
+  onAddSite,
+  onEditSite,
+  onRemoveSite,
+  onImportSites,
+  onExportSites,
 }: StoreDetailsPanelProps) {
   const router = useRouter()
-  const { setActiveStore } = useStore()
+  const { setActiveStore, stores } = useStore()
 
   if (!store) {
     return (
       <div className="w-96 min-w-[20rem] max-w-[32rem] bg-[var(--color-surface)] backdrop-blur-xl rounded-2xl border border-[var(--color-border-subtle)] flex flex-col shadow-[var(--shadow-strong)] overflow-hidden flex-shrink-0 h-full">
-        <div className="p-8 text-center">
-          <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center">
-            <MapPin size={40} className="text-[var(--color-text-muted)]" />
+        <div className="flex-1 flex flex-col">
+          {/* Empty State Content */}
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center">
+              <Building2 size={40} className="text-[var(--color-text-muted)]" />
+            </div>
+            <h3 className="text-lg font-semibold text-[var(--color-text)] mb-2">
+              No Site Selected
+            </h3>
+            <p className="text-sm text-[var(--color-text-muted)]">
+              Select a site from the dashboard to view detailed information
+            </p>
           </div>
-          <h3 className="text-lg font-semibold text-[var(--color-text)] mb-2">
-            No Store Selected
-          </h3>
-          <p className="text-sm text-[var(--color-text-muted)]">
-            Select a store from the dashboard to view detailed information
-          </p>
+
+          {/* Action Buttons Bar */}
+          <div className="p-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)]">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={onAddSite}
+                className="px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)] transition-all flex items-center gap-2"
+              >
+                <Plus size={16} />
+                Add Site
+              </button>
+              <div className="flex-1" />
+              <button
+                onClick={onImportSites}
+                className="px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-border-strong)] transition-all flex items-center gap-2"
+              >
+                <Upload size={16} />
+                Import
+              </button>
+              <button
+                onClick={onExportSites}
+                className="px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-border-strong)] transition-all flex items-center gap-2"
+              >
+                <Download size={16} />
+                Export
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -136,7 +183,31 @@ export function StoreDetailsPanel({
       <div className="flex-1 overflow-auto p-6 space-y-6">
       {/* Store Header */}
       <div>
-        <h2 className="text-xl font-bold text-[var(--color-text)] mb-2">{store.name}</h2>
+        <div className="flex items-start justify-between mb-2">
+          <h2 className="text-xl font-bold text-[var(--color-text)]">{store.name}</h2>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={() => onEditSite?.(store)}
+              className="p-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors"
+              title="Edit site"
+            >
+              <Edit2 size={14} className="text-[var(--color-text-muted)]" />
+            </button>
+            {stores.length > 1 && (
+              <button
+                onClick={() => {
+                  if (confirm(`Are you sure you want to remove "${store.name}"? This will delete all associated data.`)) {
+                    onRemoveSite?.(store.id)
+                  }
+                }}
+                className="p-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors"
+                title="Remove site"
+              >
+                <Trash2 size={14} className="text-[var(--color-text-muted)]" />
+              </button>
+            )}
+          </div>
+        </div>
         <div className="space-y-2 text-sm text-[var(--color-text-muted)]">
           {store.address && (
             <div className="flex items-center gap-2">
@@ -373,6 +444,34 @@ export function StoreDetailsPanel({
           </button>
         </div>
       </div>
+      </div>
+
+      {/* Action Buttons Bar */}
+      <div className="p-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)] flex-shrink-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={onAddSite}
+            className="px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)] transition-all flex items-center gap-2"
+          >
+            <Plus size={16} />
+            Add Site
+          </button>
+          <div className="flex-1" />
+          <button
+            onClick={onImportSites}
+            className="px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-border-strong)] transition-all flex items-center gap-2"
+          >
+            <Upload size={16} />
+            Import
+          </button>
+          <button
+            onClick={onExportSites}
+            className="px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-border-strong)] transition-all flex items-center gap-2"
+          >
+            <Download size={16} />
+            Export
+          </button>
+        </div>
       </div>
     </div>
   )

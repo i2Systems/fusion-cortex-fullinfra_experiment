@@ -51,6 +51,11 @@ interface ZoneCanvasProps {
   showAnnotations?: boolean
   showText?: boolean
   showZones?: boolean
+  // Shared zoom state props
+  externalScale?: number
+  externalStagePosition?: { x: number; y: number }
+  onScaleChange?: (scale: number) => void
+  onStagePositionChange?: (position: { x: number; y: number }) => void
 }
 
 
@@ -71,11 +76,31 @@ export function ZoneCanvas({
   showWalls = true,
   showAnnotations = true,
   showText = true,
-  showZones = true
+  showZones = true,
+  externalScale,
+  externalStagePosition,
+  onScaleChange,
+  onStagePositionChange,
 }: ZoneCanvasProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
-  const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 })
-  const [scale, setScale] = useState(1)
+  const [stagePositionInternal, setStagePositionInternal] = useState({ x: 0, y: 0 })
+  const [scaleInternal, setScaleInternal] = useState(1)
+  
+  // Use external state if provided, otherwise use internal state
+  const effectiveScale = externalScale ?? scaleInternal
+  const effectiveStagePosition = externalStagePosition ?? stagePositionInternal
+  
+  // Wrapper functions that update both internal and notify parent
+  const setScale = useCallback((newScale: number) => {
+    setScaleInternal(newScale)
+    onScaleChange?.(newScale)
+  }, [onScaleChange])
+  
+  const setStagePosition = useCallback((newPosition: { x: number; y: number }) => {
+    setStagePositionInternal(newPosition)
+    onStagePositionChange?.(newPosition)
+  }, [onStagePositionChange])
   const [hoveredDevice, setHoveredDevice] = useState<DevicePoint | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
   const [imageBounds, setImageBounds] = useState<ImageBounds | null>(null)
@@ -106,12 +131,13 @@ export function ZoneCanvas({
 
   useEffect(() => {
     const updateDimensions = () => {
-      const availableWidth = window.innerWidth - 80 - 384 - 32
-      const availableHeight = window.innerHeight - 48 - 80 - 32
-      setDimensions({
-        width: Math.max(availableWidth, 400),
-        height: Math.max(availableHeight, 400),
-      })
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect()
+        setDimensions({
+          width: Math.max(rect.width, 400),
+          height: Math.max(rect.height, 400),
+        })
+      }
     }
 
     const updateColors = () => {
@@ -133,6 +159,15 @@ export function ZoneCanvas({
     updateDimensions()
     updateColors()
     
+    // Use ResizeObserver to respond to container size changes
+    const resizeObserver = new ResizeObserver(() => {
+      updateDimensions()
+    })
+    
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current)
+    }
+    
     window.addEventListener('resize', updateDimensions)
     
     const observer = new MutationObserver(updateColors)
@@ -142,6 +177,7 @@ export function ZoneCanvas({
     })
     
     return () => {
+      resizeObserver.disconnect()
       window.removeEventListener('resize', updateDimensions)
       observer.disconnect()
     }
@@ -201,8 +237,8 @@ export function ZoneCanvas({
     if (!pointerPos) return
 
     // Account for stage position and scale
-    const stageX = (pointerPos.x - stagePosition.x) / scale
-    const stageY = (pointerPos.y - stagePosition.y) / scale
+    const stageX = (pointerPos.x - effectiveStagePosition.x) / effectiveScale
+    const stageY = (pointerPos.y - effectiveStagePosition.y) / effectiveScale
 
     // Convert to normalized coordinates (0-1) using actual image bounds
     let normalizedX: number
@@ -253,8 +289,8 @@ export function ZoneCanvas({
       if (!pointerPos) return
 
       // Account for stage position and scale
-      const stageX = (pointerPos.x - stagePosition.x) / scale
-      const stageY = (pointerPos.y - stagePosition.y) / scale
+      const stageX = (pointerPos.x - effectiveStagePosition.x) / effectiveScale
+      const stageY = (pointerPos.y - effectiveStagePosition.y) / effectiveScale
 
       // Convert to normalized coordinates (0-1)
       const normalizedX = Math.max(0, Math.min(1, stageX / dimensions.width))
@@ -367,14 +403,14 @@ export function ZoneCanvas({
   }
 
   return (
-    <div className="w-full h-full overflow-hidden">
+    <div ref={containerRef} className="w-full h-full overflow-hidden">
       <Stage
         width={dimensions.width}
         height={dimensions.height}
-        x={stagePosition.x}
-        y={stagePosition.y}
-        scaleX={scale}
-        scaleY={scale}
+        x={effectiveStagePosition.x}
+        y={effectiveStagePosition.y}
+        scaleX={effectiveScale}
+        scaleY={effectiveScale}
         draggable={mode === 'select' && draggingHandleIndex === null}
         onDragEnd={(e) => {
           setStagePosition({ x: e.target.x(), y: e.target.y() })
@@ -395,11 +431,11 @@ export function ZoneCanvas({
           // Determine zoom direction (trackpad: negative deltaY = zoom in, positive = zoom out)
           // Mouse wheel: positive deltaY = scroll down = zoom out
           const zoomFactor = deltaY > 0 ? 0.9 : 1.1
-          const newScale = Math.max(0.1, Math.min(10, scale * zoomFactor))
+          const newScale = Math.max(0.1, Math.min(10, effectiveScale * zoomFactor))
           
           // Calculate mouse position relative to stage
-          const mouseX = (pointerPos.x - stagePosition.x) / scale
-          const mouseY = (pointerPos.y - stagePosition.y) / scale
+          const mouseX = (pointerPos.x - effectiveStagePosition.x) / effectiveScale
+          const mouseY = (pointerPos.y - effectiveStagePosition.y) / effectiveScale
           
           // Calculate new position to zoom towards mouse point
           const newX = pointerPos.x - mouseX * newScale
@@ -660,16 +696,15 @@ export function ZoneCanvas({
         <Layer>
           {/* Device points */}
           {devices.map((device) => {
-            const deviceX = device.x * dimensions.width
-            const deviceY = device.y * dimensions.height
+            const deviceCoords = toCanvasCoords({ x: device.x, y: device.y })
             const isSelected = selectedDeviceId === device.id
             const isHovered = hoveredDevice?.id === device.id
             
             return (
               <Group key={device.id}>
                 <Circle
-                  x={deviceX}
-                  y={deviceY}
+                  x={deviceCoords.x}
+                  y={deviceCoords.y}
                   radius={isSelected ? 6 : (isHovered ? 5 : 3)}
                   fill={getDeviceColor(device.type)}
                   stroke={isSelected ? colors.text : 'rgba(255,255,255,0.2)'}

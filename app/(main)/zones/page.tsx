@@ -111,11 +111,41 @@ export default function ZonesPage() {
       
       // Fallback to direct data
       if (location.imageUrl) {
+        // Check if it's an IndexedDB reference
+        if (location.imageUrl.startsWith('indexeddb:') && activeStoreId) {
+          try {
+            const { getImageDataUrl } = await import('@/lib/indexedDB')
+            const imageId = location.imageUrl.replace('indexeddb:', '')
+            const dataUrl = await getImageDataUrl(imageId)
+            if (dataUrl) {
+              setMapImageUrl(dataUrl)
+              setMapUploaded(true)
+              return
+            }
+          } catch (e) {
+            console.warn('Failed to load image from IndexedDB:', e)
+          }
+        }
         setMapImageUrl(location.imageUrl)
         setMapUploaded(true)
       } else if (location.vectorData) {
         setVectorData(location.vectorData)
         setMapUploaded(true)
+      }
+      
+      // Also check for old localStorage format (backward compatibility)
+      if (!mapImageUrl && !vectorData && activeStoreId) {
+        const imageKey = `fusion_map-image-url_${activeStoreId}`
+        try {
+          const { loadMapImage } = await import('@/lib/indexedDB')
+          const imageUrl = await loadMapImage(imageKey)
+          if (imageUrl) {
+            setMapImageUrl(imageUrl)
+            setMapUploaded(true)
+          }
+        } catch (e) {
+          console.warn('Failed to load map from old storage:', e)
+        }
       }
     }
     
@@ -174,31 +204,33 @@ export default function ZonesPage() {
       return inside
     })
 
-    const newZone = addZone({
+    addZone({
       name: `Zone ${zoneNumber}`,
       color,
       description: `${devicesInZone.length} devices`,
       polygon,
       deviceIds: devicesInZone.map(d => d.id),
+    }).then(newZone => {
+      // Update devices to have this zone
+      if (devicesInZone.length > 0) {
+        updateMultipleDevices(
+          devicesInZone.map(device => ({
+            deviceId: device.id,
+            updates: { zone: newZone.name }
+          }))
+        )
+        
+        // Sync zone deviceIds after updating devices
+        setTimeout(() => {
+          syncZoneDeviceIds(devices)
+        }, 0)
+      }
+
+      setSelectedZone(newZone.id)
+      setToolMode('select')
+    }).catch(error => {
+      console.error('Failed to create zone:', error)
     })
-
-    // Update devices to have this zone
-    if (devicesInZone.length > 0) {
-      updateMultipleDevices(
-        devicesInZone.map(device => ({
-          deviceId: device.id,
-          updates: { zone: newZone.name }
-        }))
-      )
-      
-      // Sync zone deviceIds after updating devices
-      setTimeout(() => {
-        syncZoneDeviceIds(devices)
-      }, 0)
-    }
-
-    setSelectedZone(newZone.id)
-    setToolMode('select')
   }
 
   // Reset tool mode when zone is selected from list
@@ -209,7 +241,7 @@ export default function ZonesPage() {
     }
   }, [selectedZone, toolMode])
 
-  const handleDeleteZone = (zoneId?: string) => {
+  const handleDeleteZone = async (zoneId?: string) => {
     const zoneIdToDelete = zoneId || selectedZone
     if (zoneIdToDelete) {
       const zoneToDelete = zones.find(z => z.id === zoneIdToDelete)
@@ -225,30 +257,40 @@ export default function ZonesPage() {
           )
         }
       }
-      deleteZone(zoneIdToDelete)
-      if (selectedZone === zoneIdToDelete) {
-        setSelectedZone(null)
+      try {
+        await deleteZone(zoneIdToDelete)
+        if (selectedZone === zoneIdToDelete) {
+          setSelectedZone(null)
+        }
+      } catch (error) {
+        console.error('Failed to delete zone:', error)
       }
     }
   }
 
-  const handleDeleteZones = (zoneIds: string[]) => {
-    zoneIds.forEach(zoneId => {
-      const zoneToDelete = zones.find(z => z.id === zoneId)
-      if (zoneToDelete) {
-        // Clear zone property from devices in this zone
-        const devicesInZone = getDevicesInZone(zoneId, devices)
-        if (devicesInZone.length > 0) {
-          updateMultipleDevices(
-            devicesInZone.map(device => ({
-              deviceId: device.id,
-              updates: { zone: undefined }
-            }))
-          )
+  const handleDeleteZones = async (zoneIds: string[]) => {
+    await Promise.all(
+      zoneIds.map(async zoneId => {
+        const zoneToDelete = zones.find(z => z.id === zoneId)
+        if (zoneToDelete) {
+          // Clear zone property from devices in this zone
+          const devicesInZone = getDevicesInZone(zoneId, devices)
+          if (devicesInZone.length > 0) {
+            updateMultipleDevices(
+              devicesInZone.map(device => ({
+                deviceId: device.id,
+                updates: { zone: undefined }
+              }))
+            )
+          }
         }
-      }
-      deleteZone(zoneId)
-    })
+        try {
+          await deleteZone(zoneId)
+        } catch (error) {
+          console.error(`Failed to delete zone ${zoneId}:`, error)
+        }
+      })
+    )
     if (selectedZone && zoneIds.includes(selectedZone)) {
       setSelectedZone(null)
     }
@@ -614,8 +656,12 @@ export default function ZonesPage() {
                 onModeChange={setToolMode}
                 mode={toolMode}
                 onZoneCreated={handleZoneCreated}
-                onZoneUpdated={(zoneId, polygon) => {
-                  updateZone(zoneId, { polygon })
+                onZoneUpdated={async (zoneId, polygon) => {
+                  try {
+                    await updateZone(zoneId, { polygon })
+                  } catch (error) {
+                    console.error('Failed to update zone:', error)
+                  }
                 }}
                 showWalls={filters.showWalls}
                 showAnnotations={filters.showAnnotations}
@@ -654,10 +700,14 @@ export default function ZonesPage() {
               }}
               onDeleteZone={handleDeleteZone}
               onDeleteZones={handleDeleteZones}
-              onEditZone={(zoneId, updates) => {
+              onEditZone={async (zoneId, updates) => {
                 const zone = zones.find(z => z.id === zoneId)
                 if (zone) {
-                  updateZone(zoneId, updates)
+                  try {
+                    await updateZone(zoneId, updates)
+                  } catch (error) {
+                    console.error('Failed to update zone:', error)
+                  }
                 }
               }}
               selectionMode={viewMode === 'list'}

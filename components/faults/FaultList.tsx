@@ -15,6 +15,7 @@ import { Device } from '@/lib/mockData'
 import { FaultCategory, faultCategories } from '@/lib/faultDefinitions'
 
 interface Fault {
+  id?: string // Database fault ID (if from database)
   device: Device
   faultType: FaultCategory
   detectedAt: Date
@@ -142,7 +143,7 @@ export function FaultList({ faults, selectedFaultId, onFaultSelect, searchQuery 
 
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault()
-        const currentIndex = sortedFaults.findIndex(f => f.device.id === selectedFaultId)
+        const currentIndex = sortedFaults.findIndex(f => (f.id || f.device.id) === selectedFaultId)
         if (currentIndex === -1) return
 
         let newIndex: number
@@ -153,7 +154,8 @@ export function FaultList({ faults, selectedFaultId, onFaultSelect, searchQuery 
         }
 
         if (newIndex !== currentIndex) {
-          onFaultSelect?.(sortedFaults[newIndex].device.id)
+          const selectedFault = sortedFaults[newIndex]
+          onFaultSelect?.(selectedFault.id || selectedFault.device.id)
         }
       }
     }
@@ -189,15 +191,17 @@ export function FaultList({ faults, selectedFaultId, onFaultSelect, searchQuery 
             }}
           >
             {sortedFaults.map((fault) => {
-              const isSelected = selectedFaultId === fault.device.id
+              // Check if selected by fault ID (database) or device ID (generated)
+              const isSelected = selectedFaultId === (fault.id || fault.device.id)
 
               return (
                 <div
-                  key={fault.device.id}
+                  key={fault.id || fault.device.id}
                   onClick={(e) => {
                     e.stopPropagation() // Prevent container click handler
                     // Toggle: if already selected, deselect; otherwise select
-                    onFaultSelect?.(isSelected ? null : fault.device.id)
+                    const faultId = fault.id || fault.device.id
+                    onFaultSelect?.(isSelected ? null : faultId)
                   }}
                   className={`
                     p-4 rounded-lg border cursor-pointer transition-all

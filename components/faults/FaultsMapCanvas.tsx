@@ -282,10 +282,7 @@ export function FaultsMapCanvas({
         {/* Zones Layer */}
         <Layer>
           {zones.map((zone) => {
-            const points = zone.polygon.map(p => ({
-              x: p.x * dimensions.width,
-              y: p.y * dimensions.height,
-            })).flatMap(p => [p.x, p.y])
+            const points = zone.polygon.map(toCanvasCoords).flatMap(p => [p.x, p.y])
             
             return (
               <Line

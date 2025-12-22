@@ -181,6 +181,49 @@ export async function getImage(imageId: string): Promise<StoredImage | null> {
 }
 
 /**
+ * Get image data URL from stored image
+ */
+export async function getImageDataUrl(imageId: string): Promise<string | null> {
+  const image = await getImage(imageId)
+  if (!image) return null
+  
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      resolve(reader.result as string)
+    }
+    reader.onerror = () => {
+      reject(new Error('Failed to read image'))
+    }
+    reader.readAsDataURL(image.imageData)
+  })
+}
+
+/**
+ * Load map image from localStorage (handles both direct base64 and IndexedDB references)
+ */
+export async function loadMapImage(storageKey: string): Promise<string | null> {
+  if (typeof window === 'undefined') return null
+  
+  try {
+    const stored = localStorage.getItem(storageKey)
+    if (!stored) return null
+    
+    // Check if it's an IndexedDB reference
+    if (stored.startsWith('indexeddb:')) {
+      const imageId = stored.replace('indexeddb:', '')
+      return await getImageDataUrl(imageId)
+    }
+    
+    // Otherwise, it's a direct base64 string (for small images)
+    return stored
+  } catch (error) {
+    console.error('Failed to load map image:', error)
+    return null
+  }
+}
+
+/**
  * Get all images for a specific store
  */
 export async function getStoreImages(storeId: string): Promise<StoredImage[]> {

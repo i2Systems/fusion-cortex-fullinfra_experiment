@@ -9,16 +9,18 @@
 
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react'
+import { trpc } from './trpc/client'
 
+// Store interface - matches Site model from database with additional UI fields
 export interface Store {
   id: string
   name: string
   storeNumber: string
-  address: string
-  city: string
-  state: string
-  zipCode: string
+  address?: string
+  city?: string
+  state?: string
+  zipCode?: string
   phone?: string
   manager?: string
   squareFootage?: number
@@ -31,6 +33,9 @@ interface StoreContextType {
   activeStore: Store | null
   setActiveStore: (storeId: string) => void
   getStoreById: (storeId: string) => Store | undefined
+  addStore: (store: Omit<Store, 'id'>) => Store
+  updateStore: (storeId: string, updates: Partial<Omit<Store, 'id'>>) => void
+  removeStore: (storeId: string) => void
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined)
@@ -105,25 +110,109 @@ const DEFAULT_STORES: Store[] = [
 ]
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [stores] = useState<Store[]>(DEFAULT_STORES)
+  // Fetch sites from database
+  const { data: sitesData, refetch: refetchSites } = trpc.site.list.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  })
+
+  // Ensure default sites exist in database
+  const ensureSiteMutations = trpc.site.ensureExists.useMutation({
+    onSuccess: () => {
+      refetchSites()
+    },
+  })
+
+  // Ensure all default sites exist in database on mount
+  useEffect(() => {
+    if (sitesData) {
+      // Check which default sites are missing
+      DEFAULT_STORES.forEach(defaultStore => {
+        const exists = sitesData.some(site => site.id === defaultStore.id)
+        if (!exists) {
+          // Parse address to extract city, state, zip if needed
+          const addressParts = defaultStore.address?.split(', ') || []
+          const cityStateZip = addressParts[1]?.split(' ') || []
+          
+          ensureSiteMutations.mutate({
+            id: defaultStore.id,
+            name: defaultStore.name,
+            storeNumber: defaultStore.storeNumber,
+            address: defaultStore.address,
+          })
+        }
+      })
+    }
+  }, [sitesData, ensureSiteMutations])
+
+  // Merge database sites with default store metadata
+  const stores = useMemo<Store[]>(() => {
+    if (!sitesData) return DEFAULT_STORES
+
+    // Map database sites to Store interface, merging with default metadata
+    return sitesData.map(site => {
+      const defaultStore = DEFAULT_STORES.find(ds => ds.id === site.id)
+      if (defaultStore) {
+        // Merge database data with default metadata
+        return {
+          id: site.id,
+          name: site.name,
+          storeNumber: site.storeNumber || defaultStore.storeNumber,
+          address: site.address || defaultStore.address,
+          city: defaultStore.city,
+          state: defaultStore.state,
+          zipCode: defaultStore.zipCode,
+          phone: defaultStore.phone,
+          manager: defaultStore.manager,
+          squareFootage: defaultStore.squareFootage,
+          openedDate: defaultStore.openedDate,
+        }
+      } else {
+        // New site from database (not in defaults)
+        return {
+          id: site.id,
+          name: site.name,
+          storeNumber: site.storeNumber || '',
+          address: site.address,
+        }
+      }
+    })
+  }, [sitesData])
+
   const [activeStoreId, setActiveStoreId] = useState<string | null>(null)
 
-  // Initialize active store from localStorage or default to first store
+  // Load active store from localStorage and validate against database
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && stores.length > 0) {
       const savedStoreId = localStorage.getItem('fusion_active_store_id')
-      if (savedStoreId && DEFAULT_STORES.some(s => s.id === savedStoreId)) {
-        setActiveStoreId(savedStoreId)
+      if (savedStoreId) {
+        // Check if the saved store ID exists in database sites
+        const storeExists = stores.some(s => s.id === savedStoreId)
+        if (storeExists) {
+          setActiveStoreId(savedStoreId)
+        } else {
+          // Stored ID is invalid, fall back to first store
+          console.warn(`Saved store ${savedStoreId} not found, falling back to first store`)
+          const firstStoreId = stores[0]?.id
+          if (firstStoreId) {
+            setActiveStoreId(firstStoreId)
+            localStorage.setItem('fusion_active_store_id', firstStoreId)
+          }
+        }
       } else {
-        // Default to first store
-        const firstStoreId = DEFAULT_STORES[0]?.id
+        // No saved store, default to first store
+        const firstStoreId = stores[0]?.id
         if (firstStoreId) {
           setActiveStoreId(firstStoreId)
           localStorage.setItem('fusion_active_store_id', firstStoreId)
         }
       }
     }
-  }, [])
+  }, [stores])
+
+  // Sites are now stored in database, no need to save to localStorage
+  // Only save active store ID
 
   // Save active store to localStorage when it changes
   useEffect(() => {
@@ -133,29 +222,96 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [activeStoreId])
 
   const setActiveStore = (storeId: string) => {
-    if (DEFAULT_STORES.some(s => s.id === storeId)) {
-      setActiveStoreId(storeId)
-    } else {
-      console.warn(`Store ${storeId} not found`)
-    }
+    // Allow setting active store without strict validation
+    // This handles the case where a new store was just added
+    // and the state hasn't updated yet
+    setActiveStoreId(storeId)
   }
 
   const activeStore = activeStoreId 
-    ? DEFAULT_STORES.find(s => s.id === activeStoreId) || null
+    ? stores.find(s => s.id === activeStoreId) || null
     : null
 
   const getStoreById = (storeId: string): Store | undefined => {
-    return DEFAULT_STORES.find(s => s.id === storeId)
+    return stores.find(s => s.id === storeId)
+  }
+
+  // Create site mutation
+  const createSiteMutation = trpc.site.create.useMutation({
+    onSuccess: () => {
+      refetchSites()
+    },
+  })
+
+  // Update site mutation
+  const updateSiteMutation = trpc.site.update.useMutation({
+    onSuccess: () => {
+      refetchSites()
+    },
+  })
+
+  const addStore = (storeData: Omit<Store, 'id'>): Store => {
+    // For now, create optimistically and sync with database
+    // Note: This should ideally be async, but keeping sync for backward compatibility
+    const newId = `store-${Date.now()}`
+    const newStore: Store = {
+      ...storeData,
+      id: newId,
+    }
+    
+    // Create in database (fire and forget for now)
+    createSiteMutation.mutate({
+      name: storeData.name,
+      storeNumber: storeData.storeNumber,
+      address: storeData.address,
+    })
+    
+    return newStore
+  }
+
+  const updateStore = (storeId: string, updates: Partial<Omit<Store, 'id'>>) => {
+    // Update in database (fire and forget for now)
+    updateSiteMutation.mutate({
+      id: storeId,
+      name: updates.name,
+      storeNumber: updates.storeNumber,
+      address: updates.address,
+    })
+    // UI metadata (city, state, etc.) is kept in memory, not in database
+  }
+
+  const removeStore = (storeId: string) => {
+    // Note: Site deletion would need to be added to the site router
+    // For now, we'll just prevent removal of default stores
+    const isDefault = DEFAULT_STORES.some(ds => ds.id === storeId)
+    if (isDefault) {
+      console.warn('Cannot remove default stores')
+      return
+    }
+    
+    // If removing active store, switch to first remaining store
+    if (activeStoreId === storeId) {
+      const remainingStores = stores.filter(s => s.id !== storeId)
+      if (remainingStores.length > 0) {
+        setActiveStoreId(remainingStores[0].id)
+      }
+    }
+    
+    // TODO: Add delete mutation to site router
+    console.warn('Site deletion not yet implemented in database')
   }
 
   return (
     <StoreContext.Provider
       value={{
-        stores: DEFAULT_STORES,
+        stores,
         activeStoreId,
         activeStore,
         setActiveStore,
         getStoreById,
+        addStore,
+        updateStore,
+        removeStore,
       }}
     >
       {children}

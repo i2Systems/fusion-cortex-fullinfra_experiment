@@ -98,11 +98,41 @@ export default function RulesPage() {
       
       // Fallback to direct data
       if (location.imageUrl) {
+        // Check if it's an IndexedDB reference
+        if (location.imageUrl.startsWith('indexeddb:') && activeStoreId) {
+          try {
+            const { getImageDataUrl } = await import('@/lib/indexedDB')
+            const imageId = location.imageUrl.replace('indexeddb:', '')
+            const dataUrl = await getImageDataUrl(imageId)
+            if (dataUrl) {
+              setMapImageUrl(dataUrl)
+              setMapUploaded(true)
+              return
+            }
+          } catch (e) {
+            console.warn('Failed to load image from IndexedDB:', e)
+          }
+        }
         setMapImageUrl(location.imageUrl)
         setMapUploaded(true)
       } else if (location.vectorData) {
         setVectorData(location.vectorData)
         setMapUploaded(true)
+      }
+      
+      // Also check for old localStorage format (backward compatibility)
+      if (!mapImageUrl && !vectorData && activeStoreId) {
+        const imageKey = `fusion_map-image-url_${activeStoreId}`
+        try {
+          const { loadMapImage } = await import('@/lib/indexedDB')
+          const imageUrl = await loadMapImage(imageKey)
+          if (imageUrl) {
+            setMapImageUrl(imageUrl)
+            setMapUploaded(true)
+          }
+        } catch (e) {
+          console.warn('Failed to load map from old storage:', e)
+        }
       }
     }
     

@@ -25,6 +25,7 @@ import { ComponentModal } from '@/components/shared/ComponentModal'
 import { ManualDeviceEntry } from '@/components/discovery/ManualDeviceEntry'
 import { Component, Device } from '@/lib/mockData'
 import { loadLocations } from '@/lib/locationStorage'
+import { generateComponentsForFixture, generateWarrantyExpiry } from '@/lib/deviceUtils'
 
 // Dynamically import MapCanvas and ZoneCanvas to avoid SSR issues with Konva
 const MapCanvas = dynamic(() => import('@/components/map/MapCanvas').then(mod => ({ default: mod.MapCanvas })), {
@@ -61,6 +62,10 @@ export default function LookupPage() {
   const [showManualEntry, setShowManualEntry] = useState(false)
   const listContainerRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  
+  // Shared zoom state between map views
+  const [sharedScale, setSharedScale] = useState(1)
+  const [sharedStagePosition, setSharedStagePosition] = useState({ x: 0, y: 0 })
 
   // Action handlers
   const handleManualEntry = useCallback(() => setShowManualEntry(true), [])
@@ -74,8 +79,11 @@ export default function LookupPage() {
     const confirmed = confirm(`QR Code scanned!\n\nDevice ID: ${mockDeviceId}\nSerial: ${mockSerial}\n\nWould you like to add this device?`)
     
     if (confirmed) {
+      const deviceId = `device-${Date.now()}`
+      const warrantyExpiry = generateWarrantyExpiry()
+      
       const newDevice: Device = {
-        id: `device-${Date.now()}`,
+        id: deviceId,
         deviceId: mockDeviceId,
         serialNumber: mockSerial,
         type: 'fixture',
@@ -84,6 +92,10 @@ export default function LookupPage() {
         location: 'Scanned via QR',
         x: Math.random(),
         y: Math.random(),
+        // Generate components for fixtures
+        components: generateComponentsForFixture(deviceId, mockSerial, warrantyExpiry),
+        warrantyStatus: 'Active',
+        warrantyExpiry,
       }
       addDevice(newDevice)
     }
@@ -111,25 +123,45 @@ export default function LookupPage() {
             const lines = text.split('\n').filter(line => line.trim())
             importedDevices = lines.slice(1).map(line => {
               const values = line.split(',').map(v => v.trim())
+              const deviceId = `device-${Date.now()}-${Math.random()}`
+              const serialNumber = values[1] || `SN-${Date.now()}`
+              const deviceType = (values[2] || 'fixture') as 'fixture' | 'motion' | 'light-sensor'
+              const warrantyExpiry = generateWarrantyExpiry()
+              
               return {
-                id: `device-${Date.now()}-${Math.random()}`,
+                id: deviceId,
                 deviceId: values[0] || `FLX-${Math.floor(Math.random() * 9000) + 1000}`,
-                serialNumber: values[1] || `SN-${Date.now()}`,
-                type: (values[2] || 'fixture') as 'fixture' | 'motion' | 'light-sensor',
+                serialNumber,
+                type: deviceType,
                 signal: parseInt(values[3]) || Math.floor(Math.random() * 40) + 50,
                 status: (values[4] || 'online') as 'online' | 'offline' | 'missing',
                 location: values[5] || 'Imported',
                 x: Math.random(),
                 y: Math.random(),
+                // Generate components for fixtures
+                components: deviceType === 'fixture' 
+                  ? generateComponentsForFixture(deviceId, serialNumber, warrantyExpiry)
+                  : undefined,
+                warrantyStatus: 'Active',
+                warrantyExpiry,
               } as Device
             })
           }
           
-          // Add imported devices
+          // Add imported devices (with components if they don't have them)
           importedDevices.forEach(device => {
+            const deviceId = `device-${Date.now()}-${Math.random()}`
+            const warrantyExpiry = device.warrantyExpiry || generateWarrantyExpiry()
+            
             addDevice({
               ...device,
-              id: `device-${Date.now()}-${Math.random()}`,
+              id: deviceId,
+              // Ensure fixtures have components
+              components: device.type === 'fixture' && !device.components
+                ? generateComponentsForFixture(deviceId, device.serialNumber, warrantyExpiry)
+                : device.components,
+              warrantyStatus: device.warrantyStatus || 'Active',
+              warrantyExpiry,
             })
           })
           
@@ -177,8 +209,11 @@ export default function LookupPage() {
   }, [handleManualEntry, handleQRScan, handleImport, handleExport])
 
   const handleAddDevice = (deviceData: { deviceId: string; serialNumber: string; type: 'fixture' | 'motion' | 'light-sensor' }) => {
+    const deviceId = `device-${Date.now()}`
+    const warrantyExpiry = generateWarrantyExpiry()
+    
     const newDevice: Device = {
-      id: `device-${Date.now()}`,
+      id: deviceId,
       ...deviceData,
       signal: Math.floor(Math.random() * 40) + 50,
       battery: deviceData.type !== 'fixture' ? Math.floor(Math.random() * 40) + 60 : undefined,
@@ -186,6 +221,12 @@ export default function LookupPage() {
       location: 'Manually Added',
       x: Math.random(),
       y: Math.random(),
+      // Generate components for fixtures
+      components: deviceData.type === 'fixture' 
+        ? generateComponentsForFixture(deviceId, deviceData.serialNumber, warrantyExpiry)
+        : undefined,
+      warrantyStatus: 'Active',
+      warrantyExpiry,
     }
     addDevice(newDevice)
     setShowManualEntry(false)
@@ -231,11 +272,41 @@ export default function LookupPage() {
       
       // Fallback to direct data
       if (location.imageUrl) {
+        // Check if it's an IndexedDB reference
+        if (location.imageUrl.startsWith('indexeddb:') && activeStoreId) {
+          try {
+            const { getImageDataUrl } = await import('@/lib/indexedDB')
+            const imageId = location.imageUrl.replace('indexeddb:', '')
+            const dataUrl = await getImageDataUrl(imageId)
+            if (dataUrl) {
+              setMapImageUrl(dataUrl)
+              setMapUploaded(true)
+              return
+            }
+          } catch (e) {
+            console.warn('Failed to load image from IndexedDB:', e)
+          }
+        }
         setMapImageUrl(location.imageUrl)
         setMapUploaded(true)
       } else if (location.vectorData) {
         setVectorData(location.vectorData)
         setMapUploaded(true)
+      }
+      
+      // Also check for old localStorage format (backward compatibility)
+      if (!mapImageUrl && !vectorData && activeStoreId) {
+        const imageKey = `fusion_map-image-url_${activeStoreId}`
+        try {
+          const { loadMapImage } = await import('@/lib/indexedDB')
+          const imageUrl = await loadMapImage(imageKey)
+          if (imageUrl) {
+            setMapImageUrl(imageUrl)
+            setMapUploaded(true)
+          }
+        } catch (e) {
+          console.warn('Failed to load map from old storage:', e)
+        }
       }
     }
     
@@ -364,6 +435,10 @@ export default function LookupPage() {
               mode="select"
               devices={mapDevices}
               devicesData={filteredDevices}
+              externalScale={sharedScale}
+              externalStagePosition={sharedStagePosition}
+              onScaleChange={setSharedScale}
+              onStagePositionChange={setSharedStagePosition}
             />
           </div>
         </div>
@@ -393,6 +468,10 @@ export default function LookupPage() {
               onZoneSelect={() => {}}
               mode="select"
               devicesData={filteredDevices}
+              externalScale={sharedScale}
+              externalStagePosition={sharedStagePosition}
+              onScaleChange={setSharedScale}
+              onStagePositionChange={setSharedStagePosition}
             />
           </div>
         </div>

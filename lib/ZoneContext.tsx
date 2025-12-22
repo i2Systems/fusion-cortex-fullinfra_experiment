@@ -4,17 +4,15 @@
  * Shared state management for zones across the app.
  * Handles zone creation, editing, deletion, and device assignment.
  * 
- * AI Note: In production, this would sync with tRPC/API and persist to database.
+ * AI Note: Uses tRPC to sync with database.
  */
 
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
 import { Device } from './mockData'
-import { initialZones } from './initialZones'
-import { seedZones } from './seedZones'
 import { useStore } from './StoreContext'
-import { generateStoreData } from './storeData'
+import { trpc } from './trpc/client'
 
 export interface Zone {
   id: string
@@ -29,13 +27,13 @@ export interface Zone {
 
 interface ZoneContextType {
   zones: Zone[]
-  addZone: (zone: Omit<Zone, 'id' | 'createdAt' | 'updatedAt'>) => Zone
-  updateZone: (zoneId: string, updates: Partial<Zone>) => void
-  deleteZone: (zoneId: string) => void
+  addZone: (zone: Omit<Zone, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Zone>
+  updateZone: (zoneId: string, updates: Partial<Zone>) => Promise<void>
+  deleteZone: (zoneId: string) => Promise<void>
   getDevicesInZone: (zoneId: string, allDevices: Device[]) => Device[]
   getZoneForDevice: (deviceId: string) => Zone | null
-  syncZoneDeviceIds: (allDevices: Device[]) => void
-  saveZones: () => void
+  syncZoneDeviceIds: (allDevices: Device[]) => Promise<void>
+  saveZones: () => Promise<void>
   isZonesSaved: () => boolean
 }
 
@@ -60,262 +58,166 @@ function pointInPolygon(point: { x: number; y: number }, polygon: Array<{ x: num
 export function ZoneProvider({ children }: { children: ReactNode }) {
   const { activeStoreId } = useStore()
   const [zones, setZones] = useState<Zone[]>([])
-  const [isInitialized, setIsInitialized] = useState(false)
 
-  // Helper to get store-scoped localStorage keys
-  const getStorageKey = (key: string) => {
-    return activeStoreId ? `fusion_${key}_${activeStoreId}` : `fusion_${key}`
-  }
+  // Ensure site exists in database
+  const ensureSiteMutation = trpc.site.ensureExists.useMutation()
 
-  // Initialize default zones function - defined before useEffect
-  // Only called when there are NO saved zones at all (fresh store)
-  const initializeDefaultZones = () => {
-    if (!activeStoreId) return
-    
-    const storeData = generateStoreData(activeStoreId)
-    const now = new Date()
-    const defaultZones: Zone[] = storeData.zones.map((zoneData, index) => {
-      return {
-        ...zoneData,
-        id: `${activeStoreId}-zone-default-${index}-${zoneData.name.toLowerCase().replace(/\s+/g, '-')}`,
-        deviceIds: [], // Will be populated when devices are loaded/discovered
-        createdAt: now,
-        updatedAt: now,
-      }
-    })
-    console.log(`Initializing ${defaultZones.length} default zones for ${activeStoreId}:`, defaultZones.map(z => z.name))
-    setZones(defaultZones)
-    setIsInitialized(true)
-    if (typeof window !== 'undefined') {
-      const storageKey = getStorageKey('zones')
-      const savedKey = getStorageKey('zones_saved')
-      const versionKey = getStorageKey('zones_version')
-      localStorage.setItem(storageKey, JSON.stringify(defaultZones))
-      // Don't mark default zones as saved - let user explicitly save them
-      // This way if user creates zones, they won't be overwritten by defaults
-      localStorage.setItem(versionKey, 'v4-store-aware')
+  // Fetch zones from database
+  const { data: zonesData, refetch: refetchZones } = trpc.zone.list.useQuery(
+    { siteId: activeStoreId || '' },
+    { 
+      enabled: !!activeStoreId, 
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes
     }
-  }
+  )
 
-  // Load zones from localStorage on mount or when store changes, or initialize defaults
+  // Mutations - debounce refetches to avoid excessive calls
+  const createZoneMutation = trpc.zone.create.useMutation({
+    onSuccess: () => {
+      setTimeout(() => {
+        refetchZones()
+      }, 500)
+    },
+  })
+
+  const updateZoneMutation = trpc.zone.update.useMutation({
+    onSuccess: () => {
+      // Debounce refetch
+      setTimeout(() => {
+        refetchZones()
+      }, 500)
+    },
+  })
+
+  const deleteZoneMutation = trpc.zone.delete.useMutation({
+    onSuccess: () => {
+      setTimeout(() => {
+        refetchZones()
+      }, 300)
+    },
+  })
+
+  // Ensure site exists when store changes
   useEffect(() => {
-    if (!activeStoreId) return // Wait for store to be initialized
-    
-    if (typeof window !== 'undefined') {
-      const storageKey = getStorageKey('zones')
-      const versionKey = getStorageKey('zones_version')
-      const savedKey = getStorageKey('zones_saved')
-      
-      const savedZones = localStorage.getItem(storageKey)
-      const zonesVersion = localStorage.getItem(versionKey)
-      const zonesSaved = localStorage.getItem(savedKey) === 'true'
-      const CURRENT_VERSION = 'v4-store-aware'
-      
-      // PRIORITY 1: If zones are marked as saved, ALWAYS use them and never reset
-      // This is the highest priority - user has explicitly saved their zones
-      if (zonesSaved && savedZones) {
-        try {
-          const parsed = JSON.parse(savedZones)
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const zonesWithDates = parsed.map((z: any) => ({
-              ...z,
-              createdAt: new Date(z.createdAt),
-              updatedAt: new Date(z.updatedAt),
-            }))
-            setZones(zonesWithDates)
-            setIsInitialized(true)
-            console.log(`✅ Loaded ${zonesWithDates.length} saved zones from localStorage for ${activeStoreId} (protected from reset)`)
-            return
-          }
-        } catch (e) {
-          console.error('Failed to parse saved zones:', e)
-          // Even if parsing fails, don't reset if marked as saved
-          console.warn('Zones are marked as saved but failed to parse. Keeping existing zones.')
-          return
-        }
-      }
-      
-      // PRIORITY 2: If we have saved zones in localStorage (even if not marked as saved), use them
-      // This preserves user-created zones that haven't been explicitly "saved" yet
-      if (savedZones) {
-        try {
-          const parsed = JSON.parse(savedZones)
-          // Only use saved zones if they exist and are valid
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const zonesWithDates = parsed.map((z: any) => ({
-              ...z,
-              createdAt: new Date(z.createdAt),
-              updatedAt: new Date(z.updatedAt),
-            }))
-            setZones(zonesWithDates)
-            setIsInitialized(true)
-            // Mark as saved when loading existing zones to protect them
-            localStorage.setItem(savedKey, 'true')
-            // Update version to current if zones were loaded
-            if (zonesVersion !== CURRENT_VERSION) {
-              localStorage.setItem(versionKey, CURRENT_VERSION)
-            }
-            console.log(`✅ Loaded ${zonesWithDates.length} zones from localStorage for ${activeStoreId} (now protected)`)
-            return
-          }
-        } catch (e) {
-          console.error('Failed to parse saved zones:', e)
-        }
-      }
-      
-      // PRIORITY 3: Check for seed data (committed to repo) - use this for fresh deployments only
-      // Only use seed data if there are NO saved zones at all
-      if (seedZones && seedZones.length > 0) {
-        const zonesWithDates = seedZones.map((z: any) => ({
-          ...z,
-          id: `${activeStoreId}-${z.id || `zone-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`}`,
-          createdAt: z.createdAt ? new Date(z.createdAt) : new Date(),
-          updatedAt: z.updatedAt ? new Date(z.updatedAt) : new Date(),
-        }))
-        setZones(zonesWithDates)
-        setIsInitialized(true)
-        // Save seed zones to localStorage and mark as saved
-        localStorage.setItem(storageKey, JSON.stringify(zonesWithDates))
-        localStorage.setItem(savedKey, 'true') // Mark seed zones as saved so they persist
-        localStorage.setItem(versionKey, CURRENT_VERSION)
-        console.log(`✅ Loaded ${zonesWithDates.length} zones from seed data for ${activeStoreId} (now protected)`)
-        return
-      }
-      
-      // PRIORITY 4: Only initialize default zones if no saved zones exist at all
-      // This is the last resort - only for completely fresh stores
-      console.log(`No saved zones found for ${activeStoreId}, initializing default zones...`)
-      initializeDefaultZones()
-    }
+    if (!activeStoreId) return
+
+    ensureSiteMutation.mutate({
+      id: activeStoreId,
+      name: `Store ${activeStoreId}`,
+      storeNumber: activeStoreId.replace('store-', ''),
+    })
   }, [activeStoreId])
 
-  // Save to localStorage whenever zones change (store-scoped)
-  // Always mark as saved when zones change to protect user edits
+  // Update local state when data from database changes
   useEffect(() => {
-    if (typeof window !== 'undefined' && zones.length >= 0 && isInitialized && activeStoreId) {
-      const storageKey = getStorageKey('zones')
-      const savedKey = getStorageKey('zones_saved')
-      const versionKey = getStorageKey('zones_version')
-      // Always save zones and mark as saved to protect user edits
-      localStorage.setItem(storageKey, JSON.stringify(zones))
-      localStorage.setItem(savedKey, 'true') // Always mark as saved to protect zones
-      localStorage.setItem(versionKey, 'v4-store-aware')
+    if (zonesData) {
+      const transformedZones: Zone[] = zonesData.map(zone => ({
+        id: zone.id,
+        name: zone.name,
+        color: zone.color,
+        description: zone.description || undefined,
+        polygon: zone.polygon || [],
+        deviceIds: zone.deviceIds || [],
+        createdAt: new Date(zone.createdAt),
+        updatedAt: new Date(zone.updatedAt),
+      }))
+      setZones(transformedZones)
     }
-  }, [zones, isInitialized, activeStoreId])
-  
-  // Safety check: If zones are empty after initialization, try to recover
-  // Only run this check once after initial mount to avoid repeated warnings
-  // BUT: Never reset if zones are marked as saved
-  const [hasCheckedInitialization, setHasCheckedInitialization] = useState(false)
-  useEffect(() => {
-    if (!hasCheckedInitialization && isInitialized && typeof window !== 'undefined' && activeStoreId) {
-      setHasCheckedInitialization(true)
-      const savedKey = getStorageKey('zones_saved')
-      const zonesSaved = localStorage.getItem(savedKey) === 'true'
-      
-      // NEVER reset if zones are marked as saved
-      if (zonesSaved) {
-        console.log('Zones are marked as saved, skipping safety check')
-        return
-      }
-      
-      // Small delay to allow initial useEffect to complete
-      const timer = setTimeout(() => {
-        if (zones.length === 0 && isInitialized) {
-          const storageKey = getStorageKey('zones')
-          const savedZones = localStorage.getItem(storageKey)
-          if (!savedZones) {
-            console.log('Zones array is empty after initialization, re-initializing default zones...')
-            initializeDefaultZones()
-            setIsInitialized(true)
-          } else {
-            // Try to load saved zones one more time
-            try {
-              const parsed = JSON.parse(savedZones)
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                const zonesWithDates = parsed.map((z: any) => ({
-                  ...z,
-                  createdAt: new Date(z.createdAt),
-                  updatedAt: new Date(z.updatedAt),
-                }))
-                setZones(zonesWithDates)
-                setIsInitialized(true)
-                console.log(`Loaded ${zonesWithDates.length} zones from localStorage (retry)`)
-              } else {
-                initializeDefaultZones()
-                setIsInitialized(true)
-              }
-            } catch (e) {
-              console.error('Failed to parse saved zones on retry:', e)
-              initializeDefaultZones()
-              setIsInitialized(true)
-            }
-          }
-        }
-      }, 100)
-      return () => clearTimeout(timer)
-    }
-  }, [hasCheckedInitialization, isInitialized, zones.length])
+  }, [zonesData])
 
-  const addZone = (zoneData: Omit<Zone, 'id' | 'createdAt' | 'updatedAt'>): Zone => {
-    const newZone: Zone = {
+
+  const addZone = useCallback(async (zoneData: Omit<Zone, 'id' | 'createdAt' | 'updatedAt'>): Promise<Zone> => {
+    if (!activeStoreId) {
+      throw new Error('No active store')
+    }
+
+    // Optimistically create zone
+    const tempZone: Zone = {
       ...zoneData,
-      id: `zone-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `temp-${Date.now()}`,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
-    setZones(prev => {
-      const updated = [...prev, newZone]
-      // Immediately save and mark as saved when zones are created
-      if (typeof window !== 'undefined' && activeStoreId) {
-        const storageKey = getStorageKey('zones')
-        const savedKey = getStorageKey('zones_saved')
-        const versionKey = getStorageKey('zones_version')
-        localStorage.setItem(storageKey, JSON.stringify(updated))
-        localStorage.setItem(savedKey, 'true') // Mark as saved immediately
-        localStorage.setItem(versionKey, 'v4-store-aware')
-      }
-      return updated
-    })
-    return newZone
-  }
+    setZones(prev => [...prev, tempZone])
 
-  const updateZone = (zoneId: string, updates: Partial<Zone>) => {
-    setZones(prev => {
-      const updated = prev.map(zone => 
+    try {
+      const result = await createZoneMutation.mutateAsync({
+        siteId: activeStoreId,
+        name: zoneData.name,
+        color: zoneData.color,
+        description: zoneData.description,
+        polygon: zoneData.polygon,
+        deviceIds: zoneData.deviceIds || [],
+      })
+
+      const newZone: Zone = {
+        id: result.id,
+        name: result.name,
+        color: result.color,
+        description: result.description || undefined,
+        polygon: result.polygon || [],
+        deviceIds: zoneData.deviceIds || [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+
+      // Replace temp zone with real one
+      setZones(prev => prev.map(z => z.id === tempZone.id ? newZone : z))
+      return newZone
+    } catch (error) {
+      console.error('Failed to create zone:', error)
+      // Remove temp zone on error
+      setZones(prev => prev.filter(z => z.id !== tempZone.id))
+      throw error
+    }
+  }, [activeStoreId, createZoneMutation])
+
+  const updateZone = useCallback(async (zoneId: string, updates: Partial<Zone>) => {
+    // Optimistically update UI
+    setZones(prev => 
+      prev.map(zone => 
         zone.id === zoneId 
           ? { ...zone, ...updates, updatedAt: new Date() }
           : zone
       )
-      // Ensure localStorage is updated immediately and mark as saved
-      if (typeof window !== 'undefined' && activeStoreId) {
-        const storageKey = getStorageKey('zones')
-        const savedKey = getStorageKey('zones_saved')
-        const versionKey = getStorageKey('zones_version')
-        localStorage.setItem(storageKey, JSON.stringify(updated))
-        localStorage.setItem(savedKey, 'true') // Always mark as saved when updated
-        localStorage.setItem(versionKey, 'v4-store-aware')
-      }
-      return updated
-    })
-  }
+    )
 
-  const deleteZone = (zoneId: string) => {
-    setZones(prev => {
-      const zoneToDelete = prev.find(z => z.id === zoneId)
-      const updated = prev.filter(zone => zone.id !== zoneId)
-      // Save to localStorage immediately and mark as saved
-      if (typeof window !== 'undefined' && activeStoreId) {
-        const storageKey = getStorageKey('zones')
-        const savedKey = getStorageKey('zones_saved')
-        const versionKey = getStorageKey('zones_version')
-        localStorage.setItem(storageKey, JSON.stringify(updated))
-        localStorage.setItem(savedKey, 'true') // Always mark as saved when deleted
-        localStorage.setItem(versionKey, 'v4-store-aware')
-      }
-      return updated
-    })
-  }
+    // Update in database
+    try {
+      const dbUpdates: any = {}
+      if (updates.name !== undefined) dbUpdates.name = updates.name
+      if (updates.color !== undefined) dbUpdates.color = updates.color
+      if (updates.description !== undefined) dbUpdates.description = updates.description
+      if (updates.polygon !== undefined) dbUpdates.polygon = updates.polygon
+      if (updates.deviceIds !== undefined) dbUpdates.deviceIds = updates.deviceIds
+
+      await updateZoneMutation.mutateAsync({
+        id: zoneId,
+        ...dbUpdates,
+      })
+    } catch (error) {
+      console.error('Failed to update zone:', error)
+      // Revert by refetching
+      refetchZones()
+    }
+  }, [updateZoneMutation, refetchZones])
+
+  const deleteZone = useCallback(async (zoneId: string) => {
+    // Optimistically update UI
+    setZones(prev => prev.filter(zone => zone.id !== zoneId))
+
+    // Delete from database
+    try {
+      await deleteZoneMutation.mutateAsync({ id: zoneId })
+    } catch (error) {
+      console.error('Failed to delete zone:', error)
+      // Revert by refetching
+      refetchZones()
+    }
+  }, [deleteZoneMutation, refetchZones])
 
   const getDevicesInZone = (zoneId: string, allDevices: Device[]): Device[] => {
     const zone = zones.find(z => z.id === zoneId)
@@ -329,31 +231,33 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
 
   // Sync zone deviceIds with actual device positions
   // This should be called after devices are moved or updated
-  const syncZoneDeviceIds = (allDevices: Device[]) => {
-    setZones(prev => {
-      const updated = prev.map(zone => {
-        const devicesInZone = allDevices.filter(device => {
-          if (device.x === undefined || device.y === undefined) return false
-          return pointInPolygon({ x: device.x, y: device.y }, zone.polygon)
-        })
-        return {
-          ...zone,
-          deviceIds: devicesInZone.map(d => d.id),
-          updatedAt: new Date()
-        }
+  const syncZoneDeviceIds = useCallback(async (allDevices: Device[]) => {
+    // Calculate device IDs for each zone based on positions
+    const zonesToUpdate = zones.map(zone => {
+      const devicesInZone = allDevices.filter(device => {
+        if (device.x === undefined || device.y === undefined) return false
+        return pointInPolygon({ x: device.x, y: device.y }, zone.polygon)
       })
-      // Save to localStorage immediately and mark as saved
-      if (typeof window !== 'undefined' && activeStoreId) {
-        const storageKey = getStorageKey('zones')
-        const savedKey = getStorageKey('zones_saved')
-        const versionKey = getStorageKey('zones_version')
-        localStorage.setItem(storageKey, JSON.stringify(updated))
-        localStorage.setItem(savedKey, 'true') // Always mark as saved when synced
-        localStorage.setItem(versionKey, 'v4-store-aware')
+      return {
+        zoneId: zone.id,
+        deviceIds: devicesInZone.map(d => d.id),
       }
-      return updated
     })
-  }
+
+    // Update each zone in database
+    try {
+      await Promise.all(
+        zonesToUpdate.map(({ zoneId, deviceIds }) =>
+          updateZoneMutation.mutateAsync({
+            id: zoneId,
+            deviceIds,
+          })
+        )
+      )
+    } catch (error) {
+      console.error('Failed to sync zone device IDs:', error)
+    }
+  }, [zones, updateZoneMutation])
 
   const getZoneForDevice = (deviceId: string): Zone | null => {
     // Find the first zone that contains this device
@@ -366,41 +270,16 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
     return null
   }
 
-  const saveZones = async () => {
-    // Mark zones as saved - this prevents them from being reset
-    if (typeof window !== 'undefined' && zones.length > 0 && activeStoreId) {
-      const storageKey = getStorageKey('zones')
-      const savedKey = getStorageKey('zones_saved')
-      const versionKey = getStorageKey('zones_version')
-      
-      // Save to localStorage first (for immediate persistence)
-      localStorage.setItem(storageKey, JSON.stringify(zones))
-      localStorage.setItem(savedKey, 'true')
-      localStorage.setItem(versionKey, 'v4-store-aware')
-      
-      // Also save to database via tRPC
-      try {
-        // Note: We can't use hooks here, so we'll need to call the mutation directly
-        // For now, we'll save to localStorage and the zones page will handle database sync
-        // The actual database save will be handled in the zones page's save handler
-        console.log(`✅ Saved ${zones.length} zones to localStorage for ${activeStoreId} (protected from reset)`)
-        console.log('Saved zones:', zones.map(z => z.name))
-      } catch (error) {
-        console.error('Failed to save zones to database:', error)
-        // Still mark as saved in localStorage even if DB save fails
-      }
-    } else {
-      console.warn('Cannot save: No zones to save or no active store')
-    }
-  }
+  const saveZones = useCallback(async () => {
+    // Zones are automatically saved to database on each mutation
+    // This function is kept for backward compatibility
+    console.log(`✅ Zones are automatically saved to database for ${activeStoreId}`)
+  }, [activeStoreId])
 
-  const isZonesSaved = (): boolean => {
-    if (typeof window !== 'undefined' && activeStoreId) {
-      const savedKey = getStorageKey('zones_saved')
-      return localStorage.getItem(savedKey) === 'true'
-    }
-    return false
-  }
+  const isZonesSaved = useCallback((): boolean => {
+    // Zones are always saved to database, so always return true
+    return true
+  }, [])
 
   return (
     <ZoneContext.Provider

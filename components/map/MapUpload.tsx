@@ -15,7 +15,7 @@ import { useState, useRef } from 'react'
 import { useStore } from '@/lib/StoreContext'
 import { pdfToImage, isPdfFile } from '@/lib/pdfUtils'
 import { extractVectorData, isVectorPDF, type ExtractedVectorData } from '@/lib/pdfVectorExtractor'
-import { storeVectorData } from '@/lib/indexedDB'
+import { storeVectorData, storeImage } from '@/lib/indexedDB'
 import { useAdvancedSettings } from '@/lib/AdvancedSettingsContext'
 
 interface MapUploadProps {
@@ -189,11 +189,70 @@ setProcessingStatus('Creating preview image...')
         })
       }
 
-      // Store in localStorage with store-scoped key
+      // Store image data - use IndexedDB for large images to avoid localStorage quota
       setProcessingStatus('Saving map data...')
       const storageKey = getStorageKey()
-      localStorage.setItem(storageKey, base64String)
-      onMapUpload(base64String)
+      const IMAGE_SIZE_THRESHOLD = 100000 // ~100KB - store larger images in IndexedDB
+      
+      if (base64String.length > IMAGE_SIZE_THRESHOLD && activeStoreId) {
+        // Large image - store in IndexedDB
+        try {
+          // Convert base64 to Blob
+          const response = await fetch(base64String)
+          const blob = await response.blob()
+          
+          // Store in IndexedDB
+          const imageId = await storeImage(
+            activeStoreId,
+            blob,
+            file.name,
+            blob.type || 'image/png'
+          )
+          
+          // Store only the reference in localStorage
+          const reference = `indexeddb:${imageId}`
+          localStorage.setItem(storageKey, reference)
+          
+          // Return the data URL for immediate use (it's already in memory)
+          onMapUpload(base64String)
+        } catch (error) {
+          console.error('Failed to store image in IndexedDB:', error)
+          // Fallback: try to store in localStorage anyway (might fail if too large)
+          try {
+            localStorage.setItem(storageKey, base64String)
+            onMapUpload(base64String)
+          } catch (storageError) {
+            throw new Error('Image is too large to store. Please use a smaller image or clear browser storage.')
+          }
+        }
+      } else {
+        // Small image - can store in localStorage
+        try {
+          localStorage.setItem(storageKey, base64String)
+          onMapUpload(base64String)
+        } catch (error) {
+          // If localStorage fails, try IndexedDB as fallback
+          if (activeStoreId && base64String.length > 0) {
+            try {
+              const response = await fetch(base64String)
+              const blob = await response.blob()
+              const imageId = await storeImage(
+                activeStoreId,
+                blob,
+                file.name,
+                blob.type || 'image/png'
+              )
+              const reference = `indexeddb:${imageId}`
+              localStorage.setItem(storageKey, reference)
+              onMapUpload(base64String)
+            } catch (indexedDBError) {
+              throw new Error('Failed to save image. Storage may be full. Please clear browser storage and try again.')
+            }
+          } else {
+            throw error
+          }
+        }
+      }
       
       setProcessingStatus('Complete!')
       
@@ -244,6 +303,12 @@ setProcessingStatus('Creating preview image...')
   }
 
   const handleLoadDefault = async () => {
+    // Prevent double-clicks
+    if (isProcessing) {
+      console.log('Already processing, ignoring click')
+      return
+    }
+    
     setIsProcessing(true)
     setError(null)
     setProcessingStatus('Loading sample floor plan...')
@@ -252,17 +317,45 @@ setProcessingStatus('Creating preview image...')
       // Load one of the sample PDF floor plans
       const samplePdfPath = '/floorplans/WMT 157 STORE PLAN (1).pdf'
       
-      // Fetch the PDF file
-      const response = await fetch(samplePdfPath)
-      if (!response.ok) {
-        throw new Error('Failed to load sample floor plan')
+      console.log('Fetching sample floor plan from:', samplePdfPath)
+      
+      // Fetch the PDF file with timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+      
+      let response: Response
+      try {
+        response = await fetch(samplePdfPath, { signal: controller.signal })
+        clearTimeout(timeoutId)
+      } catch (fetchError) {
+        clearTimeout(timeoutId)
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          throw new Error('Request timed out. Please check your network connection and try again.')
+        }
+        // Network errors (CORS, offline, etc.)
+        console.error('Fetch failed:', fetchError)
+        throw new Error('Network error: Unable to load the sample floor plan. Please try uploading a file manually.')
       }
       
+      if (!response.ok) {
+        console.error('Fetch response not OK:', response.status, response.statusText)
+        throw new Error(`Failed to load sample floor plan (HTTP ${response.status}). Please try uploading a file manually.`)
+      }
+      
+      setProcessingStatus('Processing PDF...')
+      
       const blob = await response.blob()
+      if (blob.size === 0) {
+        throw new Error('Downloaded file is empty. Please try uploading a file manually.')
+      }
+      
+      console.log('Downloaded blob size:', blob.size)
+      
       const file = new File([blob], 'WMT 157 STORE PLAN (1).pdf', { type: 'application/pdf' })
       
       // Process it like a regular PDF upload
       await handleFileSelect(file)
+      
     } catch (err) {
       console.error('Error loading sample floor plan:', err)
       setError(
@@ -271,6 +364,7 @@ setProcessingStatus('Creating preview image...')
           : 'Failed to load sample floor plan. Please try uploading manually.'
       )
       setIsProcessing(false)
+      setProcessingStatus('')
     }
   }
 

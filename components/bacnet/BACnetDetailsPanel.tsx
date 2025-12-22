@@ -32,6 +32,7 @@ interface BACnetDetailsPanelProps {
   onDelete: () => void
   onTestConnection: () => void
   onAdd: () => void
+  hasZones?: boolean
 }
 
 const capabilityLabels: Record<ControlCapability, { label: string; icon: any; description: string }> = {
@@ -72,7 +73,8 @@ export function BACnetDetailsPanel({
   onEdit, 
   onDelete, 
   onTestConnection,
-  onAdd
+  onAdd,
+  hasZones = true
 }: BACnetDetailsPanelProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState<Partial<BACnetMapping>>({
@@ -121,15 +123,50 @@ export function BACnetDetailsPanel({
   }
 
   if (!mapping) {
+    // If no zones exist, show a different empty state
+    if (!hasZones) {
+      return (
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="p-4 border-b border-[var(--color-border-subtle)]">
+            <h3 className="text-lg font-semibold text-[var(--color-text)] mb-3">
+              BACnet Mapping
+            </h3>
+            <p className="text-sm text-[var(--color-text-muted)]">
+              BACnet mappings are automatically created when you add zones. Create zones first to enable BMS integration.
+            </p>
+          </div>
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center mb-4">
+              <Layers size={24} className="text-[var(--color-text-muted)]" />
+            </div>
+            <h3 className="text-lg font-semibold text-[var(--color-text)] mb-2">
+              No Zones Yet
+            </h3>
+            <p className="text-sm text-[var(--color-text-muted)] mb-4">
+              Add at least one zone first to create BACnet mappings.
+            </p>
+            <a 
+              href="/zones"
+              className="fusion-button fusion-button-primary flex items-center justify-center gap-2 px-4"
+            >
+              <Layers size={16} />
+              Go to Zones
+            </a>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="flex flex-col h-full">
         {/* Header */}
         <div className="p-4 border-b border-[var(--color-border-subtle)]">
           <h3 className="text-lg font-semibold text-[var(--color-text)] mb-3">
-            Create New Mapping
+            BACnet Mapping
           </h3>
           <p className="text-sm text-[var(--color-text-muted)] mb-3">
-            Select a zone from the table to view detailed BACnet connection information, or create a new mapping.
+            Select a zone from the table to view detailed BACnet connection information and configure BMS integration.
           </p>
           {/* Add Mapping Button - In header like RulesPanel */}
           <button

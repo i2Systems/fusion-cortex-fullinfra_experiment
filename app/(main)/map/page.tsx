@@ -84,6 +84,7 @@ function findZoneForDevice(device: { x?: number; y?: number }, zones: Array<{ id
 export default function MapPage() {
   const { 
     devices, 
+    isLoading: devicesLoading,
     updateDevicePosition, 
     updateMultipleDevices,
     addDevice,

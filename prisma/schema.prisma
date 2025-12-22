@@ -65,6 +65,7 @@ model Device {
   siteId        String
   site          Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   zoneMemberships ZoneDevice[]
+  faults        Fault[]
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -169,6 +170,28 @@ model Rule {
   updatedAt   DateTime @updatedAt
 
   @@index([zoneId])
+}
+
+model Fault {
+  id          String   @id @default(cuid())
+  deviceId    String
+  device      Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  
+  faultType   String   // FaultCategory as string
+  description String
+  
+  // Status
+  resolved    Boolean  @default(false)
+  resolvedAt  DateTime?
+  
+  detectedAt  DateTime @default(now())
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([deviceId])
+  @@index([resolved])
+  @@index([detectedAt])
 }
 
 // NOTE: DiscoverySession model kept for potential future use

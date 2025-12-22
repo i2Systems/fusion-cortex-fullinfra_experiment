@@ -22,6 +22,7 @@ import { useZones } from '@/lib/ZoneContext'
 import { useStore } from '@/lib/StoreContext'
 import { Device } from '@/lib/mockData'
 import { FaultCategory, assignFaultCategory, generateFaultDescription, faultCategories } from '@/lib/faultDefinitions'
+import { trpc } from '@/lib/trpc/client'
 import { loadLocations } from '@/lib/locationStorage'
 import { Droplets, Zap, Thermometer, Plug, Settings, Package, Wrench, Lightbulb, TrendingUp, TrendingDown, AlertTriangle, Clock, ArrowUp, ArrowDown, Minus } from 'lucide-react'
 
@@ -36,6 +37,7 @@ const FaultsMapCanvas = dynamic(() => import('@/components/faults/FaultsMapCanva
 })
 
 interface Fault {
+  id?: string // Database fault ID (if from database)
   device: Device
   faultType: FaultCategory
   detectedAt: Date
@@ -55,8 +57,21 @@ export default function FaultsPage() {
   const [mapUploaded, setMapUploaded] = useState(false)
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
   
-  // Generate faults from devices
-  const faults = useMemo<Fault[]>(() => {
+  // Fetch faults from database
+  const { data: dbFaults, refetch: refetchFaults } = trpc.fault.list.useQuery(
+    { siteId: activeStoreId || '', includeResolved: false },
+    { enabled: !!activeStoreId, refetchOnWindowFocus: false }
+  )
+  
+  // Create fault mutation
+  const createFaultMutation = trpc.fault.create.useMutation({
+    onSuccess: () => {
+      refetchFaults()
+    },
+  })
+  
+  // Generate faults from devices (auto-generated from device status)
+  const deviceGeneratedFaults = useMemo<Fault[]>(() => {
     const faultList: Fault[] = []
     const categoryMap: Record<string, FaultCategory> = {
       'device-fault-grocery-001': 'environmental-ingress',
@@ -144,6 +159,41 @@ export default function FaultsPage() {
     // Sort by detected time (most recent first)
     return faultList.sort((a, b) => b.detectedAt.getTime() - a.detectedAt.getTime())
   }, [devices])
+  
+  // Combine database faults with device-generated faults
+  const faults = useMemo<Fault[]>(() => {
+    const allFaults: Fault[] = []
+    
+    // Add database faults (manually created)
+    if (dbFaults) {
+      dbFaults.forEach(dbFault => {
+        // Find the device
+        const device = devices.find(d => d.id === dbFault.deviceId)
+        if (device) {
+          allFaults.push({
+            id: dbFault.id, // Include database fault ID
+            device,
+            faultType: dbFault.faultType as FaultCategory,
+            detectedAt: dbFault.detectedAt,
+            description: dbFault.description,
+          })
+        }
+      })
+    }
+    
+    // Add device-generated faults (only if not already in database)
+    const dbFaultDeviceIds = new Set(dbFaults?.map(f => f.deviceId) || [])
+    deviceGeneratedFaults.forEach(deviceFault => {
+      // Only add if this device doesn't already have a database fault
+      // (to avoid duplicates)
+      if (!dbFaultDeviceIds.has(deviceFault.device.id)) {
+        allFaults.push(deviceFault)
+      }
+    })
+    
+    // Sort by detected time (most recent first)
+    return allFaults.sort((a, b) => b.detectedAt.getTime() - a.detectedAt.getTime())
+  }, [dbFaults, deviceGeneratedFaults, devices])
 
   // Initialize category filters - will be updated based on actual faults
   const [showCategories, setShowCategories] = useState<Record<FaultCategory, boolean>>({
@@ -217,11 +267,41 @@ export default function FaultsPage() {
       
       // Fallback to direct data
       if (location.imageUrl) {
+        // Check if it's an IndexedDB reference
+        if (location.imageUrl.startsWith('indexeddb:') && activeStoreId) {
+          try {
+            const { getImageDataUrl } = await import('@/lib/indexedDB')
+            const imageId = location.imageUrl.replace('indexeddb:', '')
+            const dataUrl = await getImageDataUrl(imageId)
+            if (dataUrl) {
+              setMapImageUrl(dataUrl)
+              setMapUploaded(true)
+              return
+            }
+          } catch (e) {
+            console.warn('Failed to load image from IndexedDB:', e)
+          }
+        }
         setMapImageUrl(location.imageUrl)
         setMapUploaded(true)
       } else if (location.vectorData) {
         setVectorData(location.vectorData)
         setMapUploaded(true)
+      }
+      
+      // Also check for old localStorage format (backward compatibility)
+      if (!mapImageUrl && !vectorData && activeStoreId) {
+        const imageKey = `fusion_map-image-url_${activeStoreId}`
+        try {
+          const { loadMapImage } = await import('@/lib/indexedDB')
+          const imageUrl = await loadMapImage(imageKey)
+          if (imageUrl) {
+            setMapImageUrl(imageUrl)
+            setMapUploaded(true)
+          }
+        } catch (e) {
+          console.warn('Failed to load map from old storage:', e)
+        }
       }
     }
     
@@ -238,42 +318,23 @@ export default function FaultsPage() {
     setMapUploaded(true)
   }
 
-  const handleAddNewFault = () => {
-    // Mock: Show a dialog to add a new fault
-    const deviceId = prompt('Enter Device ID for the new fault:')
-    if (!deviceId) return
-    
-    const device = devices.find(d => d.deviceId === deviceId)
-    if (!device) {
-      alert(`Device ${deviceId} not found. Please enter a valid device ID.`)
-      return
+  const handleAddNewFault = async (faultData: { device: Device; faultType: FaultCategory; description: string }) => {
+    try {
+      // Save to database
+      const newFault = await createFaultMutation.mutateAsync({
+        deviceId: faultData.device.id,
+        faultType: faultData.faultType,
+        description: faultData.description,
+        detectedAt: new Date(),
+      })
+      
+      // Select the newly created fault by its ID
+      setSelectedFaultId(newFault.id)
+      setSelectedDeviceId(faultData.device.id)
+    } catch (error) {
+      console.error('Failed to create fault:', error)
+      alert('Failed to create fault. Please try again.')
     }
-    
-    // Show category selection
-    const categoryOptions = Object.entries(faultCategories)
-      .map(([key, info]) => `${key}: ${info.label}`)
-      .join('\n')
-    
-    const categoryInput = prompt(`Enter fault category:\n\n${categoryOptions}`)
-    if (!categoryInput) return
-    
-    const selectedCategory = categoryInput.split(':')[0].trim() as FaultCategory
-    if (!faultCategories[selectedCategory]) {
-      alert('Invalid category. Please try again.')
-      return
-    }
-    
-    // Create a new fault
-    const newFault: Fault = {
-      device,
-      faultType: selectedCategory,
-      detectedAt: new Date(),
-      description: generateFaultDescription(selectedCategory, device.deviceId),
-    }
-    
-    // Note: In a real app, this would be added via tRPC/API
-    // For now, we'll just show a message
-    alert(`Fault added for ${deviceId}:\n\nType: ${faultCategories[selectedCategory].label}\n\nNote: In production, this would be saved to the database.`)
   }
 
   // Check if we should highlight a specific device (from dashboard navigation)
@@ -303,8 +364,25 @@ export default function FaultsPage() {
 
 
   const selectedFault = useMemo(() => {
+    if (!selectedFaultId) return null
+    
+    // First, try to find by database fault ID
+    const dbFault = dbFaults?.find(f => f.id === selectedFaultId)
+    if (dbFault) {
+      const device = devices.find(d => d.id === dbFault.deviceId)
+      if (device) {
+        return {
+          device,
+          faultType: dbFault.faultType as FaultCategory,
+          detectedAt: dbFault.detectedAt,
+          description: dbFault.description,
+        }
+      }
+    }
+    
+    // Otherwise, try to find by device ID (for device-generated faults)
     return faults.find(f => f.device.id === selectedFaultId) || null
-  }, [faults, selectedFaultId])
+  }, [faults, selectedFaultId, dbFaults, devices])
 
   // Filter faults based on selected device, search, and category filters
   const filteredFaults = useMemo(() => {
@@ -345,6 +423,15 @@ export default function FaultsPage() {
     // Apply device filter (only if device is selected)
     if (selectedDeviceId) {
       filtered = filtered.filter(fault => fault.device.id === selectedDeviceId)
+    }
+    
+    // Also filter by selected fault ID if it's a database fault
+    if (selectedFaultId && dbFaults) {
+      const dbFault = dbFaults.find(f => f.id === selectedFaultId)
+      if (dbFault) {
+        // If a database fault is selected, show only that fault
+        filtered = filtered.filter(fault => fault.id === selectedFaultId)
+      }
     }
     
     return filtered
@@ -594,7 +681,25 @@ export default function FaultsPage() {
                 <FaultList
                   faults={filteredFaults}
                   selectedFaultId={selectedFaultId}
-                  onFaultSelect={setSelectedFaultId}
+                  onFaultSelect={(faultId) => {
+                    setSelectedFaultId(faultId)
+                    // Also set device ID for map filtering
+                    if (faultId) {
+                      const fault = faults.find(f => {
+                        // Check if it's a database fault ID
+                        const dbFault = dbFaults?.find(df => df.id === faultId)
+                        if (dbFault) {
+                          return f.device.id === dbFault.deviceId
+                        }
+                        return f.device.id === faultId
+                      })
+                      if (fault) {
+                        setSelectedDeviceId(fault.device.id)
+                      }
+                    } else {
+                      setSelectedDeviceId(null)
+                    }
+                  }}
                   searchQuery={searchQuery}
                 />
               </div>
@@ -766,7 +871,7 @@ export default function FaultsPage() {
             collapseThreshold={200}
             storageKey="faults_panel"
           >
-            <FaultDetailsPanel fault={selectedFault} onAddNewFault={handleAddNewFault} />
+            <FaultDetailsPanel fault={selectedFault} devices={devices} onAddNewFault={handleAddNewFault} />
           </ResizablePanel>
         </div>
       </div>

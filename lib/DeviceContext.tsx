@@ -5,21 +5,21 @@
  * Ensures all pages (Map, Zones, Lookup, Faults) use the same device data.
  * 
  * AI Note: 
- * - Store-aware: Data is namespaced by store ID in localStorage
+ * - Store-aware: Data is scoped by site ID
  * - Automatically reloads when active store changes
- * - In production, this would sync with tRPC/API and persist to database
+ * - Uses tRPC to sync with database
  */
 
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { Device, mockDevices as initialMockDevices } from './mockData'
-import { seedDevices } from './seedDevices'
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react'
+import { Device } from './mockData'
 import { useStore } from './StoreContext'
-import { generateStoreData } from './storeData'
+import { trpc } from './trpc/client'
 
 interface DeviceContextType {
   devices: Device[]
+  isLoading: boolean
   addDevice: (device: Device) => void
   updateDevice: (deviceId: string, updates: Partial<Device>) => void
   updateDevicePosition: (deviceId: string, x: number, y: number) => void
@@ -43,192 +43,236 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
   const [history, setHistory] = useState<Device[][]>([[]])
   const [historyIndex, setHistoryIndex] = useState(0)
 
-  // Helper to get store-scoped localStorage keys
-  const getStorageKey = (key: string) => {
-    return activeStoreId ? `fusion_${key}_${activeStoreId}` : `fusion_${key}`
-  }
-
-  // Load devices when store changes or on mount
+  // Ensure site exists in database
+  const ensureSiteMutation = trpc.site.ensureExists.useMutation()
+  
+  // Fetch devices from database
+  const { data: devicesData, refetch: refetchDevices, isLoading, error } = trpc.device.list.useQuery(
+    { siteId: activeStoreId || '', includeComponents: true },
+    { 
+      enabled: !!activeStoreId, 
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes - data is fresh for 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes - keep in cache for 10 minutes
+      retry: 2, // Retry failed requests
+      retryDelay: 1000, // Wait 1 second between retries
+    }
+  )
+  
+  // If there's an error, log it but don't block the UI
   useEffect(() => {
-    if (!activeStoreId) return // Wait for store to be initialized
-    
-    // In production, this would load from tRPC/API
-    const DATA_VERSION = 'v4-store-aware'
-    const storageKey = getStorageKey('devices')
-    const versionKey = getStorageKey('devices_version')
-    const savedKey = getStorageKey('devices_saved')
-    
-    const savedVersion = typeof window !== 'undefined' ? localStorage.getItem(versionKey) : null
-    const devicesSaved = typeof window !== 'undefined' ? localStorage.getItem(savedKey) === 'true' : false
-    
-    // Generate store-specific initial data
-    const storeData = generateStoreData(activeStoreId)
-    const initialDevices = storeData.devices
-    
-    // PRIORITY 0: Check for seed data (committed to repo) - use this for fresh deployments
-    // Note: Seed data is store-agnostic, so we'll use it as fallback only
-    if (seedDevices && seedDevices.length > 0 && !devicesSaved) {
-      const restored = seedDevices.map((device: Device) => {
-        if (device.components) {
-          return {
-            ...device,
-            components: device.components.map((comp: any) => ({
-              ...comp,
-              warrantyExpiry: comp.warrantyExpiry ? new Date(comp.warrantyExpiry) : undefined,
-              buildDate: comp.buildDate ? new Date(comp.buildDate) : undefined,
-            })),
-            warrantyExpiry: device.warrantyExpiry ? new Date(device.warrantyExpiry as any) : undefined,
-          }
-        }
-        return device
-      })
-      setDevices(restored)
-      setHistory([restored])
-      setHistoryIndex(0)
-      // Also save to localStorage so it persists in this session
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(storageKey, JSON.stringify(restored))
-        localStorage.setItem(versionKey, DATA_VERSION)
-      }
-      console.log(`✅ Loaded ${restored.length} devices from seed data for ${activeStoreId}`)
-      return
+    if (error) {
+      console.error('Error loading devices:', error)
     }
-    
-    // PRIORITY 1: If devices are marked as saved, always load them (regardless of version)
-    if (devicesSaved && typeof window !== 'undefined') {
-      const savedDevices = localStorage.getItem(storageKey)
-      if (savedDevices) {
-        try {
-          const parsed = JSON.parse(savedDevices)
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const restored = parsed.map((device: Device) => {
-              if (device.components) {
-                return {
-                  ...device,
-                  components: device.components.map((comp: any) => ({
-                    ...comp,
-                    warrantyExpiry: comp.warrantyExpiry ? new Date(comp.warrantyExpiry) : undefined,
-                    buildDate: comp.buildDate ? new Date(comp.buildDate) : undefined,
-                  })),
-                  warrantyExpiry: device.warrantyExpiry ? new Date(device.warrantyExpiry as any) : undefined,
-                }
-              }
-              return device
-            })
-            setDevices(restored)
-            setHistory([restored])
-            setHistoryIndex(0)
-            console.log(`✅ Loaded ${restored.length} saved devices from localStorage for ${activeStoreId} (protected from reset)`)
-            return
-          }
-        } catch (e) {
-          console.error('Failed to parse saved devices:', e)
-        }
-      }
+  }, [error])
+
+  // Mutations - use optimistic updates instead of refetching immediately
+  const createDeviceMutation = trpc.device.create.useMutation({
+    onSuccess: () => {
+      // Debounce refetch to avoid excessive calls
+      setTimeout(() => {
+        refetchDevices()
+      }, 500)
+    },
+  })
+
+  const updateDeviceMutation = trpc.device.update.useMutation({
+    onSuccess: () => {
+      // Only refetch if not a position update (positions are handled optimistically)
+      // Position updates are debounced separately
+    },
+  })
+
+  const deleteDeviceMutation = trpc.device.delete.useMutation({
+    onSuccess: () => {
+      // Refetch after a short delay
+      setTimeout(() => {
+        refetchDevices()
+      }, 300)
+    },
+  })
+  
+  // Debounced refetch for position updates
+  const positionUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const debouncedRefetch = useCallback(() => {
+    if (positionUpdateTimeoutRef.current) {
+      clearTimeout(positionUpdateTimeoutRef.current)
     }
-    
-    // PRIORITY 2: Check localStorage for any manually added devices (if version matches)
-    if (typeof window !== 'undefined' && savedVersion === DATA_VERSION) {
-      const savedDevices = localStorage.getItem(storageKey)
-      if (savedDevices) {
-        try {
-          const parsed = JSON.parse(savedDevices)
-          // Restore Date objects for components (they get serialized as strings)
-          const restored = parsed.map((device: Device) => {
-            if (device.components) {
-              return {
-                ...device,
-                components: device.components.map((comp: any) => ({
-                  ...comp,
-                  warrantyExpiry: comp.warrantyExpiry ? new Date(comp.warrantyExpiry) : undefined,
-                  buildDate: comp.buildDate ? new Date(comp.buildDate) : undefined,
-                })),
-                warrantyExpiry: device.warrantyExpiry ? new Date(device.warrantyExpiry as any) : undefined,
-              }
-            }
-            return device
-          })
-          // Merge with fresh mock data to ensure all devices have components
-          const merged = restored.map((saved: Device) => {
-            const fresh = initialDevices.find(d => d.id === saved.id || d.deviceId === saved.deviceId)
-            if (fresh && fresh.components && (!saved.components || saved.components.length === 0)) {
-              return { ...saved, components: fresh.components, warrantyStatus: fresh.warrantyStatus, warrantyExpiry: fresh.warrantyExpiry }
-            }
-            return saved
-          })
-          setDevices(merged)
-          setHistory([merged])
-          setHistoryIndex(0)
-          console.log(`✅ Loaded ${merged.length} devices from localStorage for ${activeStoreId}`)
-          return
-        } catch (e) {
-          console.error('Failed to parse saved devices:', e)
-        }
-      }
-    }
-    
-    // PRIORITY 3: If version doesn't match or no saved data, use fresh store-specific data
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(versionKey, DATA_VERSION)
-    }
-    
-    setDevices(initialDevices)
-    setHistory([initialDevices])
-    setHistoryIndex(0)
-    console.log(`✅ Loaded ${initialDevices.length} devices for ${activeStoreId} (fresh data)`)
+    positionUpdateTimeoutRef.current = setTimeout(() => {
+      refetchDevices()
+    }, 2000) // Wait 2 seconds after last position update
+  }, [refetchDevices])
+
+  // Ensure site exists when store changes
+  useEffect(() => {
+    if (!activeStoreId) return
+
+    // Ensure site exists in database (maps store ID to site ID)
+    ensureSiteMutation.mutate({
+      id: activeStoreId,
+      name: `Store ${activeStoreId}`,
+      storeNumber: activeStoreId.replace('store-', ''),
+    })
   }, [activeStoreId])
 
-  // Save to localStorage whenever devices change (store-scoped)
+  // Update local state when data from database changes
+  // Use a ref to prevent updates during user interactions
+  const isUpdatingRef = useRef(false)
   useEffect(() => {
-    if (typeof window !== 'undefined' && devices.length > 0 && activeStoreId) {
-      const storageKey = getStorageKey('devices')
-      localStorage.setItem(storageKey, JSON.stringify(devices))
+    if (devicesData && !isUpdatingRef.current) {
+      setDevices(devicesData)
+      setHistory([devicesData])
+      setHistoryIndex(0)
     }
-  }, [devices, activeStoreId])
+  }, [devicesData])
 
-  const addDevice = (device: Device) => {
-    setDevices(prev => {
-      // Check if device already exists (by ID or serial number)
-      const exists = prev.some(d => d.id === device.id || d.serialNumber === device.serialNumber)
-      if (exists) {
-        return prev // Don't add duplicates
-      }
-      return [...prev, device]
-    })
-  }
+  const addDevice = useCallback(async (device: Device) => {
+    if (!activeStoreId) return
 
-  const updateDevice = (deviceId: string, updates: Partial<Device>) => {
+    // Check if device already exists locally
+    const exists = devices.some(d => d.id === device.id || d.serialNumber === device.serialNumber)
+    if (exists) {
+      console.warn('Device already exists:', device.id)
+      return
+    }
+
+    // Optimistically update UI
+    setDevices(prev => [...prev, device])
+
+    // Create in database
+    try {
+      await createDeviceMutation.mutateAsync({
+        siteId: activeStoreId,
+        deviceId: device.deviceId,
+        serialNumber: device.serialNumber,
+        type: device.type,
+        status: device.status,
+        signal: device.signal,
+        battery: device.battery,
+        x: device.x,
+        y: device.y,
+        warrantyStatus: device.warrantyStatus,
+        warrantyExpiry: device.warrantyExpiry,
+        components: device.components?.map(comp => ({
+          componentType: comp.componentType,
+          componentSerialNumber: comp.componentSerialNumber,
+          warrantyStatus: comp.warrantyStatus,
+          warrantyExpiry: comp.warrantyExpiry,
+          buildDate: comp.buildDate,
+        })),
+      })
+    } catch (error) {
+      console.error('Failed to create device:', error)
+      // Revert optimistic update
+      setDevices(prev => prev.filter(d => d.id !== device.id))
+    }
+  }, [activeStoreId, devices, createDeviceMutation])
+
+  const updateDevice = useCallback(async (deviceId: string, updates: Partial<Device>) => {
+    // Mark as updating to prevent refetch from overwriting
+    isUpdatingRef.current = true
+    
+    // Optimistically update UI
     setDevices(prev => {
       const updated = prev.map(device => 
         device.id === deviceId ? { ...device, ...updates } : device
       )
-      // Save to history for undo/redo
       saveToHistory(updated)
       return updated
     })
-  }
 
-  const updateDevicePosition = (deviceId: string, x: number, y: number) => {
-    setDevices(prev => {
-      const updated = prev.map(device => 
+    // Update in database
+    try {
+      const dbUpdates: any = {}
+      if (updates.deviceId !== undefined) dbUpdates.deviceId = updates.deviceId
+      if (updates.serialNumber !== undefined) dbUpdates.serialNumber = updates.serialNumber
+      if (updates.type !== undefined) dbUpdates.type = updates.type
+      if (updates.status !== undefined) dbUpdates.status = updates.status
+      if (updates.signal !== undefined) dbUpdates.signal = updates.signal
+      if (updates.battery !== undefined) dbUpdates.battery = updates.battery
+      if (updates.warrantyStatus !== undefined) dbUpdates.warrantyStatus = updates.warrantyStatus
+      if (updates.warrantyExpiry !== undefined) dbUpdates.warrantyExpiry = updates.warrantyExpiry
+
+      await updateDeviceMutation.mutateAsync({
+        id: deviceId,
+        ...dbUpdates,
+      })
+    } catch (error) {
+      console.error('Failed to update device:', error)
+      // Revert by refetching
+      refetchDevices()
+    } finally {
+      // Allow refetches after a delay
+      setTimeout(() => {
+        isUpdatingRef.current = false
+      }, 1000)
+    }
+  }, [updateDeviceMutation, refetchDevices])
+
+  const updateDevicePosition = useCallback(async (deviceId: string, x: number, y: number) => {
+    // Optimistically update UI (don't save to history for every position update)
+    setDevices(prev => 
+      prev.map(device => 
         device.id === deviceId ? { ...device, x, y } : device
       )
-      // Don't save every position update to history (too many), only on drag end
-      return updated
-    })
-  }
+    )
 
-  const updateMultipleDevices = (updates: Array<{ deviceId: string; updates: Partial<Device> }>) => {
+    // Debounce database updates for position changes
+    if (positionUpdateTimeoutRef.current) {
+      clearTimeout(positionUpdateTimeoutRef.current)
+    }
+    
+    positionUpdateTimeoutRef.current = setTimeout(async () => {
+      try {
+        await updateDeviceMutation.mutateAsync({
+          id: deviceId,
+          x,
+          y,
+        })
+        // Refetch after position update to sync with database
+        debouncedRefetch()
+      } catch (error) {
+        console.error('Failed to update device position:', error)
+        // Revert on error
+        refetchDevices()
+      }
+    }, 1000) // Wait 1 second after last position update before saving
+  }, [updateDeviceMutation, debouncedRefetch, refetchDevices])
+
+  const updateMultipleDevices = useCallback(async (updates: Array<{ deviceId: string; updates: Partial<Device> }>) => {
+    // Optimistically update UI
     setDevices(prev => {
       const updated = prev.map(device => {
         const update = updates.find(u => u.deviceId === device.id)
         return update ? { ...device, ...update.updates } : device
       })
-      // Save to history for undo/redo
       saveToHistory(updated)
       return updated
     })
-  }
+
+    // Update each device in database
+    try {
+      await Promise.all(
+        updates.map(async ({ deviceId, updates: deviceUpdates }) => {
+          const dbUpdates: any = {}
+          if (deviceUpdates.x !== undefined) dbUpdates.x = deviceUpdates.x
+          if (deviceUpdates.y !== undefined) dbUpdates.y = deviceUpdates.y
+          if (deviceUpdates.status !== undefined) dbUpdates.status = deviceUpdates.status
+          if (deviceUpdates.signal !== undefined) dbUpdates.signal = deviceUpdates.signal
+          if (deviceUpdates.battery !== undefined) dbUpdates.battery = deviceUpdates.battery
+
+          return updateDeviceMutation.mutateAsync({
+            id: deviceId,
+            ...dbUpdates,
+          })
+        })
+      )
+    } catch (error) {
+      console.error('Failed to update multiple devices:', error)
+      refetchDevices()
+    }
+  }, [updateDeviceMutation, refetchDevices])
 
   const saveToHistory = (newDevices: Device[]) => {
     setHistory(prev => {
@@ -263,34 +307,35 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const removeDevice = (deviceId: string) => {
+  const removeDevice = useCallback(async (deviceId: string) => {
+    // Optimistically update UI
     setDevices(prev => prev.filter(device => device.id !== deviceId))
-  }
 
-  const refreshDevices = () => {
-    // In production, this would fetch from tRPC/API
-    setDevices(initialMockDevices)
-  }
-
-  const saveDevices = () => {
-    // Mark devices as saved - this prevents them from being reset
-    if (typeof window !== 'undefined' && devices.length > 0 && activeStoreId) {
-      const storageKey = getStorageKey('devices')
-      const savedKey = getStorageKey('devices_saved')
-      const versionKey = getStorageKey('devices_version')
-      localStorage.setItem(storageKey, JSON.stringify(devices))
-      localStorage.setItem(savedKey, 'true')
-      localStorage.setItem(versionKey, 'v4-store-aware')
-      console.log(`✅ Saved ${devices.length} devices to system for ${activeStoreId} (protected from reset)`)
-    } else {
-      console.warn('Cannot save: No devices to save or no active store')
+    // Delete from database
+    try {
+      await deleteDeviceMutation.mutateAsync({ id: deviceId })
+    } catch (error) {
+      console.error('Failed to delete device:', error)
+      // Revert by refetching
+      refetchDevices()
     }
-  }
+  }, [deleteDeviceMutation, refetchDevices])
+
+  const refreshDevices = useCallback(() => {
+    refetchDevices()
+  }, [refetchDevices])
+
+  const saveDevices = useCallback(() => {
+    // Devices are automatically saved to database on each mutation
+    // This function is kept for backward compatibility
+    console.log(`✅ Devices are automatically saved to database for ${activeStoreId}`)
+  }, [activeStoreId])
 
   return (
     <DeviceContext.Provider
       value={{
         devices,
+        isLoading,
         addDevice,
         updateDevice,
         updateDevicePosition,

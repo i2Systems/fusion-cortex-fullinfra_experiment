@@ -9,10 +9,11 @@
 
 'use client'
 
-import { AlertCircle, Droplets, Zap, Thermometer, Plug, Settings, Package, Wrench, Lightbulb, MapPin, Radio, RefreshCw, CheckCircle2, Clock, TrendingDown, XCircle, Battery, Shield, ExternalLink, Plus } from 'lucide-react'
+import { useState } from 'react'
+import { AlertCircle, Droplets, Zap, Thermometer, Plug, Settings, Package, Wrench, Lightbulb, MapPin, Radio, RefreshCw, CheckCircle2, Clock, TrendingDown, XCircle, Battery, Shield, ExternalLink, Plus, X, ChevronDown } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Device } from '@/lib/mockData'
-import { FaultCategory, faultCategories } from '@/lib/faultDefinitions'
+import { FaultCategory, faultCategories, generateFaultDescription } from '@/lib/faultDefinitions'
 import { calculateWarrantyStatus, getWarrantyStatusLabel, getWarrantyStatusTokenClass, formatWarrantyExpiry } from '@/lib/warranty'
 
 interface Fault {
@@ -24,39 +25,198 @@ interface Fault {
 
 interface FaultDetailsPanelProps {
   fault: Fault | null
-  onAddNewFault?: () => void
+  devices?: Device[]
+  onAddNewFault?: (fault: { device: Device; faultType: FaultCategory; description: string }) => void
 }
 
-export function FaultDetailsPanel({ fault, onAddNewFault }: FaultDetailsPanelProps) {
+export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultDetailsPanelProps) {
   const router = useRouter()
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('')
+  const [selectedCategory, setSelectedCategory] = useState<FaultCategory | ''>('')
+  const [customDescription, setCustomDescription] = useState<string>('')
+  
+  const handleSubmitNewFault = () => {
+    const deviceIdToUse = selectedDeviceId || (fault ? fault.device.id : '')
+    if (!deviceIdToUse || !selectedCategory) return
+    
+    const device = devices.find(d => d.id === deviceIdToUse || d.deviceId === deviceIdToUse)
+    if (!device) return
+    
+    const description = customDescription.trim() || generateFaultDescription(selectedCategory, device.deviceId)
+    
+    onAddNewFault?.({
+      device,
+      faultType: selectedCategory,
+      description,
+    })
+    
+    // Reset form
+    setSelectedDeviceId('')
+    setSelectedCategory('')
+    setCustomDescription('')
+    setShowAddForm(false)
+  }
   
   if (!fault) {
     return (
       <div className="flex flex-col h-full">
-        <div className="flex-1 flex flex-col">
-          {/* Empty State Content */}
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-            <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center">
-              <AlertCircle size={40} className="text-[var(--color-text-muted)]" />
-            </div>
-            <h3 className="text-lg font-semibold text-[var(--color-text)] mb-2">
-              No Fault Selected
-            </h3>
-            <p className="text-sm text-[var(--color-text-muted)] mb-8">
-              Select a fault from the list to view detailed information and troubleshooting steps
-            </p>
-          </div>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {!showAddForm ? (
+            <>
+              {/* Empty State Content */}
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center">
+                  <AlertCircle size={40} className="text-[var(--color-text-muted)]" />
+                </div>
+                <h3 className="text-lg font-semibold text-[var(--color-text)] mb-2">
+                  No Fault Selected
+                </h3>
+                <p className="text-sm text-[var(--color-text-muted)] mb-8">
+                  Select a fault from the list to view detailed information and troubleshooting steps
+                </p>
+              </div>
 
-          {/* Add New Fault Button */}
-          {onAddNewFault && (
-            <div className="p-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)]">
-              <button
-                onClick={onAddNewFault}
-                className="w-full px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)] transition-all flex items-center justify-center gap-2"
-              >
-                <Plus size={16} />
-                Add New Fault
-              </button>
+              {/* Add New Fault Button */}
+              {onAddNewFault && (
+                <div className="p-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)] flex-shrink-0">
+                  <button
+                    onClick={() => setShowAddForm(true)}
+                    className="w-full px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)] transition-all flex items-center justify-center gap-2"
+                  >
+                    <Plus size={16} />
+                    Add New Fault
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex-1 overflow-y-auto p-4">
+              {/* Add New Fault Form */}
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-[var(--color-text)]">Add New Fault</h3>
+                <button
+                  onClick={() => {
+                    setShowAddForm(false)
+                    setSelectedDeviceId('')
+                    setSelectedCategory('')
+                    setCustomDescription('')
+                  }}
+                  className="p-1 rounded hover:bg-[var(--color-surface-subtle)] transition-colors"
+                >
+                  <X size={18} className="text-[var(--color-text-muted)]" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Device Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
+                    Device
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={selectedDeviceId}
+                      onChange={(e) => setSelectedDeviceId(e.target.value)}
+                      className="w-full px-3 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] appearance-none"
+                    >
+                      <option value="">Select a device...</option>
+                      {devices.map((device) => (
+                        <option key={device.id} value={device.id}>
+                          {device.deviceId} - {device.serialNumber} {device.location ? `(${device.location})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Category Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
+                    Fault Category
+                  </label>
+                  <div className="space-y-2">
+                    {(Object.keys(faultCategories) as FaultCategory[]).map((category) => {
+                      const categoryInfo = faultCategories[category]
+                      const isSelected = selectedCategory === category
+                      
+                      const getIcon = () => {
+                        switch (category) {
+                          case 'environmental-ingress': return <Droplets size={16} />
+                          case 'electrical-driver': return <Zap size={16} />
+                          case 'thermal-overheat': return <Thermometer size={16} />
+                          case 'installation-wiring': return <Plug size={16} />
+                          case 'control-integration': return <Settings size={16} />
+                          case 'manufacturing-defect': return <Package size={16} />
+                          case 'mechanical-structural': return <Wrench size={16} />
+                          case 'optical-output': return <Lightbulb size={16} />
+                          default: return null
+                        }
+                      }
+                      
+                      return (
+                        <button
+                          key={category}
+                          onClick={() => setSelectedCategory(category)}
+                          className={`w-full p-3 rounded-lg border text-left transition-all ${
+                            isSelected
+                              ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)]'
+                              : 'border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)] hover:border-[var(--color-primary)]/50'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`flex-shrink-0 p-1.5 rounded ${
+                              isSelected
+                                ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'
+                                : 'bg-[var(--color-surface)] text-[var(--color-text-muted)]'
+                            }`}>
+                              {getIcon()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-[var(--color-text)] mb-0.5">
+                                {categoryInfo.label}
+                              </div>
+                              <div className="text-xs text-[var(--color-text-muted)]">
+                                {categoryInfo.description}
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Custom Description (Optional) */}
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
+                    Description (Optional)
+                  </label>
+                  <textarea
+                    value={customDescription}
+                    onChange={(e) => setCustomDescription(e.target.value)}
+                    placeholder="Leave empty to use default description for this category..."
+                    rows={3}
+                    className="w-full px-3 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-soft)] focus:outline-none focus:border-[var(--color-primary)] resize-none"
+                  />
+                  <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                    If left empty, a default description will be generated based on the selected category.
+                  </p>
+                </div>
+
+                {/* Submit Button */}
+                <div className="pt-2">
+                  <button
+                    onClick={handleSubmitNewFault}
+                    disabled={!selectedDeviceId || !selectedCategory}
+                    className="w-full fusion-button fusion-button-primary flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Plus size={16} />
+                    Add Fault
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -133,6 +293,143 @@ export function FaultDetailsPanel({ fault, onAddNewFault }: FaultDetailsPanelPro
   }
 
   const troubleshootingSteps = getTroubleshootingSteps(fault.faultType)
+
+  // If showing add form while viewing a fault, show it as an overlay
+  if (showAddForm) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="flex-1 overflow-y-auto p-4">
+          {/* Add New Fault Form */}
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-[var(--color-text)]">Add New Fault</h3>
+            <button
+              onClick={() => {
+                setShowAddForm(false)
+                setSelectedDeviceId('')
+                setSelectedCategory('')
+                setCustomDescription('')
+              }}
+              className="p-1 rounded hover:bg-[var(--color-surface-subtle)] transition-colors"
+            >
+              <X size={18} className="text-[var(--color-text-muted)]" />
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {/* Device Selection */}
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
+                Device
+              </label>
+              <div className="relative">
+                <select
+                  value={selectedDeviceId || fault.device.id}
+                  onChange={(e) => setSelectedDeviceId(e.target.value)}
+                  className="w-full px-3 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] appearance-none"
+                >
+                  <option value={fault.device.id}>
+                    {fault.device.deviceId} - {fault.device.serialNumber} {fault.device.location ? `(${fault.device.location})` : ''}
+                  </option>
+                  {devices.filter(d => d.id !== fault.device.id).map((device) => (
+                    <option key={device.id} value={device.id}>
+                      {device.deviceId} - {device.serialNumber} {device.location ? `(${device.location})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Category Selection */}
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
+                Fault Category
+              </label>
+              <div className="space-y-2">
+                {(Object.keys(faultCategories) as FaultCategory[]).map((category) => {
+                  const categoryInfo = faultCategories[category]
+                  const isSelected = selectedCategory === category
+                  
+                  const getIcon = () => {
+                    switch (category) {
+                      case 'environmental-ingress': return <Droplets size={16} />
+                      case 'electrical-driver': return <Zap size={16} />
+                      case 'thermal-overheat': return <Thermometer size={16} />
+                      case 'installation-wiring': return <Plug size={16} />
+                      case 'control-integration': return <Settings size={16} />
+                      case 'manufacturing-defect': return <Package size={16} />
+                      case 'mechanical-structural': return <Wrench size={16} />
+                      case 'optical-output': return <Lightbulb size={16} />
+                      default: return null
+                    }
+                  }
+                  
+                  return (
+                    <button
+                      key={category}
+                      onClick={() => setSelectedCategory(category)}
+                      className={`w-full p-3 rounded-lg border text-left transition-all ${
+                        isSelected
+                          ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)]'
+                          : 'border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)] hover:border-[var(--color-primary)]/50'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`flex-shrink-0 p-1.5 rounded ${
+                          isSelected
+                            ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'
+                            : 'bg-[var(--color-surface)] text-[var(--color-text-muted)]'
+                        }`}>
+                          {getIcon()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-[var(--color-text)] mb-0.5">
+                            {categoryInfo.label}
+                          </div>
+                          <div className="text-xs text-[var(--color-text-muted)]">
+                            {categoryInfo.description}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Custom Description (Optional) */}
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
+                Description (Optional)
+              </label>
+              <textarea
+                value={customDescription}
+                onChange={(e) => setCustomDescription(e.target.value)}
+                placeholder="Leave empty to use default description for this category..."
+                rows={3}
+                className="w-full px-3 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-soft)] focus:outline-none focus:border-[var(--color-primary)] resize-none"
+              />
+              <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                If left empty, a default description will be generated based on the selected category.
+              </p>
+            </div>
+
+            {/* Submit Button */}
+            <div className="pt-2">
+              <button
+                onClick={handleSubmitNewFault}
+                disabled={!selectedCategory}
+                className="w-full fusion-button fusion-button-primary flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus size={16} />
+                Add Fault
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -405,6 +702,19 @@ export function FaultDetailsPanel({ fault, onAddNewFault }: FaultDetailsPanelPro
         >
           Mark as Resolved
         </button>
+        {onAddNewFault && (
+          <button
+            onClick={() => {
+              // Pre-select the current device when adding a new fault
+              setSelectedDeviceId(fault.device.id)
+              setShowAddForm(true)
+            }}
+            className="w-full px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)] transition-all flex items-center justify-center gap-2"
+          >
+            <Plus size={16} />
+            Add Related Fault
+          </button>
+        )}
       </div>
     </div>
   )

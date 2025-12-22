@@ -5,6 +5,8 @@
  * and automatically place device objects at those positions
  */
 
+import { generateComponentsForFixture, generateWarrantyExpiry } from './deviceUtils'
+
 /**
  * Analyzes PDF data to determine if it contains light symbols
  * Returns a report of what was found
@@ -456,18 +458,30 @@ export function createDevicesFromLights(
   lights: LightLocation[],
   baseDeviceId: number = 1
 ): Device[] {
-  return lights.map((light, idx) => ({
-    id: `light-${baseDeviceId + idx}`,
-    deviceId: String(baseDeviceId + idx),
-    serialNumber: `SN${String(baseDeviceId + idx).padStart(6, '0')}`,
-    type: light.type,
-    signal: Math.floor(70 + Math.random() * 30), // 70-100
-    status: Math.random() > 0.1 ? 'online' : 'offline', // 90% online
-    location: `Auto-detected ${light.type}`,
-    x: light.x,
-    y: light.y,
-    orientation: 0,
-    locked: false,
-  }))
+  return lights.map((light, idx) => {
+    const deviceId = `light-${baseDeviceId + idx}`
+    const serialNumber = `SN${String(baseDeviceId + idx).padStart(6, '0')}`
+    const warrantyExpiry = generateWarrantyExpiry()
+    
+    return {
+      id: deviceId,
+      deviceId: String(baseDeviceId + idx),
+      serialNumber,
+      type: light.type,
+      signal: Math.floor(70 + Math.random() * 30), // 70-100
+      status: Math.random() > 0.1 ? 'online' : 'offline', // 90% online
+      location: `Auto-detected ${light.type}`,
+      x: light.x,
+      y: light.y,
+      orientation: 0,
+      locked: false,
+      // Generate components for fixtures
+      components: light.type === 'fixture' 
+        ? generateComponentsForFixture(deviceId, serialNumber, warrantyExpiry)
+        : undefined,
+      warrantyStatus: 'Active',
+      warrantyExpiry,
+    }
+  })
 }
 

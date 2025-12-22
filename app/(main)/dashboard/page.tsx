@@ -12,10 +12,11 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { SearchIsland } from '@/components/layout/SearchIsland'
 import { StoreDetailsPanel } from '@/components/dashboard/StoreDetailsPanel'
-import { useStore } from '@/lib/StoreContext'
+import { AddSiteModal } from '@/components/dashboard/AddSiteModal'
+import { useStore, Store } from '@/lib/StoreContext'
 import { useDevices } from '@/lib/DeviceContext'
 import { useZones } from '@/lib/ZoneContext'
 import { useRules } from '@/lib/RuleContext'
@@ -70,11 +71,13 @@ interface StoreSummary {
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { stores, activeStoreId, setActiveStore, activeStore } = useStore()
+  const { stores, activeStoreId, setActiveStore, activeStore, addStore, updateStore, removeStore } = useStore()
   const { devices } = useDevices()
   const { zones } = useZones()
   const { rules } = useRules()
   const [storeSummaries, setStoreSummaries] = useState<StoreSummary[]>([])
+  const [showAddSiteModal, setShowAddSiteModal] = useState(false)
+  const [editingStore, setEditingStore] = useState<Store | null>(null)
   
   // Initialize selectedStoreId - ensure it's never null when stores exist
   const getInitialSelectedStoreId = (): string => {
@@ -242,6 +245,114 @@ export default function DashboardPage() {
     }
     // Don't navigate by default - just select the store
   }
+
+  // Site management handlers
+  const handleAddSite = useCallback(() => {
+    setEditingStore(null)
+    setShowAddSiteModal(true)
+  }, [])
+
+  const handleEditSite = useCallback((store: Store) => {
+    setEditingStore(store)
+    setShowAddSiteModal(true)
+  }, [])
+
+  const handleRemoveSite = useCallback((storeId: string) => {
+    removeStore(storeId)
+    // Re-calculate summaries after removal
+    setStoreSummaries(prev => prev.filter(s => s.storeId !== storeId))
+  }, [removeStore])
+
+  const handleAddSiteSubmit = useCallback((siteData: Omit<Store, 'id'>) => {
+    const newStore = addStore(siteData)
+    setActiveStore(newStore.id)
+    setSelectedStoreId(newStore.id)
+    setShowAddSiteModal(false)
+  }, [addStore, setActiveStore])
+
+  const handleEditSiteSubmit = useCallback((storeId: string, updates: Partial<Omit<Store, 'id'>>) => {
+    updateStore(storeId, updates)
+    setShowAddSiteModal(false)
+    setEditingStore(null)
+  }, [updateStore])
+
+  const handleImportSites = useCallback(() => {
+    // Create a hidden file input
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json'
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        try {
+          const text = event.target?.result as string
+          const importedSites = JSON.parse(text)
+          
+          if (!Array.isArray(importedSites)) {
+            alert('Invalid file format. Expected an array of sites.')
+            return
+          }
+          
+          let count = 0
+          importedSites.forEach((site: any) => {
+            if (site.name && site.storeNumber) {
+              addStore({
+                name: site.name,
+                storeNumber: site.storeNumber,
+                address: site.address || '',
+                city: site.city || '',
+                state: site.state || '',
+                zipCode: site.zipCode || '',
+                phone: site.phone,
+                manager: site.manager,
+                squareFootage: site.squareFootage,
+              })
+              count++
+            }
+          })
+          
+          alert(`Successfully imported ${count} site(s)`)
+        } catch (error) {
+          alert('Error importing file. Please check the format.')
+          console.error('Import error:', error)
+        }
+      }
+      reader.readAsText(file)
+    }
+    input.click()
+  }, [addStore])
+
+  const handleExportSites = useCallback(() => {
+    if (stores.length === 0) {
+      alert('No sites to export')
+      return
+    }
+    
+    // Export as JSON
+    const exportData = stores.map(s => ({
+      name: s.name,
+      storeNumber: s.storeNumber,
+      address: s.address,
+      city: s.city,
+      state: s.state,
+      zipCode: s.zipCode,
+      phone: s.phone,
+      manager: s.manager,
+      squareFootage: s.squareFootage,
+    }))
+    
+    const dataStr = JSON.stringify(exportData, null, 2)
+    const dataBlob = new Blob([dataStr], { type: 'application/json' })
+    const url = URL.createObjectURL(dataBlob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `sites-${new Date().toISOString().split('T')[0]}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+  }, [stores])
 
   // Get detailed data for selected store
   const selectedStoreSummary = useMemo(() => {
@@ -621,9 +732,26 @@ export default function DashboardPage() {
             onlineDevices={selectedStoreSummary?.onlineDevices || 0}
             offlineDevices={selectedStoreSummary?.offlineDevices || 0}
             missingDevices={(selectedStoreSummary?.totalDevices || 0) - (selectedStoreSummary?.onlineDevices || 0) - (selectedStoreSummary?.offlineDevices || 0)}
+            onAddSite={handleAddSite}
+            onEditSite={handleEditSite}
+            onRemoveSite={handleRemoveSite}
+            onImportSites={handleImportSites}
+            onExportSites={handleExportSites}
           />
         </div>
       </div>
+
+      {/* Add/Edit Site Modal */}
+      <AddSiteModal
+        isOpen={showAddSiteModal}
+        onClose={() => {
+          setShowAddSiteModal(false)
+          setEditingStore(null)
+        }}
+        onAdd={handleAddSiteSubmit}
+        onEdit={handleEditSiteSubmit}
+        editingStore={editingStore}
+      />
     </div>
   )
 }

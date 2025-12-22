@@ -69,6 +69,11 @@ interface MapCanvasProps {
   showZones?: boolean
   currentLocation?: Location | null
   onImageBoundsChange?: (bounds: ImageBounds) => void
+  // Shared zoom state props
+  externalScale?: number
+  externalStagePosition?: { x: number; y: number }
+  onScaleChange?: (scale: number) => void
+  onStagePositionChange?: (position: { x: number; y: number }) => void
 }
 
 
@@ -97,11 +102,30 @@ export function MapCanvas({
   showZones = true,
   currentLocation,
   onImageBoundsChange,
+  externalScale,
+  externalStagePosition,
+  onScaleChange,
+  onStagePositionChange,
 }: MapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
-  const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 })
-  const [scale, setScale] = useState(1)
+  const [stagePosition, setStagePositionInternal] = useState({ x: 0, y: 0 })
+  const [scale, setScaleInternal] = useState(1)
+  
+  // Use external state if provided, otherwise use internal state
+  const effectiveScale = externalScale ?? scale
+  const effectiveStagePosition = externalStagePosition ?? stagePosition
+  
+  // Wrapper functions that update both internal and notify parent
+  const setScale = useCallback((newScale: number) => {
+    setScaleInternal(newScale)
+    onScaleChange?.(newScale)
+  }, [onScaleChange])
+  
+  const setStagePosition = useCallback((newPosition: { x: number; y: number }) => {
+    setStagePositionInternal(newPosition)
+    onStagePositionChange?.(newPosition)
+  }, [onStagePositionChange])
   const [imageBounds, setImageBounds] = useState<ImageBounds | null>(null)
   
   // Convert normalized coordinates (0-1) to canvas coordinates using actual image bounds
@@ -213,6 +237,25 @@ export function MapCanvas({
       return a.deviceId.localeCompare(b.deviceId)
     })
   }, [devices])
+
+  // Viewport culling - only render devices visible in current viewport
+  const visibleDevices = useMemo(() => {
+    // Calculate viewport bounds for culling
+    const viewportPadding = 200 // Render devices slightly outside viewport for smooth scrolling
+    const viewportMinX = -effectiveStagePosition.x / effectiveScale - viewportPadding
+    const viewportMaxX = (-effectiveStagePosition.x + dimensions.width) / effectiveScale + viewportPadding
+    const viewportMinY = -effectiveStagePosition.y / effectiveScale - viewportPadding
+    const viewportMaxY = (-effectiveStagePosition.y + dimensions.height) / effectiveScale + viewportPadding
+    
+    // Filter devices to only those in viewport
+    return devices.filter(device => {
+      const deviceCoords = toCanvasCoords({ x: device.x, y: device.y })
+      return deviceCoords.x >= viewportMinX && 
+             deviceCoords.x <= viewportMaxX && 
+             deviceCoords.y >= viewportMinY && 
+             deviceCoords.y <= viewportMaxY
+    })
+  }, [devices, effectiveStagePosition, effectiveScale, dimensions, toCanvasCoords])
 
   // Keyboard navigation: up/down arrows for device selection
   useEffect(() => {
@@ -341,17 +384,51 @@ export function MapCanvas({
     }
   }
 
+  // Ensure Stage container doesn't interfere with navigation clicks
+  useEffect(() => {
+    if (!stageRef.current) return
+    
+    const container = stageRef.current.container()
+    if (!container) return
+    
+    // Ensure container only captures events within its bounds
+    container.style.pointerEvents = 'auto'
+    container.style.touchAction = 'none'
+    
+    // Prevent the container from capturing clicks outside its visual bounds
+    const handleClick = (e: MouseEvent) => {
+      const rect = container.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      
+      // If click is outside container bounds, allow it to propagate to navigation
+      if (x < 0 || x > rect.width || y < 0 || y > rect.height) {
+        e.stopImmediatePropagation()
+      }
+    }
+    
+    // Use capture phase to intercept before Konva handles it
+    container.addEventListener('click', handleClick, true)
+    container.addEventListener('mousedown', handleClick, true)
+    
+    return () => {
+      container.removeEventListener('click', handleClick, true)
+      container.removeEventListener('mousedown', handleClick, true)
+    }
+  }, [dimensions])
+  
   return (
     <div ref={containerRef} className="w-full h-full overflow-hidden">
       <Stage 
         ref={stageRef}
         width={dimensions.width} 
         height={dimensions.height}
-        x={stagePosition.x}
-        y={stagePosition.y}
-        scaleX={scale}
-        scaleY={scale}
+        x={effectiveStagePosition.x}
+        y={effectiveStagePosition.y}
+        scaleX={effectiveScale}
+        scaleY={effectiveScale}
         draggable={mode === 'select' && !isSelecting && !isShiftHeld && draggedDevice === null} // Disable stage dragging when Shift is held or selecting
+        style={{ touchAction: 'none' }}
         onDblClick={(e) => {
           // Double-click on background, map image, or zones to deselect all devices
           const stage = e.target.getStage()
@@ -379,17 +456,28 @@ export function MapCanvas({
           }
         }}
         onMouseDown={(e) => {
+          // Only handle clicks within the stage bounds
+          const stage = e.target.getStage()
+          if (!stage) return
+          
+          // Check if click is outside stage bounds - if so, don't handle it
+          const pointerPos = stage.getPointerPosition()
+          if (pointerPos) {
+            const stageBox = stage.container().getBoundingClientRect()
+            if (pointerPos.x < 0 || pointerPos.x > dimensions.width || 
+                pointerPos.y < 0 || pointerPos.y > dimensions.height) {
+              // Click outside stage bounds - let it propagate
+              return
+            }
+          }
+          
           if (mode === 'select' && e.evt.button === 0 && !draggedDevice) {
-            const stage = e.target.getStage()
-            if (!stage) return
-            
             // Check if shift is actually held (use both state and event)
             const shiftHeld = isShiftHeld || e.evt.shiftKey
             const clickedOnEmpty = e.target === stage || e.target === stage.findOne('Layer')
             
             // Start lasso selection if Shift is held
             if (shiftHeld) {
-              const pointerPos = stage.getPointerPosition()
               if (pointerPos) {
                 // Convert pointer position to content coordinates
                 const transform = stage.getAbsoluteTransform().copy().invert()
@@ -399,15 +487,6 @@ export function MapCanvas({
                 setIsSelecting(true)
                 setSelectionStart({ x: pos.x, y: pos.y })
                 setSelectionEnd({ x: pos.x, y: pos.y })
-                
-                // Clear previous selection if not holding ctrl/meta (shift adds to selection)
-                if (!e.evt.ctrlKey && !e.evt.metaKey) {
-                  // Don't clear on shift - allow adding to selection
-                }
-                
-                // Prevent default to avoid conflicts
-                e.evt.preventDefault()
-                e.evt.stopPropagation()
               }
             } else if (clickedOnEmpty && !shiftHeld) {
               // Regular click without Shift - clear selection and free mouse
@@ -469,7 +548,8 @@ export function MapCanvas({
             
             if (width > 5 || height > 5) {
               const selectedIds: string[] = []
-              devices.forEach(device => {
+              // Only check visible devices for selection (performance optimization)
+              visibleDevices.forEach(device => {
                 // Convert device position from normalized (0-1) to canvas pixels
                 const deviceCoords = toCanvasCoords({ x: device.x, y: device.y })
                 const deviceX = deviceCoords.x
@@ -538,11 +618,11 @@ export function MapCanvas({
           // Determine zoom direction (trackpad: negative deltaY = zoom in, positive = zoom out)
           // Mouse wheel: positive deltaY = scroll down = zoom out
           const zoomFactor = deltaY > 0 ? 0.9 : 1.1
-          const newScale = Math.max(0.1, Math.min(10, scale * zoomFactor))
+          const newScale = Math.max(0.1, Math.min(10, effectiveScale * zoomFactor))
           
           // Calculate mouse position relative to stage
-          const mouseX = (pointerPos.x - stagePosition.x) / scale
-          const mouseY = (pointerPos.y - stagePosition.y) / scale
+          const mouseX = (pointerPos.x - effectiveStagePosition.x) / effectiveScale
+          const mouseY = (pointerPos.y - effectiveStagePosition.y) / effectiveScale
           
           // Calculate new position to zoom towards mouse point
           const newX = pointerPos.x - mouseX * newScale
@@ -682,20 +762,22 @@ export function MapCanvas({
             )
           })}
           
-          {/* Device points */}
-          {devices.map((device) => {
-            // Scale device positions to canvas dimensions
-            const deviceX = device.x * dimensions.width
-            const deviceY = device.y * dimensions.height
+          {/* Device points - with viewport culling for performance */}
+          {visibleDevices.map((device) => {
+            // Scale device positions to canvas coordinates (respects image bounds)
+            const deviceCoords = toCanvasCoords({ x: device.x, y: device.y })
             const isSelected = selectedDeviceId === device.id || selectedDeviceIds.includes(device.id)
             const isHovered = hoveredDevice?.id === device.id
             
             return (
               <Group 
                 key={device.id}
-                x={deviceX}
-                y={deviceY}
+                x={deviceCoords.x}
+                y={deviceCoords.y}
                 draggable={mode === 'move'}
+                listening={true}
+                perfectDrawEnabled={false}
+                hitStrokeWidth={0}
                 dragBoundFunc={(pos) => {
                   // Constrain dragging to canvas bounds
                   return {
@@ -1507,8 +1589,7 @@ export function MapCanvas({
                   
                   {/* Device indicators - show prominent highlights for each device in selection */}
                   {devicesInSelection.map((device) => {
-                    const deviceX = device.x * dimensions.width
-                    const deviceY = device.y * dimensions.height
+                    const deviceCoords = toCanvasCoords({ x: device.x, y: device.y })
                     const color = device.type === 'fixture' ? '#4c7dff' : 
                                  device.type === 'motion' ? '#f97316' : 
                                  '#22c55e'
@@ -1517,8 +1598,8 @@ export function MapCanvas({
                       <Group key={device.id}>
                         {/* Outer glow ring */}
                         <Circle
-                          x={deviceX}
-                          y={deviceY}
+                          x={deviceCoords.x}
+                          y={deviceCoords.y}
                           radius={12}
                           fill="transparent"
                           stroke={color}
@@ -1530,8 +1611,8 @@ export function MapCanvas({
                         />
                         {/* Highlight circle around device */}
                         <Circle
-                          x={deviceX}
-                          y={deviceY}
+                          x={deviceCoords.x}
+                          y={deviceCoords.y}
                           radius={10}
                           fill={color}
                           opacity={0.5}
@@ -1539,8 +1620,8 @@ export function MapCanvas({
                         />
                         {/* Inner bright ring */}
                         <Circle
-                          x={deviceX}
-                          y={deviceY}
+                          x={deviceCoords.x}
+                          y={deviceCoords.y}
                           radius={8}
                           fill="transparent"
                           stroke={color}
@@ -1549,8 +1630,8 @@ export function MapCanvas({
                         />
                         {/* Center dot */}
                         <Circle
-                          x={deviceX}
-                          y={deviceY}
+                          x={deviceCoords.x}
+                          y={deviceCoords.y}
                           radius={4}
                           fill={color}
                           listening={false}

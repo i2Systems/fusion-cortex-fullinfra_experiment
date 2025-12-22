@@ -339,14 +339,13 @@ export function BACnetZoneCanvas({
         {/* Devices Layer - Always on top */}
         <Layer>
           {devices.map((device) => {
-            const deviceX = device.x * dimensions.width
-            const deviceY = device.y * dimensions.height
+            const deviceCoords = toCanvasCoords({ x: device.x, y: device.y })
             
             return (
               <Group key={device.id}>
                 <Circle
-                  x={deviceX}
-                  y={deviceY}
+                  x={deviceCoords.x}
+                  y={deviceCoords.y}
                   radius={3}
                   fill={getDeviceColor(device.type)}
                   stroke="rgba(255,255,255,0.2)"
