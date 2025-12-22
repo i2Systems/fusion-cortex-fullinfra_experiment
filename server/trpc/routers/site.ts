@@ -111,41 +111,70 @@ export const siteRouter = router({
       openedDate: z.date().optional(),
     }))
     .mutation(async ({ input }) => {
-      const existing = await prisma.site.findUnique({
-        where: { id: input.id },
-      })
-
-      if (existing) {
-        return existing
-      }
-
-      // Try to find by store number if provided
-      if (input.storeNumber) {
-        const byStoreNumber = await prisma.site.findFirst({
-          where: { storeNumber: input.storeNumber },
+      try {
+        const existing = await prisma.site.findUnique({
+          where: { id: input.id },
         })
-        if (byStoreNumber) {
-          return byStoreNumber
-        }
-      }
 
-      // Create new site
-      const site = await prisma.site.create({
-        data: {
-          id: input.id,
-          name: input.name,
-          storeNumber: input.storeNumber,
-          address: input.address,
-          city: input.city,
-          state: input.state,
-          zipCode: input.zipCode,
-          phone: input.phone,
-          manager: input.manager,
-          squareFootage: input.squareFootage,
-          openedDate: input.openedDate,
-        },
-      })
-      return site
+        if (existing) {
+          return existing
+        }
+
+        // Try to find by store number if provided
+        if (input.storeNumber) {
+          const byStoreNumber = await prisma.site.findFirst({
+            where: { storeNumber: input.storeNumber },
+          })
+          if (byStoreNumber) {
+            return byStoreNumber
+          }
+        }
+
+        // Create new site
+        const site = await prisma.site.create({
+          data: {
+            id: input.id,
+            name: input.name,
+            storeNumber: input.storeNumber,
+            address: input.address,
+            city: input.city,
+            state: input.state,
+            zipCode: input.zipCode,
+            phone: input.phone,
+            manager: input.manager,
+            squareFootage: input.squareFootage,
+            openedDate: input.openedDate,
+          },
+        })
+        return site
+      } catch (error: any) {
+        // Log error for debugging
+        console.error('Error in ensureExists:', error)
+        
+        // If it's a unique constraint violation, try to find the existing site
+        if (error.code === 'P2002') {
+          // Unique constraint violation - site might exist with different ID
+          // Try to find by store number or name
+          const orConditions: Array<{ storeNumber?: string } | { name: string }> = [
+            { name: input.name },
+          ]
+          if (input.storeNumber) {
+            orConditions.push({ storeNumber: input.storeNumber })
+          }
+          
+          const found = await prisma.site.findFirst({
+            where: {
+              OR: orConditions,
+            },
+          })
+          if (found) {
+            return found
+          }
+        }
+        
+        // Re-throw the error so tRPC can handle it
+        throw error
+      }
     }),
 
   // Note: Seeding endpoint removed because Next.js cannot resolve TypeScript files

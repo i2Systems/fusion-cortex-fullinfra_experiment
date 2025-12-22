@@ -9,7 +9,7 @@
 
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react'
 import { Device } from './mockData'
 import { useStore } from './StoreContext'
 import { trpc } from './trpc/client'
@@ -56,11 +56,12 @@ function pointInPolygon(point: { x: number; y: number }, polygon: Array<{ x: num
 }
 
 export function ZoneProvider({ children }: { children: ReactNode }) {
-  const { activeStoreId } = useStore()
+  const { activeStoreId, activeStore } = useStore()
   const [zones, setZones] = useState<Zone[]>([])
 
   // Ensure site exists in database
   const ensureSiteMutation = trpc.site.ensureExists.useMutation()
+  const ensuredStoreIdRef = useRef<string | null>(null)
 
   // Fetch zones from database
   const { data: zonesData, refetch: refetchZones } = trpc.zone.list.useQuery(
@@ -100,16 +101,32 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
     },
   })
 
-  // Ensure site exists when store changes
+  // Ensure site exists when store changes (only once per store)
   useEffect(() => {
     if (!activeStoreId) return
+    if (ensuredStoreIdRef.current === activeStoreId) return // Already ensured
+
+    // Mark as being ensured
+    ensuredStoreIdRef.current = activeStoreId
+
+    // Use store name from context if available, otherwise generate
+    const storeName = activeStore?.name || `Store ${activeStoreId}`
+    const storeNumber = activeStore?.storeNumber || activeStoreId.replace('store-', '')
 
     ensureSiteMutation.mutate({
       id: activeStoreId,
-      name: `Store ${activeStoreId}`,
-      storeNumber: activeStoreId.replace('store-', ''),
+      name: storeName,
+      storeNumber: storeNumber,
+      address: activeStore?.address,
+      city: activeStore?.city,
+      state: activeStore?.state,
+      zipCode: activeStore?.zipCode,
+      phone: activeStore?.phone,
+      manager: activeStore?.manager,
+      squareFootage: activeStore?.squareFootage,
+      openedDate: activeStore?.openedDate,
     })
-  }, [activeStoreId])
+  }, [activeStoreId, activeStore])
 
   // Update local state when data from database changes
   useEffect(() => {

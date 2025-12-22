@@ -9,7 +9,7 @@
 
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useRef } from 'react'
 import { trpc } from './trpc/client'
 
 // Store interface - matches Site model from database with additional UI fields
@@ -120,31 +120,48 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Ensure default sites exist in database
   const ensureSiteMutations = trpc.site.ensureExists.useMutation({
     onSuccess: () => {
-      refetchSites()
+      // Only refetch if we're not already refetching
+      setTimeout(() => {
+        refetchSites()
+      }, 500)
     },
   })
 
+  // Track which sites we've already initiated creation for
+  const ensuredSitesRef = useRef<Set<string>>(new Set())
+
   // Ensure all default sites exist in database on mount
   useEffect(() => {
-    if (sitesData) {
-      // Check which default sites are missing
-      DEFAULT_STORES.forEach(defaultStore => {
-        const exists = sitesData.some(site => site.id === defaultStore.id)
-        if (!exists) {
-          // Parse address to extract city, state, zip if needed
-          const addressParts = defaultStore.address?.split(', ') || []
-          const cityStateZip = addressParts[1]?.split(' ') || []
-          
-          ensureSiteMutations.mutate({
-            id: defaultStore.id,
-            name: defaultStore.name,
-            storeNumber: defaultStore.storeNumber,
-            address: defaultStore.address,
-          })
-        }
-      })
-    }
-  }, [sitesData, ensureSiteMutations])
+    if (!sitesData) return
+
+    // Check which default sites are missing
+    DEFAULT_STORES.forEach(defaultStore => {
+      const exists = sitesData.some(site => site.id === defaultStore.id)
+      const alreadyEnsured = ensuredSitesRef.current.has(defaultStore.id)
+      
+      if (!exists && !alreadyEnsured) {
+        // Mark as being ensured to prevent duplicate calls
+        ensuredSitesRef.current.add(defaultStore.id)
+        
+        ensureSiteMutations.mutate({
+          id: defaultStore.id,
+          name: defaultStore.name,
+          storeNumber: defaultStore.storeNumber,
+          address: defaultStore.address,
+          city: defaultStore.city,
+          state: defaultStore.state,
+          zipCode: defaultStore.zipCode,
+          phone: defaultStore.phone,
+          manager: defaultStore.manager,
+          squareFootage: defaultStore.squareFootage,
+          openedDate: defaultStore.openedDate,
+        })
+      } else if (exists) {
+        // Site exists, mark as ensured
+        ensuredSitesRef.current.add(defaultStore.id)
+      }
+    })
+  }, [sitesData]) // Removed ensureSiteMutations from deps - it's stable
 
   // Merge database sites with default store metadata
   const stores = useMemo<Store[]>(() => {
