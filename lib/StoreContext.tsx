@@ -120,8 +120,9 @@ async function processEnsureQueue() {
     }
     
     // Longer delay between calls to prevent batching
-    // This ensures each mutation is in a different tick
-    await new Promise(resolve => setTimeout(resolve, 250))
+    // This ensures each mutation is in a completely separate event loop tick
+    // tRPC batches requests within ~10ms, so we need a longer delay
+    await new Promise(resolve => setTimeout(resolve, 500))
   }
   
   isProcessingQueue = false
@@ -299,11 +300,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (missingStores.length === 0) return
 
     // Process missing stores one at a time with delays to prevent batching
+    // Add them to the queue with staggered delays so they're processed sequentially
     missingStores.forEach((defaultStore, index) => {
       // Mark as being ensured immediately to prevent duplicate calls
       ensuredSitesRef.current.add(defaultStore.id)
       
-      // Stagger the calls with increasing delays to prevent batching
+      // Add to queue with staggered delays - this ensures they're processed one at a time
+      // The queue processor will handle them sequentially with additional delays
       setTimeout(() => {
         ensureSite({
           id: defaultStore.id,
@@ -322,14 +325,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (index === missingStores.length - 1) {
             setTimeout(() => {
               refetchSites()
-            }, 500)
+            }, 1000)
           }
         }).catch(error => {
           console.error('Failed to ensure default site:', error)
           // Remove from ensured set on error so we can retry
           ensuredSitesRef.current.delete(defaultStore.id)
         })
-      }, index * 250) // 250ms delay between each call
+      }, index * 500) // 500ms delay between each call to ensure no batching
     })
 
     // Mark existing sites as ensured
