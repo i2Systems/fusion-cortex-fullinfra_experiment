@@ -206,30 +206,51 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const [activeStoreId, setActiveStoreId] = useState<string | null>(null)
 
+  // Track if we've initialized the active store
+  const hasInitializedStore = useRef(false)
+
   // Load active store from localStorage and validate against database
   useEffect(() => {
     if (typeof window !== 'undefined' && stores.length > 0) {
       const savedStoreId = localStorage.getItem('fusion_active_store_id')
+      
+      // If we have a saved store ID, check if it exists
       if (savedStoreId) {
         // Check if the saved store ID exists in database sites
         const storeExists = stores.some(s => s.id === savedStoreId)
         if (storeExists) {
           setActiveStoreId(savedStoreId)
+          hasInitializedStore.current = true
         } else {
-          // Stored ID is invalid, fall back to first store
-          console.warn(`Saved store ${savedStoreId} not found, falling back to first store`)
-          const firstStoreId = stores[0]?.id
-          if (firstStoreId) {
-            setActiveStoreId(firstStoreId)
-            localStorage.setItem('fusion_active_store_id', firstStoreId)
+          // Stored ID is invalid or not yet loaded
+          // Check if it's a temporary ID (store-timestamp format)
+          const isTemporaryId = savedStoreId.startsWith('store-') && /^store-\d+$/.test(savedStoreId)
+          
+          if (isTemporaryId) {
+            // Temporary ID - this means a new store was just created
+            // The database will have the real ID, so use the most recently created store
+            // (assuming it's the last one in the list, or we can find it by name/storeNumber)
+            const mostRecentStore = stores[stores.length - 1]
+            if (mostRecentStore) {
+              setActiveStoreId(mostRecentStore.id)
+              hasInitializedStore.current = true
+            }
+          } else {
+            // Real ID that doesn't exist - site was deleted or ID changed
+            // Fall back to first store
+            const firstStoreId = stores[0]?.id
+            if (firstStoreId) {
+              setActiveStoreId(firstStoreId)
+              hasInitializedStore.current = true
+            }
           }
         }
-      } else {
-        // No saved store, default to first store
+      } else if (!hasInitializedStore.current) {
+        // No saved store and we haven't initialized yet, default to first store
         const firstStoreId = stores[0]?.id
         if (firstStoreId) {
           setActiveStoreId(firstStoreId)
-          localStorage.setItem('fusion_active_store_id', firstStoreId)
+          hasInitializedStore.current = true
         }
       }
     }
@@ -239,9 +260,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Only save active store ID
 
   // Save active store to localStorage when it changes
+  // Only save if it's a valid store ID (not a temporary one starting with 'store-' and timestamp)
   useEffect(() => {
     if (typeof window !== 'undefined' && activeStoreId) {
-      localStorage.setItem('fusion_active_store_id', activeStoreId)
+      // Don't save temporary IDs - only save real database IDs
+      // Real IDs are either from DEFAULT_STORES or are cuid format (24 chars, starts with 'c')
+      // Temporary IDs are like 'store-1234567890' (long numeric timestamp)
+      const isTemporaryId = activeStoreId.startsWith('store-') && /^store-\d+$/.test(activeStoreId)
+      if (!isTemporaryId) {
+        localStorage.setItem('fusion_active_store_id', activeStoreId)
+      }
     }
   }, [activeStoreId])
 
@@ -262,8 +290,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Create site mutation
   const createSiteMutation = trpc.site.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (newSite) => {
       refetchSites()
+      // If we just created a site and it's not in our stores yet, 
+      // wait for refetch to complete, then set it as active
+      // The refetch will update the stores list, and we'll handle the active store in the useEffect
     },
   })
 
@@ -275,15 +306,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   })
 
   const addStore = (storeData: Omit<Store, 'id'>): Store => {
-    // For now, create optimistically and sync with database
-    // Note: This should ideally be async, but keeping sync for backward compatibility
-    const newId = `store-${Date.now()}`
+    // Create optimistically with a temporary ID
+    // The actual ID will come from the database when the mutation completes
+    const tempId = `store-${Date.now()}`
     const newStore: Store = {
       ...storeData,
-      id: newId,
+      id: tempId,
     }
     
-    // Create in database (fire and forget for now)
+    // Create in database - the mutation will refetch sites and update the store list
+    // The database will generate the actual ID (cuid)
     createSiteMutation.mutate({
       name: storeData.name,
       storeNumber: storeData.storeNumber,
@@ -297,6 +329,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       openedDate: storeData.openedDate,
     })
     
+    // Return the temporary store - it will be replaced when sites are refetched
+    // Don't save this temp ID to localStorage - wait for the real one
     return newStore
   }
 
