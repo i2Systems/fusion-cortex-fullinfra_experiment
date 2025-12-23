@@ -9,6 +9,10 @@ import { z } from 'zod'
 import { router, publicProcedure } from '../trpc'
 import { prisma } from '@/lib/prisma'
 
+// In-memory lock to prevent concurrent ensureExists calls for the same site
+// This handles cases where multiple calls arrive simultaneously (even if not batched)
+const ensuringSites = new Map<string, Promise<any>>()
+
 export const siteRouter = router({
   list: publicProcedure.query(async () => {
     try {
@@ -120,14 +124,31 @@ export const siteRouter = router({
       openedDate: z.date().optional(),
     }))
     .mutation(async ({ input }) => {
-      try {
-        const existing = await prisma.site.findUnique({
-          where: { id: input.id },
-        })
-
-        if (existing) {
-          return existing
+      const siteId = input.id
+      
+      // Check if this site is already being ensured by another concurrent call
+      const existingPromise = ensuringSites.get(siteId)
+      if (existingPromise) {
+        console.log(`[ensureExists] Site ${siteId} already being ensured, waiting for existing promise`)
+        try {
+          return await existingPromise
+        } catch (error) {
+          // If the existing promise failed, continue with our own attempt
+          console.log(`[ensureExists] Existing promise failed for ${siteId}, retrying`)
         }
+      }
+      
+      // Create a promise for this ensure operation
+      const ensurePromise = (async () => {
+        try {
+          // Check if site exists first
+          const existing = await prisma.site.findUnique({
+            where: { id: siteId },
+          })
+
+          if (existing) {
+            return existing
+          }
 
         // Try to find by store number if provided
         if (input.storeNumber) {
@@ -155,11 +176,11 @@ export const siteRouter = router({
         if (input.squareFootage !== undefined) siteData.squareFootage = input.squareFootage
         if (input.openedDate !== undefined) siteData.openedDate = input.openedDate
 
-        const site = await prisma.site.create({
-          data: siteData,
-        })
-        return site
-      } catch (error: any) {
+          const site = await prisma.site.create({
+            data: siteData,
+          })
+          return site
+        } catch (error: any) {
         // Log error for debugging with full details
         console.error('Error in ensureExists:', {
           message: error.message,
@@ -249,8 +270,23 @@ export const siteRouter = router({
           throw new Error('Database connection failed. Please check your DATABASE_URL environment variable.')
         }
         
-        // Re-throw the error so tRPC can handle it
-        throw new Error(`Failed to ensure site exists: ${error.message || 'Unknown error'}`)
+          // Re-throw the error so tRPC can handle it
+          throw new Error(`Failed to ensure site exists: ${error.message || 'Unknown error'}`)
+        } finally {
+          // Remove from the ensuring map when done
+          ensuringSites.delete(siteId)
+        }
+      })()
+      
+      // Store the promise so concurrent calls can wait for it
+      ensuringSites.set(siteId, ensurePromise)
+      
+      try {
+        return await ensurePromise
+      } catch (error) {
+        // Remove from map on error so it can be retried
+        ensuringSites.delete(siteId)
+        throw error
       }
     }),
 
