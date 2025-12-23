@@ -295,6 +295,44 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Track if we've initialized the active store
   const hasInitializedStore = useRef(false)
+  
+  // Ensure active site exists when activeStoreId changes
+  // This is the ONLY place we ensure sites - other contexts should wait for this
+  useEffect(() => {
+    if (!activeStoreId || !stores.length) return
+    if (hasInitializedStore.current) return // Already ensured
+    
+    const activeStore = stores.find(s => s.id === activeStoreId)
+    if (!activeStore) return
+    
+    // Check if site exists in database
+    const siteExists = sitesData?.some(site => site.id === activeStoreId)
+    if (siteExists) {
+      hasInitializedStore.current = true
+      return
+    }
+    
+    // Mark as being ensured to prevent duplicate calls
+    hasInitializedStore.current = true
+    
+    // Ensure site exists in database
+    ensureSite({
+      id: activeStoreId,
+      name: activeStore.name,
+      storeNumber: activeStore.storeNumber,
+      address: activeStore.address,
+      city: activeStore.city,
+      state: activeStore.state,
+      zipCode: activeStore.zipCode,
+      phone: activeStore.phone,
+      manager: activeStore.manager,
+      squareFootage: activeStore.squareFootage,
+      openedDate: activeStore.openedDate,
+    }).catch(error => {
+      console.error('Failed to ensure active site:', error)
+      hasInitializedStore.current = false // Allow retry on error
+    })
+  }, [activeStoreId, stores, sitesData, ensureSite])
 
   // Load active store from localStorage and validate against database
   useEffect(() => {
