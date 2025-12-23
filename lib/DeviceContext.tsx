@@ -14,7 +14,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react'
 import { Device } from './mockData'
-import { useStore } from './StoreContext'
+import { useStore, useEnsureSite } from './StoreContext'
 import { trpc } from './trpc/client'
 
 interface DeviceContextType {
@@ -43,8 +43,8 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
   const [history, setHistory] = useState<Device[][]>([[]])
   const [historyIndex, setHistoryIndex] = useState(0)
 
-  // Ensure site exists in database
-  const ensureSiteMutation = trpc.site.ensureExists.useMutation()
+  // Use shared deduplication hook for ensuring sites
+  const ensureSite = useEnsureSite()
   const ensuredStoreIdRef = useRef<string | null>(null)
   
   // Fetch devices from database
@@ -118,7 +118,8 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     const storeNumber = activeStore?.storeNumber || activeStoreId.replace('store-', '')
 
     // Ensure site exists in database (maps store ID to site ID)
-    ensureSiteMutation.mutate({
+    // Use shared deduplication to prevent multiple contexts from calling simultaneously
+    ensureSite({
       id: activeStoreId,
       name: storeName,
       storeNumber: storeNumber,
@@ -130,8 +131,10 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       manager: activeStore?.manager,
       squareFootage: activeStore?.squareFootage,
       openedDate: activeStore?.openedDate,
+    }).catch(error => {
+      console.error('Failed to ensure site:', error)
     })
-  }, [activeStoreId, activeStore])
+  }, [activeStoreId, activeStore, ensureSite])
 
   // Update local state when data from database changes
   // Use a ref to prevent updates during user interactions

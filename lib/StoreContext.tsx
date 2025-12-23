@@ -9,7 +9,7 @@
 
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useRef } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useRef, useCallback } from 'react'
 import { trpc } from './trpc/client'
 
 // Store interface - matches Site model from database with additional UI fields
@@ -39,6 +39,63 @@ interface StoreContextType {
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined)
+
+// Global deduplication for ensureExists calls across all contexts
+// This prevents multiple contexts from calling ensureExists for the same site ID simultaneously
+const globalEnsuringSites = new Set<string>()
+const globalEnsurePromises = new Map<string, Promise<any>>()
+
+/**
+ * Global utility to ensure a site exists, with deduplication
+ * This prevents multiple contexts from making duplicate calls
+ */
+export function useEnsureSite() {
+  const ensureSiteMutation = trpc.site.ensureExists.useMutation()
+  
+  return useCallback(async (siteData: {
+    id: string
+    name: string
+    storeNumber?: string
+    address?: string
+    city?: string
+    state?: string
+    zipCode?: string
+    phone?: string
+    manager?: string
+    squareFootage?: number
+    openedDate?: Date
+  }) => {
+    // If already ensuring this site, return the existing promise
+    if (globalEnsuringSites.has(siteData.id)) {
+      const existingPromise = globalEnsurePromises.get(siteData.id)
+      if (existingPromise) {
+        return existingPromise
+      }
+    }
+    
+    // Mark as being ensured
+    globalEnsuringSites.add(siteData.id)
+    
+    // Create the promise
+    const promise = new Promise((resolve, reject) => {
+      ensureSiteMutation.mutate(siteData, {
+        onSuccess: (result) => {
+          globalEnsuringSites.delete(siteData.id)
+          globalEnsurePromises.delete(siteData.id)
+          resolve(result)
+        },
+        onError: (error) => {
+          globalEnsuringSites.delete(siteData.id)
+          globalEnsurePromises.delete(siteData.id)
+          reject(error)
+        },
+      })
+    })
+    
+    globalEnsurePromises.set(siteData.id, promise)
+    return promise
+  }, [ensureSiteMutation])
+}
 
 // Default stores - 5 stores with realistic data
 const DEFAULT_STORES: Store[] = [

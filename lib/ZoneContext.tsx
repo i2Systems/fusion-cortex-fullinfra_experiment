@@ -11,7 +11,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react'
 import { Device } from './mockData'
-import { useStore } from './StoreContext'
+import { useStore, useEnsureSite } from './StoreContext'
 import { trpc } from './trpc/client'
 
 export interface Zone {
@@ -59,8 +59,8 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
   const { activeStoreId, activeStore } = useStore()
   const [zones, setZones] = useState<Zone[]>([])
 
-  // Ensure site exists in database
-  const ensureSiteMutation = trpc.site.ensureExists.useMutation()
+  // Use shared deduplication hook for ensuring sites
+  const ensureSite = useEnsureSite()
   const ensuredStoreIdRef = useRef<string | null>(null)
 
   // Fetch zones from database
@@ -113,7 +113,8 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
     const storeName = activeStore?.name || `Store ${activeStoreId}`
     const storeNumber = activeStore?.storeNumber || activeStoreId.replace('store-', '')
 
-    ensureSiteMutation.mutate({
+    // Use shared deduplication to prevent multiple contexts from calling simultaneously
+    ensureSite({
       id: activeStoreId,
       name: storeName,
       storeNumber: storeNumber,
@@ -125,8 +126,10 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
       manager: activeStore?.manager,
       squareFootage: activeStore?.squareFootage,
       openedDate: activeStore?.openedDate,
+    }).catch(error => {
+      console.error('Failed to ensure site:', error)
     })
-  }, [activeStoreId, activeStore])
+  }, [activeStoreId, activeStore, ensureSite])
 
   // Update local state when data from database changes
   // Only update if we have valid data - don't clear zones on error
