@@ -120,26 +120,33 @@ export const deviceRouter = router({
       }
 
       try {
+        // Always include components relation to avoid prepared statement parameter mismatch
+        // We'll filter them out in transformDevice if needed
         const devices = await prisma.device.findMany({
           where: {
             siteId: input.siteId,
             parentId: null, // Only get top-level devices (not components)
           },
-          include: input.includeComponents
-            ? {
-                components: {
-                  orderBy: {
-                    createdAt: 'asc',
-                  },
-                },
-              }
-            : undefined,
+          include: {
+            components: {
+              orderBy: {
+                createdAt: 'asc',
+              },
+            },
+          },
           orderBy: {
             createdAt: 'asc',
           },
         })
 
-        return devices.map(transformDevice)
+        return devices.map(device => {
+          const transformed = transformDevice(device)
+          // If components weren't requested, remove them from the response
+          if (!input.includeComponents) {
+            transformed.components = undefined
+          }
+          return transformed
+        })
       } catch (error: any) {
         console.error('Error in device.list:', {
           message: error.message,
