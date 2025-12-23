@@ -389,6 +389,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   
   // Ensure active site exists when activeStoreId changes
   // This is the ONLY place we ensure sites - other contexts should wait for this
+  // Use a delay to prevent batching with default stores
   useEffect(() => {
     if (!activeStoreId || !stores.length) return
     if (hasInitializedStore.current) return // Already ensured
@@ -406,23 +407,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Mark as being ensured to prevent duplicate calls
     hasInitializedStore.current = true
     
-    // Ensure site exists in database
-    ensureSite({
-      id: activeStoreId,
-      name: activeStore.name,
-      storeNumber: activeStore.storeNumber,
-      address: activeStore.address,
-      city: activeStore.city,
-      state: activeStore.state,
-      zipCode: activeStore.zipCode,
-      phone: activeStore.phone,
-      manager: activeStore.manager,
-      squareFootage: activeStore.squareFootage,
-      openedDate: activeStore.openedDate,
-    }).catch(error => {
-      console.error('Failed to ensure active site:', error)
-      hasInitializedStore.current = false // Allow retry on error
-    })
+    // Delay to prevent batching with default stores
+    // Default stores are processed with 250ms delays, so wait longer
+    setTimeout(() => {
+      // Double-check it still doesn't exist (might have been created by default stores effect)
+      const stillMissing = !sitesData?.some(site => site.id === activeStoreId)
+      if (!stillMissing) {
+        hasInitializedStore.current = true
+        return // Site was created, no need to ensure
+      }
+      
+      // Ensure site exists in database
+      ensureSite({
+        id: activeStoreId,
+        name: activeStore.name,
+        storeNumber: activeStore.storeNumber,
+        address: activeStore.address,
+        city: activeStore.city,
+        state: activeStore.state,
+        zipCode: activeStore.zipCode,
+        phone: activeStore.phone,
+        manager: activeStore.manager,
+        squareFootage: activeStore.squareFootage,
+        openedDate: activeStore.openedDate,
+      }).catch(error => {
+        console.error('Failed to ensure active site:', error)
+        hasInitializedStore.current = false // Allow retry on error
+      })
+    }, 1500) // Wait 1.5 seconds to avoid batching with default stores (5 stores * 250ms = 1.25s max)
   }, [activeStoreId, stores, sitesData, ensureSite])
 
   // Load active store from localStorage and validate against database
