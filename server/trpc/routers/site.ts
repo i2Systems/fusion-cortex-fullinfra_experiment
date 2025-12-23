@@ -150,31 +150,31 @@ export const siteRouter = router({
             return existing
           }
 
-        // Try to find by store number if provided
-        if (input.storeNumber) {
-          const byStoreNumber = await prisma.site.findFirst({
-            where: { storeNumber: input.storeNumber },
-          })
-          if (byStoreNumber) {
-            return byStoreNumber
+          // Try to find by store number if provided
+          if (input.storeNumber) {
+            const byStoreNumber = await prisma.site.findFirst({
+              where: { storeNumber: input.storeNumber },
+            })
+            if (byStoreNumber) {
+              return byStoreNumber
+            }
           }
-        }
 
-        // Create new site - filter out undefined values
-        const siteData: any = {
-          id: input.id,
-          name: input.name,
-        }
-        
-        if (input.storeNumber !== undefined) siteData.storeNumber = input.storeNumber
-        if (input.address !== undefined) siteData.address = input.address
-        if (input.city !== undefined) siteData.city = input.city
-        if (input.state !== undefined) siteData.state = input.state
-        if (input.zipCode !== undefined) siteData.zipCode = input.zipCode
-        if (input.phone !== undefined) siteData.phone = input.phone
-        if (input.manager !== undefined) siteData.manager = input.manager
-        if (input.squareFootage !== undefined) siteData.squareFootage = input.squareFootage
-        if (input.openedDate !== undefined) siteData.openedDate = input.openedDate
+          // Create new site - filter out undefined values
+          const siteData: any = {
+            id: input.id,
+            name: input.name,
+          }
+          
+          if (input.storeNumber !== undefined) siteData.storeNumber = input.storeNumber
+          if (input.address !== undefined) siteData.address = input.address
+          if (input.city !== undefined) siteData.city = input.city
+          if (input.state !== undefined) siteData.state = input.state
+          if (input.zipCode !== undefined) siteData.zipCode = input.zipCode
+          if (input.phone !== undefined) siteData.phone = input.phone
+          if (input.manager !== undefined) siteData.manager = input.manager
+          if (input.squareFootage !== undefined) siteData.squareFootage = input.squareFootage
+          if (input.openedDate !== undefined) siteData.openedDate = input.openedDate
 
           const site = await prisma.site.create({
             data: siteData,
