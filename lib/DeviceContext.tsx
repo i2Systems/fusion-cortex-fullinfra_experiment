@@ -38,11 +38,13 @@ interface DeviceContextType {
 const DeviceContext = createContext<DeviceContextType | undefined>(undefined)
 
 export function DeviceProvider({ children }: { children: ReactNode }) {
-  const { activeStoreId, activeStore, ensureSite } = useStore()
+  const { activeStoreId, activeStore } = useStore()
   const [devices, setDevices] = useState<Device[]>([])
   const [history, setHistory] = useState<Device[][]>([[]])
   const [historyIndex, setHistoryIndex] = useState(0)
 
+  // Ensure site exists in database
+  const ensureSiteMutation = trpc.site.ensureExists.useMutation()
   const ensuredStoreIdRef = useRef<string | null>(null)
   
   // Fetch devices from database
@@ -103,12 +105,33 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     }, 2000) // Wait 2 seconds after last position update
   }, [refetchDevices])
 
-  // Don't ensure sites here - StoreContext handles that
-  // Just mark that we've seen this store ID
+  // Ensure site exists when store changes (only once per store)
   useEffect(() => {
     if (!activeStoreId) return
+    if (ensuredStoreIdRef.current === activeStoreId) return // Already ensured
+
+    // Mark as being ensured
     ensuredStoreIdRef.current = activeStoreId
-  }, [activeStoreId])
+
+    // Use store name from context if available, otherwise generate
+    const storeName = activeStore?.name || `Store ${activeStoreId}`
+    const storeNumber = activeStore?.storeNumber || activeStoreId.replace('store-', '')
+
+    // Ensure site exists in database (maps store ID to site ID)
+    ensureSiteMutation.mutate({
+      id: activeStoreId,
+      name: storeName,
+      storeNumber: storeNumber,
+      address: activeStore?.address,
+      city: activeStore?.city,
+      state: activeStore?.state,
+      zipCode: activeStore?.zipCode,
+      phone: activeStore?.phone,
+      manager: activeStore?.manager,
+      squareFootage: activeStore?.squareFootage,
+      openedDate: activeStore?.openedDate,
+    })
+  }, [activeStoreId, activeStore])
 
   // Update local state when data from database changes
   // Use a ref to prevent updates during user interactions
@@ -136,6 +159,12 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
 
     // Create in database
     try {
+      // Validate device type is present
+      if (!device.type) {
+        console.error('Device type is missing:', device)
+        throw new Error('Device type is required')
+      }
+      
       await createDeviceMutation.mutateAsync({
         siteId: activeStoreId,
         deviceId: device.deviceId,

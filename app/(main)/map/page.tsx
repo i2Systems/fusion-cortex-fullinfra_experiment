@@ -18,6 +18,7 @@ import dynamic from 'next/dynamic'
 import { X, Lightbulb, Loader2 } from 'lucide-react'
 import { SearchIsland } from '@/components/layout/SearchIsland'
 import { DeviceTable } from '@/components/map/DeviceTable'
+import { isFixtureType } from '@/lib/deviceUtils'
 import { MapUpload } from '@/components/map/MapUpload'
 import { MapToolbar } from '@/components/map/MapToolbar'
 import type { MapToolMode } from '@/components/map/MapToolbar'
@@ -38,6 +39,7 @@ const MapCanvas = dynamic(() => import('@/components/map/MapCanvas').then(mod =>
 import { useDevices } from '@/lib/DeviceContext'
 import { useZones } from '@/lib/ZoneContext'
 import { useStore } from '@/lib/StoreContext'
+import { useMap } from '@/lib/MapContext'
 import { useRole } from '@/lib/role'
 import { detectAllLights, createDevicesFromLights } from '@/lib/lightDetection'
 import { 
@@ -95,6 +97,7 @@ export default function MapPage() {
     canUndo,
     canRedo
   } = useDevices()
+  const { refreshMapData } = useMap()
   const { role } = useRole()
   const { activeStoreId } = useStore()
   const { zones, syncZoneDeviceIds, getDevicesInZone } = useZones()
@@ -428,6 +431,8 @@ export default function MapPage() {
     setLocations(prev => [...prev, newLocation])
     setCurrentLocationId(newLocation.id)
     setShowUploadModal(false)
+    // Refresh map cache so other pages see the new map
+    await refreshMapData()
   }
   
   const handleLocationSelect = (locationId: string) => {
@@ -634,7 +639,7 @@ export default function MapPage() {
     if (toolMode !== 'rotate') return
     
     const device = devices.find(d => d.id === deviceId)
-    if (!device || device.type !== 'fixture') return // Only fixtures can be rotated
+    if (!device || !isFixtureType(device.type)) return // Only fixtures can be rotated
     
     // Rotate by 90 degrees
     const currentOrientation = device.orientation || 0
@@ -692,7 +697,7 @@ export default function MapPage() {
         // Toggle all lights between horizontal (0°) and vertical (90°)
         // Determine target orientation: if most lights are horizontal (0° or close), make them vertical (90°), otherwise make them horizontal (0°)
         const currentOrientations = devicesToProcess
-          .filter(d => d.type === 'fixture') // Only fixtures have orientation
+          .filter(d => isFixtureType(d.type)) // Only fixtures have orientation
           .map(d => {
             const orientation = d.orientation || 0
             // Normalize to 0-360 range
@@ -811,7 +816,7 @@ export default function MapPage() {
 
     // Layer visibility filters (device types)
     filtered = filtered.filter(device => {
-      if (device.type === 'fixture' && !filters.showFixtures) return false
+      if (isFixtureType(device.type) && !filters.showFixtures) return false
       if (device.type === 'motion' && !filters.showMotion) return false
       if (device.type === 'light-sensor' && !filters.showLightSensors) return false
       return true

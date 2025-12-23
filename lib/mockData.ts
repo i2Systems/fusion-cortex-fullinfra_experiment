@@ -8,12 +8,20 @@
  * for testing and development.
  */
 
-export type DeviceType = 'fixture' | 'motion' | 'light-sensor'
+export type DeviceType = 
+  | 'fixture-16ft-power-entry'
+  | 'fixture-12ft-power-entry'
+  | 'fixture-8ft-power-entry'
+  | 'fixture-16ft-follower'
+  | 'fixture-12ft-follower'
+  | 'fixture-8ft-follower'
+  | 'motion'
+  | 'light-sensor'
 export type DeviceStatus = 'online' | 'offline' | 'missing'
 
 export interface Component {
   id: string
-  componentType: string // e.g., "LED Module", "Driver", "Lens", "Mounting Bracket"
+  componentType: string // e.g., "LCM", "Driver Board", "Power Supply", "LED Board", "Metal Bracket", "Cable Harness", "Lower LED Housing with Optic", "Sensor"
   componentSerialNumber: string
   warrantyStatus?: string
   warrantyExpiry?: Date
@@ -111,9 +119,33 @@ function generateDevices(): Device[] {
   let serialCounter = 2024
   let componentCounter = 1
 
+  // Helper function to get a random fixture type
+  function getRandomFixtureType(): DeviceType {
+    const fixtureTypes: DeviceType[] = [
+      'fixture-16ft-power-entry',
+      'fixture-12ft-power-entry',
+      'fixture-8ft-power-entry',
+      'fixture-16ft-follower',
+      'fixture-12ft-follower',
+      'fixture-8ft-follower',
+    ]
+    return fixtureTypes[Math.floor(Math.random() * fixtureTypes.length)]
+  }
+
   // Helper function to generate components for a fixture
   function generateComponentsForFixture(fixtureId: string, fixtureSerial: string, parentWarrantyExpiry?: Date): Component[] {
-    const componentTypes = ['LED Module', 'Driver', 'Lens', 'Mounting Bracket']
+    // Real component types with quantities
+    const componentSpecs: Array<{ type: string; quantity: number }> = [
+      { type: 'LCM', quantity: 1 },
+      { type: 'Driver Board', quantity: 1 },
+      { type: 'Power Supply', quantity: 2 },
+      { type: 'LED Board', quantity: 4 },
+      { type: 'Metal Bracket', quantity: 2 },
+      { type: 'Cable Harness', quantity: 2 },
+      { type: 'Lower LED Housing with Optic', quantity: 4 },
+      { type: 'Sensor', quantity: 2 },
+    ]
+    
     const components: Component[] = []
     
     // Sample notes that might apply to specific component instances
@@ -128,38 +160,49 @@ function generateDevices(): Device[] {
     
     const now = new Date()
     
-    for (let i = 0; i < componentTypes.length; i++) {
-      const componentType = componentTypes[i]
-      const buildDate = new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1)
-      const warrantyExpiry = new Date()
-      
-      // Create variety: some expired, some near end, some active
-      const rand = Math.random()
-      if (rand < 0.15) {
-        // 15% expired (expired 1-6 months ago)
-        warrantyExpiry.setTime(now.getTime() - (1000 * 60 * 60 * 24 * (Math.floor(Math.random() * 180) + 30))) // 30-210 days ago
-      } else if (rand < 0.35) {
-        // 20% near end (expires within 30 days from now)
-        warrantyExpiry.setTime(now.getTime() + (1000 * 60 * 60 * 24 * Math.floor(Math.random() * 30))) // 0-30 days from now
-      } else {
-        // 65% active (expires in future, 1-5 years from now)
-        warrantyExpiry.setTime(now.getTime() + (1000 * 60 * 60 * 24 * (365 + Math.floor(Math.random() * 1460)))) // 1-5 years from now
+    // Generate components based on specs (with quantities)
+    for (const spec of componentSpecs) {
+      for (let instance = 1; instance <= spec.quantity; instance++) {
+        const componentType = spec.quantity > 1 
+          ? `${spec.type} ${instance}` 
+          : spec.type
+        
+        const buildDate = new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1)
+        const warrantyExpiry = new Date()
+        
+        // Create variety: some expired, some near end, some active
+        const rand = Math.random()
+        if (rand < 0.15) {
+          // 15% expired (expired 1-6 months ago)
+          warrantyExpiry.setTime(now.getTime() - (1000 * 60 * 60 * 24 * (Math.floor(Math.random() * 180) + 30))) // 30-210 days ago
+        } else if (rand < 0.35) {
+          // 20% near end (expires within 30 days from now)
+          warrantyExpiry.setTime(now.getTime() + (1000 * 60 * 60 * 24 * Math.floor(Math.random() * 30))) // 0-30 days from now
+        } else {
+          // 65% active (expires in future, 1-5 years from now)
+          warrantyExpiry.setTime(now.getTime() + (1000 * 60 * 60 * 24 * (365 + Math.floor(Math.random() * 1460)))) // 1-5 years from now
+        }
+        
+        const warrantyStatus = warrantyExpiry > now ? 'Active' : 'Expired'
+        const status: DeviceStatus = Math.random() > 0.1 ? 'online' : 'offline'
+        const notes = Math.random() > 0.6 ? sampleNotes[Math.floor(Math.random() * sampleNotes.length)] : undefined
+        
+        // Generate component serial based on fixture serial and component type
+        const typeCode = spec.type.replace(/\s+/g, '').substring(0, 3).toUpperCase()
+        const instanceCode = spec.quantity > 1 ? String(instance).padStart(2, '0') : ''
+        const componentSerial = `${fixtureSerial}-${typeCode}${instanceCode}-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`
+        
+        components.push({
+          id: `component-${componentCounter++}`,
+          componentType,
+          componentSerialNumber: componentSerial,
+          warrantyStatus,
+          warrantyExpiry,
+          buildDate,
+          status,
+          notes,
+        })
       }
-      
-      const warrantyStatus = warrantyExpiry > now ? 'Active' : 'Expired'
-      const status: DeviceStatus = Math.random() > 0.1 ? 'online' : 'offline'
-      const notes = Math.random() > 0.6 ? sampleNotes[Math.floor(Math.random() * sampleNotes.length)] : undefined
-      
-      components.push({
-        id: `component-${componentCounter++}`,
-        componentType,
-        componentSerialNumber: `${fixtureSerial}-${componentType.replace(/\s+/g, '').substring(0, 3).toUpperCase()}-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`,
-        warrantyStatus,
-        warrantyExpiry,
-        buildDate,
-        status,
-        notes,
-      })
     }
     
     return components
@@ -257,7 +300,7 @@ function generateDevices(): Device[] {
           id: fixtureId,
           deviceId: `FLX-${String(serialCounter++).padStart(4, '0')}`,
           serialNumber: fixtureSerial,
-          type: 'fixture',
+          type: getRandomFixtureType(),
           signal: status === 'offline' ? Math.floor(Math.random() * 30) : signal,
           battery: undefined,
           status,

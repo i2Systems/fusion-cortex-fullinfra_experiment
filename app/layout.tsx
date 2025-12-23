@@ -9,6 +9,7 @@ import { DeviceProvider } from '@/lib/DeviceContext'
 import { ZoneProvider } from '@/lib/ZoneContext'
 import { RuleProvider } from '@/lib/RuleContext'
 import { NotificationProvider } from '@/lib/NotificationContext'
+import { MapProvider } from '@/lib/MapContext'
 import { FontProvider } from '@/lib/FontContext'
 import { I18nProvider } from '@/lib/i18n'
 import { AdvancedSettingsProvider } from '@/lib/AdvancedSettingsContext'
@@ -47,15 +48,17 @@ export default function RootLayout({
                           <RoleProvider>
                             <AuthProvider>
                               <StoreProvider>
-                                <DeviceProvider>
-                                  <ZoneProvider>
-                                    <RuleProvider>
-                                      <NotificationProvider>
-                                        {children}
-                                      </NotificationProvider>
-                                    </RuleProvider>
-                                  </ZoneProvider>
-                                </DeviceProvider>
+                                <MapProvider>
+                                  <DeviceProvider>
+                                    <ZoneProvider>
+                                      <RuleProvider>
+                                        <NotificationProvider>
+                                          {children}
+                                        </NotificationProvider>
+                                      </RuleProvider>
+                                    </ZoneProvider>
+                                  </DeviceProvider>
+                                </MapProvider>
                               </StoreProvider>
                             </AuthProvider>
                           </RoleProvider>

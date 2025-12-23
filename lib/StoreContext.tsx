@@ -9,7 +9,7 @@
 
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useRef, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useRef } from 'react'
 import { trpc } from './trpc/client'
 
 // Store interface - matches Site model from database with additional UI fields
@@ -36,170 +36,9 @@ interface StoreContextType {
   addStore: (store: Omit<Store, 'id'>) => Store
   updateStore: (storeId: string, updates: Partial<Omit<Store, 'id'>>) => void
   removeStore: (storeId: string) => void
-  ensureSite: (siteData: {
-    id: string
-    name: string
-    storeNumber?: string
-    address?: string
-    city?: string
-    state?: string
-    zipCode?: string
-    phone?: string
-    manager?: string
-    squareFootage?: number
-    openedDate?: Date
-  }) => Promise<any>
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined)
-
-// Global deduplication and queue for ensureExists calls
-// This prevents multiple contexts from calling ensureExists for the same site ID simultaneously
-// AND prevents multiple different sites from being batched together
-const globalEnsuringSites = new Set<string>()
-const globalEnsurePromises = new Map<string, Promise<any>>()
-const ensureQueue: Array<{
-  siteData: any
-  resolve: (value: any) => void
-  reject: (error: any) => void
-  mutation: any
-}> = []
-let isProcessingQueue = false
-let queueProcessingTimeout: NodeJS.Timeout | null = null
-
-/**
- * Process the ensureSite queue sequentially to prevent batching
- */
-async function processEnsureQueue() {
-  if (isProcessingQueue || ensureQueue.length === 0) return
-  
-  isProcessingQueue = true
-  
-  while (ensureQueue.length > 0) {
-    const item = ensureQueue.shift()
-    if (!item) break
-    
-    const { siteData, resolve, reject, mutation } = item
-    const siteId = siteData.id
-    
-    // Double-check deduplication (in case it was added while processing)
-    if (globalEnsuringSites.has(siteId)) {
-      const existingPromise = globalEnsurePromises.get(siteId)
-      if (existingPromise) {
-        existingPromise.then(resolve).catch(reject)
-        continue
-      }
-    }
-    
-    // Mark as being ensured
-    globalEnsuringSites.add(siteId)
-    
-    // Create promise for this call
-    const promise = new Promise((res, rej) => {
-      mutation.mutate(siteData, {
-        onSuccess: (result: any) => {
-          globalEnsuringSites.delete(siteId)
-          globalEnsurePromises.delete(siteId)
-          res(result)
-        },
-        onError: (error: any) => {
-          globalEnsuringSites.delete(siteId)
-          globalEnsurePromises.delete(siteId)
-          rej(error)
-        },
-      })
-    })
-    
-    globalEnsurePromises.set(siteId, promise)
-    
-    try {
-      const result = await promise
-      resolve(result)
-    } catch (error) {
-      reject(error)
-    }
-    
-    // Longer delay between calls to prevent batching
-    // This ensures each mutation is in a completely separate event loop tick
-    // tRPC batches requests within ~10ms, so we need a longer delay
-    await new Promise(resolve => setTimeout(resolve, 500))
-  }
-  
-  isProcessingQueue = false
-  
-  // If more items were added while processing, schedule another run
-  if (ensureQueue.length > 0) {
-    scheduleQueueProcessing()
-  }
-}
-
-/**
- * Schedule queue processing with debounce
- */
-function scheduleQueueProcessing() {
-  if (queueProcessingTimeout) {
-    clearTimeout(queueProcessingTimeout)
-  }
-  queueProcessingTimeout = setTimeout(() => {
-    processEnsureQueue()
-  }, 100) // Delay to allow queue to accumulate before processing
-}
-
-/**
- * Global utility to ensure a site exists, with deduplication and queueing
- * This prevents multiple contexts from making duplicate calls
- * AND prevents multiple different sites from being batched together
- */
-export function useEnsureSite() {
-  const ensureSiteMutation = trpc.site.ensureExists.useMutation()
-  
-  return useCallback(async (siteData: {
-    id: string
-    name: string
-    storeNumber?: string
-    address?: string
-    city?: string
-    state?: string
-    zipCode?: string
-    phone?: string
-    manager?: string
-    squareFootage?: number
-    openedDate?: Date
-  }) => {
-    const siteId = siteData.id
-    
-    // Synchronous check - if already ensuring, return existing promise immediately
-    if (globalEnsuringSites.has(siteId)) {
-      const existingPromise = globalEnsurePromises.get(siteId)
-      if (existingPromise) {
-        return existingPromise
-      }
-    }
-    
-    // Create promise for this call
-    let resolvePromise: (value: any) => void
-    let rejectPromise: (error: any) => void
-    
-    const promise = new Promise((resolve, reject) => {
-      resolvePromise = resolve
-      rejectPromise = reject
-    })
-    
-    // Add to queue instead of calling immediately
-    // This prevents multiple sites from being batched together
-    ensureQueue.push({
-      siteData,
-      resolve: resolvePromise!,
-      reject: rejectPromise!,
-      mutation: ensureSiteMutation,
-    })
-    
-    // Schedule queue processing (debounced to batch rapid calls)
-    scheduleQueueProcessing()
-    
-    return promise
-  }, [ensureSiteMutation])
-}
 
 // Default stores - 5 stores with realistic data
 const DEFAULT_STORES: Store[] = [
@@ -271,9 +110,6 @@ const DEFAULT_STORES: Store[] = [
 ]
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  // Get the shared ensureSite function with deduplication
-  const ensureSite = useEnsureSite()
-  
   // Fetch sites from database
   const { data: sitesData, refetch: refetchSites } = trpc.site.list.useQuery(undefined, {
     refetchOnWindowFocus: false,
@@ -281,34 +117,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     gcTime: 10 * 60 * 1000, // 10 minutes
   })
 
+  // Ensure default sites exist in database
+  const ensureSiteMutations = trpc.site.ensureExists.useMutation({
+    onSuccess: () => {
+      // Only refetch if we're not already refetching
+      setTimeout(() => {
+        refetchSites()
+      }, 500)
+    },
+  })
+
   // Track which sites we've already initiated creation for
   const ensuredSitesRef = useRef<Set<string>>(new Set())
 
   // Ensure all default sites exist in database on mount
-  // Use the deduplicated ensureSite function to prevent duplicate calls
-  // Process sites one at a time with delays to prevent batching
   useEffect(() => {
     if (!sitesData) return
 
-    // Find which default sites are missing
-    const missingStores = DEFAULT_STORES.filter(defaultStore => {
+    // Check which default sites are missing
+    DEFAULT_STORES.forEach(defaultStore => {
       const exists = sitesData.some(site => site.id === defaultStore.id)
       const alreadyEnsured = ensuredSitesRef.current.has(defaultStore.id)
-      return !exists && !alreadyEnsured
-    })
-
-    if (missingStores.length === 0) return
-
-    // Process missing stores one at a time with delays to prevent batching
-    // Add them to the queue with staggered delays so they're processed sequentially
-    missingStores.forEach((defaultStore, index) => {
-      // Mark as being ensured immediately to prevent duplicate calls
-      ensuredSitesRef.current.add(defaultStore.id)
       
-      // Add to queue with staggered delays - this ensures they're processed one at a time
-      // The queue processor will handle them sequentially with additional delays
-      setTimeout(() => {
-        ensureSite({
+      if (!exists && !alreadyEnsured) {
+        // Mark as being ensured to prevent duplicate calls
+        ensuredSitesRef.current.add(defaultStore.id)
+        
+        ensureSiteMutations.mutate({
           id: defaultStore.id,
           name: defaultStore.name,
           storeNumber: defaultStore.storeNumber,
@@ -320,29 +155,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           manager: defaultStore.manager,
           squareFootage: defaultStore.squareFootage,
           openedDate: defaultStore.openedDate,
-        }).then(() => {
-          // Refetch sites after all ensures complete
-          if (index === missingStores.length - 1) {
-            setTimeout(() => {
-              refetchSites()
-            }, 1000)
-          }
-        }).catch(error => {
-          console.error('Failed to ensure default site:', error)
-          // Remove from ensured set on error so we can retry
-          ensuredSitesRef.current.delete(defaultStore.id)
         })
-      }, index * 500) // 500ms delay between each call to ensure no batching
-    })
-
-    // Mark existing sites as ensured
-    DEFAULT_STORES.forEach(defaultStore => {
-      const exists = sitesData.some(site => site.id === defaultStore.id)
-      if (exists) {
+      } else if (exists) {
+        // Site exists, mark as ensured
         ensuredSitesRef.current.add(defaultStore.id)
       }
     })
-  }, [sitesData, ensureSite, refetchSites])
+  }, [sitesData]) // Removed ensureSiteMutations from deps - it's stable
 
   // Merge database sites with default store metadata
   const stores = useMemo<Store[]>(() => {
@@ -389,56 +208,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Track if we've initialized the active store
   const hasInitializedStore = useRef(false)
-  
-  // Ensure active site exists when activeStoreId changes
-  // This is the ONLY place we ensure sites - other contexts should wait for this
-  // Use a delay to prevent batching with default stores
-  useEffect(() => {
-    if (!activeStoreId || !stores.length) return
-    if (hasInitializedStore.current) return // Already ensured
-    
-    const activeStore = stores.find(s => s.id === activeStoreId)
-    if (!activeStore) return
-    
-    // Check if site exists in database
-    const siteExists = sitesData?.some(site => site.id === activeStoreId)
-    if (siteExists) {
-      hasInitializedStore.current = true
-      return
-    }
-    
-    // Mark as being ensured to prevent duplicate calls
-    hasInitializedStore.current = true
-    
-    // Delay to prevent batching with default stores
-    // Default stores are processed with 250ms delays, so wait longer
-    setTimeout(() => {
-      // Double-check it still doesn't exist (might have been created by default stores effect)
-      const stillMissing = !sitesData?.some(site => site.id === activeStoreId)
-      if (!stillMissing) {
-        hasInitializedStore.current = true
-        return // Site was created, no need to ensure
-      }
-      
-      // Ensure site exists in database
-      ensureSite({
-        id: activeStoreId,
-        name: activeStore.name,
-        storeNumber: activeStore.storeNumber,
-        address: activeStore.address,
-        city: activeStore.city,
-        state: activeStore.state,
-        zipCode: activeStore.zipCode,
-        phone: activeStore.phone,
-        manager: activeStore.manager,
-        squareFootage: activeStore.squareFootage,
-        openedDate: activeStore.openedDate,
-      }).catch(error => {
-        console.error('Failed to ensure active site:', error)
-        hasInitializedStore.current = false // Allow retry on error
-      })
-    }, 1500) // Wait 1.5 seconds to avoid batching with default stores (5 stores * 250ms = 1.25s max)
-  }, [activeStoreId, stores, sitesData, ensureSite])
 
   // Load active store from localStorage and validate against database
   useEffect(() => {
@@ -614,7 +383,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addStore,
         updateStore,
         removeStore,
-        ensureSite,
       }}
     >
       {children}

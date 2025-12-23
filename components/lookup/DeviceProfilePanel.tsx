@@ -16,6 +16,7 @@ import { ComponentTree } from '@/components/shared/ComponentTree'
 import { calculateWarrantyStatus, getWarrantyStatusLabel, getWarrantyStatusTokenClass, formatWarrantyExpiry } from '@/lib/warranty'
 import { assignFaultCategory, generateFaultDescription, faultCategories } from '@/lib/faultDefinitions'
 import { useDevices } from '@/lib/DeviceContext'
+import { isFixtureType } from '@/lib/deviceUtils'
 
 interface DeviceProfilePanelProps {
   device: Device | null
@@ -132,9 +133,9 @@ export function DeviceProfilePanel({ device, onComponentClick, onManualEntry, on
   const buildDate = device.warrantyExpiry 
     ? new Date(new Date(device.warrantyExpiry).getTime() - 5 * 365 * 24 * 60 * 60 * 1000) // Approximate 5 years before warranty expiry
     : new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1)
-  const cct = device.type === 'fixture' ? [2700, 3000, 3500, 4000, 5000][Math.floor(Math.random() * 5)] : undefined
-  const partsList = device.type === 'fixture' 
-    ? ['LED Module', 'Driver', 'Lens', 'Mounting Bracket']
+  const cct = isFixtureType(device.type) ? [2700, 3000, 3500, 4000, 5000][Math.floor(Math.random() * 5)] : undefined
+  const partsList = isFixtureType(device.type) 
+    ? ['LCM', 'Driver Board', 'Power Supply', 'LED Board', 'Metal Bracket', 'Cable Harness', 'Lower LED Housing with Optic', 'Sensor']
     : device.type === 'motion'
     ? ['PIR Sensor', 'Lens', 'Mounting Bracket']
     : ['Photodiode', 'Lens', 'Mounting Bracket']
@@ -174,7 +175,7 @@ export function DeviceProfilePanel({ device, onComponentClick, onManualEntry, on
         <div className="flex items-start gap-3 mb-3">
           {/* Device Image/Icon */}
           <div className="w-16 h-16 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border-subtle)] flex items-center justify-center flex-shrink-0 shadow-[var(--shadow-soft)]">
-            {device.type === 'fixture' ? (
+            {isFixtureType(device.type) ? (
               <Image size={32} className="text-[var(--color-primary)]" />
             ) : device.type === 'motion' ? (
               <Radio size={32} className="text-[var(--color-accent)]" />

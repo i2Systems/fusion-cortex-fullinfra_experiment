@@ -13,6 +13,7 @@
     "db:studio": "prisma studio",
     "db:migrate": "prisma migrate dev",
     "db:seed": "npx tsx scripts/seedDatabase.ts",
+    "db:test": "npx tsx scripts/test-db-connection.ts",
     "seed:generate": "npx tsx lib/generateSeedFiles.ts"
   },
   "dependencies": {

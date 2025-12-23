@@ -52,7 +52,7 @@ npx tsx scripts/seedDatabase.ts
 - Each with unique ID, name, store number, and address
 
 ### Devices
-- **Fixtures**: Main lighting fixtures with components (LED Module, Driver, Lens)
+- **Fixtures**: Main lighting fixtures with components (LCM, Driver Board, Power Supplies, LED Boards, Metal Brackets, Cable Harnesses, Lower LED Housings with Optic, Sensors)
 - **Motion Sensors**: In high-traffic areas (Lobby, Grocery, Produce)
 - **Device Distribution**:
   - 85% Online

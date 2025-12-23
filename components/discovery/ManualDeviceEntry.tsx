@@ -11,20 +11,30 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 
+type DeviceType = 
+  | 'fixture-16ft-power-entry'
+  | 'fixture-12ft-power-entry'
+  | 'fixture-8ft-power-entry'
+  | 'fixture-16ft-follower'
+  | 'fixture-12ft-follower'
+  | 'fixture-8ft-follower'
+  | 'motion'
+  | 'light-sensor'
+
 interface ManualDeviceEntryProps {
   isOpen: boolean
   onClose: () => void
   onAdd: (device: {
     deviceId: string
     serialNumber: string
-    type: 'fixture' | 'motion' | 'light-sensor'
+    type: DeviceType
   }) => void
 }
 
 export function ManualDeviceEntry({ isOpen, onClose, onAdd }: ManualDeviceEntryProps) {
   const [deviceId, setDeviceId] = useState('')
   const [serialNumber, setSerialNumber] = useState('')
-  const [type, setType] = useState<'fixture' | 'motion' | 'light-sensor'>('fixture')
+  const [type, setType] = useState<DeviceType>('fixture-16ft-power-entry')
 
   if (!isOpen) return null
 
@@ -34,7 +44,7 @@ export function ManualDeviceEntry({ isOpen, onClose, onAdd }: ManualDeviceEntryP
       onAdd({ deviceId: deviceId.trim(), serialNumber: serialNumber.trim(), type })
       setDeviceId('')
       setSerialNumber('')
-      setType('fixture')
+      setType('fixture-16ft-power-entry')
       onClose()
     }
   }
@@ -97,10 +107,15 @@ export function ManualDeviceEntry({ isOpen, onClose, onAdd }: ManualDeviceEntryP
             </label>
             <select
               value={type}
-              onChange={(e) => setType(e.target.value as any)}
+              onChange={(e) => setType(e.target.value as DeviceType)}
               className="w-full px-3 py-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)]"
             >
-              <option value="fixture">Fixture</option>
+              <option value="fixture-16ft-power-entry">16ft Power Entry</option>
+              <option value="fixture-12ft-power-entry">12ft Power Entry</option>
+              <option value="fixture-8ft-power-entry">8ft Power Entry</option>
+              <option value="fixture-16ft-follower">16ft Follower</option>
+              <option value="fixture-12ft-follower">12ft Follower</option>
+              <option value="fixture-8ft-follower">8ft Follower</option>
               <option value="motion">Motion Sensor</option>
               <option value="light-sensor">Light Sensor</option>
             </select>

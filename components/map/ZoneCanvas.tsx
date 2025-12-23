@@ -14,12 +14,13 @@ import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { VectorFloorPlan } from './VectorFloorPlan'
 import { FloorPlanImage, type ImageBounds } from './FloorPlanImage'
 import type { ExtractedVectorData } from '@/lib/pdfVectorExtractor'
+import { DeviceType } from '@/lib/mockData'
 
 interface DevicePoint {
   id: string
   x: number
   y: number
-  type: 'fixture' | 'motion' | 'light-sensor'
+  type: DeviceType
   deviceId: string
   status: string
   signal: number
@@ -209,10 +210,11 @@ export function ZoneCanvas({
     }
   }, [vectorData, mapImageUrl, dimensions])
 
-  const getDeviceColor = (type: string) => {
+  const getDeviceColor = (type: DeviceType) => {
+    if (type.startsWith('fixture-')) {
+      return colors.primary
+    }
     switch (type) {
-      case 'fixture':
-        return colors.primary
       case 'motion':
         return colors.accent
       case 'light-sensor':

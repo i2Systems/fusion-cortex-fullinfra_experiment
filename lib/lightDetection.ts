@@ -5,7 +5,7 @@
  * and automatically place device objects at those positions
  */
 
-import { generateComponentsForFixture, generateWarrantyExpiry } from './deviceUtils'
+import { generateComponentsForFixture, generateWarrantyExpiry, isFixtureType } from './deviceUtils'
 
 /**
  * Analyzes PDF data to determine if it contains light symbols
@@ -106,7 +106,7 @@ export interface LightLocation {
   x: number // Normalized 0-1
   y: number // Normalized 0-1
   confidence: number // 0-1
-  type: 'fixture' | 'motion' | 'light-sensor'
+  type: 'fixture-16ft-power-entry' | 'fixture-12ft-power-entry' | 'fixture-8ft-power-entry' | 'fixture-16ft-follower' | 'fixture-12ft-follower' | 'fixture-8ft-follower' | 'motion' | 'light-sensor'
   size?: number // Approximate size in pixels
 }
 
@@ -157,7 +157,7 @@ export function detectLightsFromVectorData(
             x: normalizeX(centerX),
             y: normalizeY(centerY),
             confidence: 0.7,
-            type: 'fixture',
+            type: 'fixture-16ft-power-entry',
             size: size,
           })
         }
@@ -322,7 +322,7 @@ export async function detectLightsFromImage(
               x: x / imageWidth,
               y: avgY / imageHeight,
               confidence: Math.min(0.9, 0.5 + (segments.length / 10)), // More segments = higher confidence
-              type: 'fixture',
+              type: 'fixture-16ft-power-entry',
             })
           }
         } else if (segments.length === 1 && segments[0].end - segments[0].start >= minLineLength) {
@@ -333,7 +333,7 @@ export async function detectLightsFromImage(
             x: x / imageWidth,
             y: centerY / imageHeight,
             confidence: 0.6,
-            type: 'fixture',
+            type: 'fixture-16ft-power-entry',
           })
         }
       }
@@ -380,7 +380,7 @@ export async function detectLightsFromImage(
               x: avgX / imageWidth,
               y: y / imageHeight,
               confidence: 0.5,
-              type: 'fixture',
+              type: 'fixture-16ft-power-entry',
             })
           }
         }
@@ -476,7 +476,7 @@ export function createDevicesFromLights(
       orientation: 0,
       locked: false,
       // Generate components for fixtures
-      components: light.type === 'fixture' 
+      components: isFixtureType(light.type) 
         ? generateComponentsForFixture(deviceId, serialNumber, warrantyExpiry)
         : undefined,
       warrantyStatus: 'Active',

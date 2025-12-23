@@ -23,9 +23,9 @@ import { useZones } from '@/lib/ZoneContext'
 import { useStore } from '@/lib/StoreContext'
 import { ComponentModal } from '@/components/shared/ComponentModal'
 import { ManualDeviceEntry } from '@/components/discovery/ManualDeviceEntry'
-import { Component, Device } from '@/lib/mockData'
-import { loadLocations } from '@/lib/locationStorage'
-import { generateComponentsForFixture, generateWarrantyExpiry } from '@/lib/deviceUtils'
+import { Component, Device, DeviceType } from '@/lib/mockData'
+import { useMap } from '@/lib/MapContext'
+import { generateComponentsForFixture, generateWarrantyExpiry, isFixtureType } from '@/lib/deviceUtils'
 
 // Dynamically import MapCanvas and ZoneCanvas to avoid SSR issues with Konva
 const MapCanvas = dynamic(() => import('@/components/map/MapCanvas').then(mod => ({ default: mod.MapCanvas })), {
@@ -55,10 +55,13 @@ export default function LookupPage() {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
   const [selectedComponent, setSelectedComponent] = useState<Component | null>(null)
   const [componentParentDevice, setComponentParentDevice] = useState<Device | null>(null)
+  // Use cached map data from context
+  const { mapData } = useMap()
+  const mapImageUrl = mapData.mapImageUrl
+  const vectorData = mapData.vectorData
+  const mapUploaded = mapData.mapUploaded
+  
   const [viewMode, setViewMode] = useState<ViewMode>('table')
-  const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
-  const [vectorData, setVectorData] = useState<any>(null)
-  const [mapUploaded, setMapUploaded] = useState(false)
   const [showManualEntry, setShowManualEntry] = useState(false)
   const listContainerRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -86,7 +89,7 @@ export default function LookupPage() {
         id: deviceId,
         deviceId: mockDeviceId,
         serialNumber: mockSerial,
-        type: 'fixture',
+        type: 'fixture-16ft-power-entry',
         signal: Math.floor(Math.random() * 40) + 50,
         status: 'online',
         location: 'Scanned via QR',
@@ -139,7 +142,7 @@ export default function LookupPage() {
                 x: Math.random(),
                 y: Math.random(),
                 // Generate components for fixtures
-                components: deviceType === 'fixture' 
+                components: isFixtureType(deviceType) 
                   ? generateComponentsForFixture(deviceId, serialNumber, warrantyExpiry)
                   : undefined,
                 warrantyStatus: 'Active',
@@ -157,7 +160,7 @@ export default function LookupPage() {
               ...device,
               id: deviceId,
               // Ensure fixtures have components
-              components: device.type === 'fixture' && !device.components
+              components: isFixtureType(device.type) && !device.components
                 ? generateComponentsForFixture(deviceId, device.serialNumber, warrantyExpiry)
                 : device.components,
               warrantyStatus: device.warrantyStatus || 'Active',
@@ -208,110 +211,42 @@ export default function LookupPage() {
     }
   }, [handleManualEntry, handleQRScan, handleImport, handleExport])
 
-  const handleAddDevice = (deviceData: { deviceId: string; serialNumber: string; type: 'fixture' | 'motion' | 'light-sensor' }) => {
+  const handleAddDevice = (deviceData: { deviceId: string; serialNumber: string; type: DeviceType }) => {
     const deviceId = `device-${Date.now()}`
     const warrantyExpiry = generateWarrantyExpiry()
     
+    // Ensure type is explicitly set
+    if (!deviceData.type) {
+      console.error('Device type is missing in deviceData:', deviceData)
+      alert('Device type is required')
+      return
+    }
+    
     const newDevice: Device = {
       id: deviceId,
-      ...deviceData,
+      deviceId: deviceData.deviceId,
+      serialNumber: deviceData.serialNumber,
+      type: deviceData.type, // Explicitly set type
       signal: Math.floor(Math.random() * 40) + 50,
-      battery: deviceData.type !== 'fixture' ? Math.floor(Math.random() * 40) + 60 : undefined,
+      battery: !isFixtureType(deviceData.type) ? Math.floor(Math.random() * 40) + 60 : undefined,
       status: 'online',
       location: 'Manually Added',
       x: Math.random(),
       y: Math.random(),
       // Generate components for fixtures
-      components: deviceData.type === 'fixture' 
+      components: isFixtureType(deviceData.type) 
         ? generateComponentsForFixture(deviceId, deviceData.serialNumber, warrantyExpiry)
         : undefined,
       warrantyStatus: 'Active',
       warrantyExpiry,
     }
+    
+    console.log('Creating device with type:', newDevice.type, 'Full device:', newDevice)
     addDevice(newDevice)
     setShowManualEntry(false)
   }
 
-  // Load map from shared location storage (same as map page)
-  useEffect(() => {
-    const loadMapData = async () => {
-      if (typeof window === 'undefined') return
-      
-      // Load locations from shared storage
-      const locations = await loadLocations(activeStoreId)
-      if (locations.length === 0) {
-        setMapUploaded(false)
-        setMapImageUrl(null)
-        setVectorData(null)
-        return
-      }
-      
-      // Use first location
-      const location = locations[0]
-      
-      // Load data from IndexedDB if storageKey exists
-      if (location.storageKey && activeStoreId) {
-        try {
-          const { getVectorData } = await import('@/lib/indexedDB')
-          const stored = await getVectorData(activeStoreId, location.storageKey)
-          if (stored) {
-            if (stored.paths || stored.texts) {
-              setVectorData(stored)
-              setMapImageUrl(null)
-            } else if (stored.data) {
-              setMapImageUrl(stored.data)
-              setVectorData(null)
-            }
-            setMapUploaded(true)
-            return
-          }
-        } catch (e) {
-          console.warn('Failed to load location data from IndexedDB:', e)
-        }
-      }
-      
-      // Fallback to direct data
-      if (location.imageUrl) {
-        // Check if it's an IndexedDB reference
-        if (location.imageUrl.startsWith('indexeddb:') && activeStoreId) {
-          try {
-            const { getImageDataUrl } = await import('@/lib/indexedDB')
-            const imageId = location.imageUrl.replace('indexeddb:', '')
-            const dataUrl = await getImageDataUrl(imageId)
-            if (dataUrl) {
-              setMapImageUrl(dataUrl)
-              setMapUploaded(true)
-              return
-            }
-          } catch (e) {
-            console.warn('Failed to load image from IndexedDB:', e)
-          }
-        }
-        setMapImageUrl(location.imageUrl)
-        setMapUploaded(true)
-      } else if (location.vectorData) {
-        setVectorData(location.vectorData)
-        setMapUploaded(true)
-      }
-      
-      // Also check for old localStorage format (backward compatibility)
-      if (!mapImageUrl && !vectorData && activeStoreId) {
-        const imageKey = `fusion_map-image-url_${activeStoreId}`
-        try {
-          const { loadMapImage } = await import('@/lib/indexedDB')
-          const imageUrl = await loadMapImage(imageKey)
-          if (imageUrl) {
-            setMapImageUrl(imageUrl)
-            setMapUploaded(true)
-          }
-        } catch (e) {
-          console.warn('Failed to load map from old storage:', e)
-        }
-      }
-    }
-    
-    loadMapData()
-  }, [activeStoreId])
+  // Map data is now loaded from MapContext - no need to load it here
 
   const handleMapUpload = (imageUrl: string) => {
     setMapImageUrl(imageUrl)

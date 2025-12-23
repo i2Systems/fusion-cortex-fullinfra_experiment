@@ -20,6 +20,7 @@ import { useStore, Store } from '@/lib/StoreContext'
 import { useDevices } from '@/lib/DeviceContext'
 import { useZones } from '@/lib/ZoneContext'
 import { useRules } from '@/lib/RuleContext'
+import { trpc } from '@/lib/trpc/client'
 import { Device } from '@/lib/mockData'
 import { Zone } from '@/lib/ZoneContext'
 import { Rule } from '@/lib/mockRules'
@@ -75,9 +76,11 @@ export default function DashboardPage() {
   const { devices } = useDevices()
   const { zones } = useZones()
   const { rules } = useRules()
+  const trpcUtils = trpc.useUtils()
   const [storeSummaries, setStoreSummaries] = useState<StoreSummary[]>([])
   const [showAddSiteModal, setShowAddSiteModal] = useState(false)
   const [editingStore, setEditingStore] = useState<Store | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
   
   // Initialize selectedStoreId - ensure it's never null when stores exist
   const getInitialSelectedStoreId = (): string => {
@@ -116,70 +119,111 @@ export default function DashboardPage() {
     }
   }, [stores, selectedStoreId, activeStoreId, setActiveStore])
 
+  // Fetch devices, zones, and faults for all stores - create queries dynamically
+  // Note: We'll fetch data in the useEffect to avoid hook rule violations
+  const [storeDevicesMap, setStoreDevicesMap] = useState<Record<string, Device[]>>({})
+  const [storeZonesMap, setStoreZonesMap] = useState<Record<string, Zone[]>>({})
+  const [storeFaultsMap, setStoreFaultsMap] = useState<Record<string, Array<{
+    deviceId: string
+    deviceName: string
+    faultType: FaultCategory
+    description: string
+    location: string
+  }>>>({})
+  
+  // Refetch devices, zones, and faults when stores change or when we need to refresh
+  useEffect(() => {
+    if (stores.length === 0) return
+    
+    // Fetch all data for all stores using tRPC utils
+    const fetchAllStoreData = async () => {
+      const devicesMap: Record<string, Device[]> = {}
+      const zonesMap: Record<string, Zone[]> = {}
+      const faultsMap: Record<string, Array<{
+        deviceId: string
+        deviceName: string
+        faultType: FaultCategory
+        description: string
+        location: string
+      }>> = {}
+      
+      await Promise.all(
+        stores.map(async (store) => {
+          try {
+            // Fetch devices
+            const devices = await trpcUtils.device.list.fetch({
+              siteId: store.id,
+              includeComponents: true,
+            })
+            devicesMap[store.id] = devices || []
+            
+            // Fetch zones
+            const zones = await trpcUtils.zone.list.fetch({
+              siteId: store.id,
+            })
+            zonesMap[store.id] = zones || []
+            
+            // Fetch faults
+            const faults = await trpcUtils.fault.list.fetch({
+              siteId: store.id,
+              includeResolved: false,
+            })
+            
+            // Convert database faults to critical faults format
+            const criticalFaults = (faults || []).slice(0, 3).map(fault => {
+              const device = devices?.find(d => d.id === fault.deviceId)
+              return {
+                deviceId: device?.deviceId || fault.deviceId,
+                deviceName: device?.deviceId || fault.deviceId,
+                faultType: fault.faultType as FaultCategory,
+                description: fault.description,
+                location: device?.location || 'Unknown',
+              }
+            })
+            faultsMap[store.id] = criticalFaults
+          } catch (error) {
+            console.error(`Failed to fetch data for store ${store.id}:`, error)
+            devicesMap[store.id] = []
+            zonesMap[store.id] = []
+            faultsMap[store.id] = []
+          }
+        })
+      )
+      
+      setStoreDevicesMap(devicesMap)
+      setStoreZonesMap(zonesMap)
+      setStoreFaultsMap(faultsMap)
+    }
+    
+    fetchAllStoreData()
+    
+    // Set up interval to refetch every 30 seconds
+    const interval = setInterval(fetchAllStoreData, 30000)
+    
+    return () => clearInterval(interval)
+  }, [stores, trpcUtils])
+
   // Load data for all stores
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    const summaries: StoreSummary[] = stores.map(store => {
-      // Load store-specific data from localStorage
-      const devicesKey = `fusion_devices_${store.id}`
-      const zonesKey = `fusion_zones_${store.id}`
-      const rulesKey = `fusion_rules_${store.id}`
+    const summaries: StoreSummary[] = stores.map((store) => {
+      // Get devices, zones, and faults from state (fetched from database)
+      const devices: Device[] = storeDevicesMap[store.id] || []
+      const zones: Zone[] = storeZonesMap[store.id] || []
+      const criticalFaults = storeFaultsMap[store.id] || []
+      
+      // Check map status from localStorage (for backward compatibility)
+      // TODO: Could also check location storage, but for now we'll use localStorage
       const mapImageKey = `fusion_map-image-url_${store.id}`
-
-      const devicesData = localStorage.getItem(devicesKey)
-      const zonesData = localStorage.getItem(zonesKey)
-      const mapImageData = localStorage.getItem(mapImageKey)
-
-      let devices: Device[] = []
-      let zones: Zone[] = []
-      const mapUploaded = !!mapImageData
-
-      if (devicesData) {
-        try {
-          devices = JSON.parse(devicesData).map((d: any) => ({
-            ...d,
-            warrantyExpiry: d.warrantyExpiry ? new Date(d.warrantyExpiry) : undefined,
-            components: d.components?.map((c: any) => ({
-              ...c,
-              warrantyExpiry: c.warrantyExpiry ? new Date(c.warrantyExpiry) : undefined,
-            })),
-          }))
-        } catch (e) {
-          console.error(`Failed to parse devices for ${store.id}:`, e)
-        }
-      }
-
-      if (zonesData) {
-        try {
-          zones = JSON.parse(zonesData).map((z: any) => ({
-            ...z,
-            createdAt: z.createdAt ? new Date(z.createdAt) : new Date(),
-            updatedAt: z.updatedAt ? new Date(z.updatedAt) : new Date(),
-          }))
-        } catch (e) {
-          console.error(`Failed to parse zones for ${store.id}:`, e)
-        }
-      }
+      const mapUploaded = typeof window !== 'undefined' ? !!localStorage.getItem(mapImageKey) : false
 
       // Calculate stats
-  const onlineDevices = devices.filter(d => d.status === 'online').length
+      const onlineDevices = devices.filter(d => d.status === 'online').length
       const offlineDevices = devices.filter(d => d.status === 'offline' || d.status === 'missing')
-  const healthPercentage = devices.length > 0 
-    ? Math.round((onlineDevices / devices.length) * 100)
-    : 100
-
-      // Find critical faults (offline/missing devices with fault categories)
-      const criticalFaults = offlineDevices.slice(0, 3).map(device => {
-        const faultType = assignFaultCategory(device)
-        return {
-          deviceId: device.deviceId,
-          deviceName: device.deviceId,
-          faultType,
-          description: generateFaultDescription(faultType, device.deviceId),
-          location: device.location || 'Unknown',
-        }
-      })
+      const healthPercentage = devices.length > 0 
+        ? Math.round((onlineDevices / devices.length) * 100)
+        : 100
 
       // Count warranties expiring/expired
       const now = new Date()
@@ -235,7 +279,7 @@ export default function DashboardPage() {
     })
 
     setStoreSummaries(summaries)
-  }, [stores])
+  }, [stores, storeDevicesMap, storeZonesMap, storeFaultsMap])
 
   const handleStoreClick = (storeId: string, targetPage?: string) => {
     setActiveStore(storeId)
@@ -354,12 +398,37 @@ export default function DashboardPage() {
     URL.revokeObjectURL(url)
   }, [stores])
 
+  // Filter store summaries based on search query
+  const filteredStoreSummaries = useMemo(() => {
+    if (!searchQuery.trim()) return storeSummaries
+    
+    const query = searchQuery.toLowerCase().trim()
+    return storeSummaries.filter(summary => {
+      const store = stores.find(s => s.id === summary.storeId)
+      if (!store) return false
+      
+      // Search in store name, store number, city, state, manager, device count, zone count
+      const searchableText = [
+        store.name,
+        store.storeNumber,
+        store.city,
+        store.state,
+        store.manager,
+        String(summary.totalDevices),
+        String(summary.totalZones),
+        String(summary.healthPercentage),
+      ].filter(Boolean).join(' ').toLowerCase()
+      
+      return searchableText.includes(query)
+    })
+  }, [storeSummaries, searchQuery, stores])
+
   // Get detailed data for selected store
   const selectedStoreSummary = useMemo(() => {
     return storeSummaries.find(s => s.storeId === selectedStoreId) || null
   }, [storeSummaries, selectedStoreId])
 
-  // Load detailed data for selected store
+  // Load detailed data for selected store from database
   const [selectedStoreData, setSelectedStoreData] = useState<{
     devices: Device[]
     zones: Zone[]
@@ -367,66 +436,35 @@ export default function DashboardPage() {
   }>({ devices: [], zones: [], rules: [] })
 
   useEffect(() => {
-    if (!selectedStoreId || typeof window === 'undefined') return
+    if (!selectedStoreId) return
 
-    const devicesKey = `fusion_devices_${selectedStoreId}`
-    const zonesKey = `fusion_zones_${selectedStoreId}`
-    const rulesKey = `fusion_rules_${selectedStoreId}`
-
-    const devicesData = localStorage.getItem(devicesKey)
-    const zonesData = localStorage.getItem(zonesKey)
-    const rulesData = localStorage.getItem(rulesKey)
-
-    let loadedDevices: Device[] = []
-    let loadedZones: Zone[] = []
-    let loadedRules: Rule[] = []
-
-    if (devicesData) {
+    // Use data from state maps (fetched from database)
+    const devices = storeDevicesMap[selectedStoreId] || []
+    const zones = storeZonesMap[selectedStoreId] || []
+    
+    // Fetch rules for the selected store
+    const fetchRules = async () => {
       try {
-        loadedDevices = JSON.parse(devicesData).map((d: any) => ({
-          ...d,
-          warrantyExpiry: d.warrantyExpiry ? new Date(d.warrantyExpiry) : undefined,
-          components: d.components?.map((c: any) => ({
-            ...c,
-            warrantyExpiry: c.warrantyExpiry ? new Date(c.warrantyExpiry) : undefined,
-          })),
-        }))
-      } catch (e) {
-        console.error(`Failed to parse devices:`, e)
+        const rules = await trpcUtils.rule.list.fetch({
+          siteId: selectedStoreId,
+        })
+        setSelectedStoreData({
+          devices,
+          zones,
+          rules: rules || [],
+        })
+      } catch (error) {
+        console.error(`Failed to fetch rules for store ${selectedStoreId}:`, error)
+        setSelectedStoreData({
+          devices,
+          zones,
+          rules: [],
+        })
       }
     }
-
-    if (zonesData) {
-      try {
-        loadedZones = JSON.parse(zonesData).map((z: any) => ({
-          ...z,
-          createdAt: z.createdAt ? new Date(z.createdAt) : new Date(),
-          updatedAt: z.updatedAt ? new Date(z.updatedAt) : new Date(),
-        }))
-      } catch (e) {
-        console.error(`Failed to parse zones:`, e)
-      }
-    }
-
-    if (rulesData) {
-      try {
-        loadedRules = JSON.parse(rulesData).map((r: any) => ({
-          ...r,
-          createdAt: r.createdAt ? new Date(r.createdAt) : new Date(),
-          updatedAt: r.updatedAt ? new Date(r.updatedAt) : new Date(),
-          lastTriggered: r.lastTriggered ? new Date(r.lastTriggered) : undefined,
-        }))
-      } catch (e) {
-        console.error(`Failed to parse rules:`, e)
-      }
-    }
-
-    setSelectedStoreData({
-      devices: loadedDevices,
-      zones: loadedZones,
-      rules: loadedRules,
-    })
-  }, [selectedStoreId])
+    
+    fetchRules()
+  }, [selectedStoreId, storeDevicesMap, storeZonesMap, trpcUtils])
 
   const getHealthColor = (percentage: number) => {
     if (percentage >= 95) return 'var(--color-success)'
@@ -499,7 +537,9 @@ export default function DashboardPage() {
           fullWidth={true}
           title="Dashboard"
           subtitle="Multi-store overview"
-          placeholder="Search, input a task, or ask a question..."
+          placeholder="Search stores, devices, or type 'view devices' or 'view zones'..."
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
         />
       </div>
 
@@ -513,7 +553,7 @@ export default function DashboardPage() {
           {/* Store Cards Grid - Responsive */}
           <div className="flex-1 min-h-0">
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
-          {storeSummaries.map((summary) => {
+          {filteredStoreSummaries.map((summary) => {
             const store = stores.find(s => s.id === summary.storeId)
             return (
             <div

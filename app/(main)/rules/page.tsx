@@ -27,7 +27,7 @@ import { useZones } from '@/lib/ZoneContext'
 import { useDevices } from '@/lib/DeviceContext'
 import { useStore } from '@/lib/StoreContext'
 import { Rule } from '@/lib/mockRules'
-import { loadLocations } from '@/lib/locationStorage'
+import { useMap } from '@/lib/MapContext'
 
 // Dynamically import RulesZoneCanvas to avoid SSR issues with Konva
 const RulesZoneCanvas = dynamic(() => import('@/components/rules/RulesZoneCanvas').then(mod => ({ default: mod.RulesZoneCanvas })), {
@@ -47,10 +47,13 @@ export default function RulesPage() {
 
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  // Use cached map data from context
+  const { mapData } = useMap()
+  const mapImageUrl = mapData.mapImageUrl
+  const vectorData = mapData.vectorData
+  const mapUploaded = mapData.mapUploaded
+  
   const [viewMode, setViewMode] = useState<MapViewMode>('list')
-  const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
-  const [vectorData, setVectorData] = useState<any>(null)
-  const [mapUploaded, setMapUploaded] = useState(false)
   const [selectedZoneName, setSelectedZoneName] = useState<string | null>(null)
   const [showRules, setShowRules] = useState(true)
   const [showOverrides, setShowOverrides] = useState(true)
@@ -58,86 +61,7 @@ export default function RulesPage() {
   const listContainerRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
-  // Load map from shared location storage (same as map page)
-  useEffect(() => {
-    const loadMapData = async () => {
-      if (typeof window === 'undefined') return
-      
-      // Load locations from shared storage
-      const locations = await loadLocations(activeStoreId)
-      if (locations.length === 0) {
-        setMapUploaded(false)
-        setMapImageUrl(null)
-        setVectorData(null)
-        return
-      }
-      
-      // Use first location
-      const location = locations[0]
-      
-      // Load data from IndexedDB if storageKey exists
-      if (location.storageKey && activeStoreId) {
-        try {
-          const { getVectorData } = await import('@/lib/indexedDB')
-          const stored = await getVectorData(activeStoreId, location.storageKey)
-          if (stored) {
-            if (stored.paths || stored.texts) {
-              setVectorData(stored)
-              setMapImageUrl(null)
-            } else if (stored.data) {
-              setMapImageUrl(stored.data)
-              setVectorData(null)
-            }
-            setMapUploaded(true)
-            return
-          }
-        } catch (e) {
-          console.warn('Failed to load location data from IndexedDB:', e)
-        }
-      }
-      
-      // Fallback to direct data
-      if (location.imageUrl) {
-        // Check if it's an IndexedDB reference
-        if (location.imageUrl.startsWith('indexeddb:') && activeStoreId) {
-          try {
-            const { getImageDataUrl } = await import('@/lib/indexedDB')
-            const imageId = location.imageUrl.replace('indexeddb:', '')
-            const dataUrl = await getImageDataUrl(imageId)
-            if (dataUrl) {
-              setMapImageUrl(dataUrl)
-              setMapUploaded(true)
-              return
-            }
-          } catch (e) {
-            console.warn('Failed to load image from IndexedDB:', e)
-          }
-        }
-        setMapImageUrl(location.imageUrl)
-        setMapUploaded(true)
-      } else if (location.vectorData) {
-        setVectorData(location.vectorData)
-        setMapUploaded(true)
-      }
-      
-      // Also check for old localStorage format (backward compatibility)
-      if (!mapImageUrl && !vectorData && activeStoreId) {
-        const imageKey = `fusion_map-image-url_${activeStoreId}`
-        try {
-          const { loadMapImage } = await import('@/lib/indexedDB')
-          const imageUrl = await loadMapImage(imageKey)
-          if (imageUrl) {
-            setMapImageUrl(imageUrl)
-            setMapUploaded(true)
-          }
-        } catch (e) {
-          console.warn('Failed to load map from old storage:', e)
-        }
-      }
-    }
-    
-    loadMapData()
-  }, [activeStoreId])
+  // Map data is now loaded from MapContext - no need to load it here
 
   const handleMapUpload = (imageUrl: string) => {
     setMapImageUrl(imageUrl)

@@ -18,31 +18,62 @@ import { router, publicProcedure } from '../trpc'
 import { prisma } from '@/lib/prisma'
 import { DeviceType, DeviceStatus } from '@prisma/client'
 
+// Frontend device type (all fixture variants + sensors)
+type FrontendDeviceType = 
+  | 'fixture-16ft-power-entry'
+  | 'fixture-12ft-power-entry'
+  | 'fixture-8ft-power-entry'
+  | 'fixture-16ft-follower'
+  | 'fixture-12ft-follower'
+  | 'fixture-8ft-follower'
+  | 'motion'
+  | 'light-sensor'
+
 // Helper to convert Prisma DeviceType to frontend type
-function toFrontendDeviceType(type: DeviceType): 'fixture' | 'motion' | 'light-sensor' {
+function toFrontendDeviceType(type: DeviceType): FrontendDeviceType {
   switch (type) {
-    case DeviceType.FIXTURE:
-      return 'fixture'
+    case DeviceType.FIXTURE_16FT_POWER_ENTRY:
+      return 'fixture-16ft-power-entry'
+    case DeviceType.FIXTURE_12FT_POWER_ENTRY:
+      return 'fixture-12ft-power-entry'
+    case DeviceType.FIXTURE_8FT_POWER_ENTRY:
+      return 'fixture-8ft-power-entry'
+    case DeviceType.FIXTURE_16FT_FOLLOWER:
+      return 'fixture-16ft-follower'
+    case DeviceType.FIXTURE_12FT_FOLLOWER:
+      return 'fixture-12ft-follower'
+    case DeviceType.FIXTURE_8FT_FOLLOWER:
+      return 'fixture-8ft-follower'
     case DeviceType.MOTION_SENSOR:
       return 'motion'
     case DeviceType.LIGHT_SENSOR:
       return 'light-sensor'
     default:
-      return 'fixture'
+      return 'fixture-16ft-power-entry'
   }
 }
 
 // Helper to convert frontend DeviceType to Prisma enum
-function toPrismaDeviceType(type: 'fixture' | 'motion' | 'light-sensor'): DeviceType {
+function toPrismaDeviceType(type: FrontendDeviceType): DeviceType {
   switch (type) {
-    case 'fixture':
-      return DeviceType.FIXTURE
+    case 'fixture-16ft-power-entry':
+      return DeviceType.FIXTURE_16FT_POWER_ENTRY
+    case 'fixture-12ft-power-entry':
+      return DeviceType.FIXTURE_12FT_POWER_ENTRY
+    case 'fixture-8ft-power-entry':
+      return DeviceType.FIXTURE_8FT_POWER_ENTRY
+    case 'fixture-16ft-follower':
+      return DeviceType.FIXTURE_16FT_FOLLOWER
+    case 'fixture-12ft-follower':
+      return DeviceType.FIXTURE_12FT_FOLLOWER
+    case 'fixture-8ft-follower':
+      return DeviceType.FIXTURE_8FT_FOLLOWER
     case 'motion':
       return DeviceType.MOTION_SENSOR
     case 'light-sensor':
       return DeviceType.LIGHT_SENSOR
     default:
-      return DeviceType.FIXTURE
+      return DeviceType.FIXTURE_16FT_POWER_ENTRY
   }
 }
 
@@ -261,7 +292,16 @@ export const deviceRouter = router({
       siteId: z.string(),
       deviceId: z.string(),
       serialNumber: z.string(),
-      type: z.enum(['fixture', 'motion', 'light-sensor']),
+      type: z.enum([
+        'fixture-16ft-power-entry',
+        'fixture-12ft-power-entry',
+        'fixture-8ft-power-entry',
+        'fixture-16ft-follower',
+        'fixture-12ft-follower',
+        'fixture-8ft-follower',
+        'motion',
+        'light-sensor'
+      ]),
       status: z.enum(['online', 'offline', 'missing']).optional().default('offline'),
       signal: z.number().optional(),
       battery: z.number().optional(),
@@ -281,12 +321,43 @@ export const deviceRouter = router({
       try {
         const { components, ...deviceData } = input
 
+        // Validate that type is present and is a string
+        if (!deviceData.type || typeof deviceData.type !== 'string') {
+          console.error('Device type is missing or invalid in input:', JSON.stringify(input, null, 2))
+          console.error('deviceData.type value:', deviceData.type, 'type:', typeof deviceData.type)
+          throw new Error(`Device type is required. Received: ${deviceData.type}`)
+        }
+
+        console.log('Creating device with type:', deviceData.type, 'Full deviceData keys:', Object.keys(deviceData))
+        
+        const prismaType = toPrismaDeviceType(deviceData.type as FrontendDeviceType)
+        console.log('Converted to Prisma type:', prismaType)
+        
+        if (!prismaType) {
+          console.error('Failed to convert device type:', deviceData.type)
+          throw new Error(`Invalid device type: ${deviceData.type}`)
+        }
+
+        // Build the data object explicitly to ensure type is included
+        const deviceDataForPrisma = {
+          siteId: deviceData.siteId,
+          deviceId: deviceData.deviceId,
+          serialNumber: deviceData.serialNumber,
+          type: prismaType,
+          status: toPrismaDeviceStatus(deviceData.status || 'offline'),
+          signal: deviceData.signal,
+          battery: deviceData.battery,
+          x: deviceData.x,
+          y: deviceData.y,
+          warrantyStatus: deviceData.warrantyStatus,
+          warrantyExpiry: deviceData.warrantyExpiry,
+        }
+        
+        console.log('Device data for Prisma (with type):', JSON.stringify(deviceDataForPrisma, null, 2))
+
         const device = await prisma.device.create({
           data: {
-            siteId: deviceData.siteId,
-            deviceId: deviceData.deviceId,
-            serialNumber: deviceData.serialNumber,
-            type: toPrismaDeviceType(deviceData.type),
+            ...deviceDataForPrisma,
             status: toPrismaDeviceStatus(deviceData.status || 'offline'),
             signal: deviceData.signal,
             battery: deviceData.battery,
@@ -300,7 +371,7 @@ export const deviceRouter = router({
                     siteId: deviceData.siteId,
                     deviceId: `${deviceData.deviceId}-${comp.componentType}`,
                     serialNumber: comp.componentSerialNumber,
-                    type: DeviceType.FIXTURE, // Components are typically fixtures
+                    type: DeviceType.FIXTURE_16FT_POWER_ENTRY, // Components are typically fixtures
                     status: DeviceStatus.ONLINE,
                     componentType: comp.componentType,
                     componentSerialNumber: comp.componentSerialNumber,
@@ -333,12 +404,23 @@ export const deviceRouter = router({
           
           try {
             const { components, ...deviceData } = input
+            // Ensure type is set in retry as well
+            if (!deviceData.type) {
+              console.error('Device type is missing in retry input:', deviceData)
+              throw new Error('Device type is required')
+            }
+            
+            const retryPrismaType = toPrismaDeviceType(deviceData.type)
+            if (!retryPrismaType) {
+              throw new Error(`Invalid device type in retry: ${deviceData.type}`)
+            }
+            
             const device = await prisma.device.create({
               data: {
                 siteId: deviceData.siteId,
                 deviceId: deviceData.deviceId,
                 serialNumber: deviceData.serialNumber,
-                type: toPrismaDeviceType(deviceData.type),
+                type: retryPrismaType,
                 status: toPrismaDeviceStatus(deviceData.status || 'offline'),
                 signal: deviceData.signal,
                 battery: deviceData.battery,
@@ -352,7 +434,7 @@ export const deviceRouter = router({
                         siteId: deviceData.siteId,
                         deviceId: `${deviceData.deviceId}-${comp.componentType}`,
                         serialNumber: comp.componentSerialNumber,
-                        type: DeviceType.FIXTURE,
+                        type: DeviceType.FIXTURE_16FT_POWER_ENTRY,
                         status: DeviceStatus.ONLINE,
                         componentType: comp.componentType,
                         componentSerialNumber: comp.componentSerialNumber,

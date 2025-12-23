@@ -17,17 +17,31 @@
 
 import { Stage, Layer, Circle, Image as KonvaImage, Group, Text, Rect, Line } from 'react-konva'
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
-import { Component, Device as DeviceType } from '@/lib/mockData'
+import { Component, Device as DeviceType, DeviceType as DeviceTypeEnum } from '@/lib/mockData'
 import { VectorFloorPlan } from './VectorFloorPlan'
 import { FloorPlanImage, type ImageBounds } from './FloorPlanImage'
 import type { ExtractedVectorData } from '@/lib/pdfVectorExtractor'
 import type { Location } from '@/lib/locationStorage'
+import { isFixtureType } from '@/lib/deviceUtils'
+
+/**
+ * Get fixture size multiplier based on fixture type
+ * 8ft = 1x (base size)
+ * 12ft = 1.5x
+ * 16ft = 2x
+ */
+function getFixtureSizeMultiplier(fixtureType: string): number {
+  if (fixtureType.includes('16ft')) return 2.0
+  if (fixtureType.includes('12ft')) return 1.5
+  if (fixtureType.includes('8ft')) return 1.0
+  return 1.0 // Default to 8ft size
+}
 
 interface DevicePoint {
   id: string
   x: number
   y: number
-  type: 'fixture' | 'motion' | 'light-sensor'
+  type: DeviceTypeEnum
   deviceId: string
   status: string
   signal: number
@@ -144,9 +158,26 @@ export function MapCanvas({
       }
     }
   }, [imageBounds, dimensions])
+  
+  // Convert canvas coordinates back to normalized coordinates (0-1) using actual image bounds
+  const fromCanvasCoords = useCallback((point: { x: number; y: number }) => {
+    if (imageBounds) {
+      // Use actual image bounds for coordinate conversion
+      return {
+        x: (point.x - imageBounds.x) / imageBounds.width,
+        y: (point.y - imageBounds.y) / imageBounds.height,
+      }
+    } else {
+      // Fallback to canvas dimensions if image bounds not available
+      return {
+        x: point.x / dimensions.width,
+        y: point.y / dimensions.height,
+      }
+    }
+  }, [imageBounds, dimensions])
   const [hoveredDevice, setHoveredDevice] = useState<DevicePoint | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
-  const [draggedDevice, setDraggedDevice] = useState<{ id: string; startX: number; startY: number } | null>(null)
+  const [draggedDevice, setDraggedDevice] = useState<{ id: string; startX: number; startY: number; dragX?: number; dragY?: number; dragStartX?: number; dragStartY?: number } | null>(null)
   
   // Lasso selection state
   const [isSelecting, setIsSelecting] = useState(false)
@@ -769,11 +800,17 @@ export function MapCanvas({
             const isSelected = selectedDeviceId === device.id || selectedDeviceIds.includes(device.id)
             const isHovered = hoveredDevice?.id === device.id
             
+            // Use drag position if device is being dragged, otherwise use device coordinates
+            // This prevents jumping during drag
+            const isDragging = draggedDevice?.id === device.id
+            const groupX = isDragging && draggedDevice.dragX !== undefined ? draggedDevice.dragX : deviceCoords.x
+            const groupY = isDragging && draggedDevice.dragY !== undefined ? draggedDevice.dragY : deviceCoords.y
+            
             return (
               <Group 
                 key={device.id}
-                x={deviceCoords.x}
-                y={deviceCoords.y}
+                x={groupX}
+                y={groupY}
                 draggable={mode === 'move'}
                 listening={true}
                 perfectDrawEnabled={false}
@@ -791,7 +828,14 @@ export function MapCanvas({
                   setIsSelecting(false)
                   setSelectionStart(null)
                   setSelectionEnd(null)
-                  setDraggedDevice({ id: device.id, startX: device.x || 0, startY: device.y || 0 })
+                  // Store the initial device coordinates
+                  setDraggedDevice({ 
+                    id: device.id, 
+                    startX: device.x || 0, 
+                    startY: device.y || 0
+                  })
+                  // Clear hover state when starting to drag to hide tooltip
+                  setHoveredDevice(null)
                   if (!selectedDeviceIds.includes(device.id)) {
                     if (e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey) {
                       // Add to selection
@@ -806,6 +850,14 @@ export function MapCanvas({
                 onDragMove={(e) => {
                   // Prevent stage dragging
                   e.cancelBubble = true
+                  // Update drag position in state to prevent jumping
+                  // Use Group position directly - it accounts for rotation automatically
+                  const pos = e.target.position()
+                  setDraggedDevice(prev => prev ? { 
+                    ...prev, 
+                    dragX: pos.x, 
+                    dragY: pos.y 
+                  } : null)
                   // Don't update device position during drag - only update on drag end
                   // This prevents feedback loops where position updates cause re-renders
                   // which then recalculate the Group position, causing erratic movement
@@ -815,22 +867,33 @@ export function MapCanvas({
                   e.cancelBubble = true
                   
                   if (mode === 'move' && onDeviceMoveEnd) {
-                    // Get the final position of the Group (already in canvas coordinates)
-                      const pos = e.target.position()
-                    // Convert canvas coordinates to normalized 0-1 coordinates
-                      const normalizedX = Math.max(0, Math.min(1, pos.x / dimensions.width))
-                      const normalizedY = Math.max(0, Math.min(1, pos.y / dimensions.height))
-                      onDeviceMoveEnd(device.id, normalizedX, normalizedY)
+                    // Use Group position directly - it's already in canvas coordinates
+                    // and accounts for rotation properly
+                    const pos = e.target.position()
+                    // Convert canvas coordinates to normalized 0-1 coordinates using image bounds
+                    const normalized = fromCanvasCoords({ x: pos.x, y: pos.y })
+                    // Clamp to valid range
+                    const normalizedX = Math.max(0, Math.min(1, normalized.x))
+                    const normalizedY = Math.max(0, Math.min(1, normalized.y))
+                    onDeviceMoveEnd(device.id, normalizedX, normalizedY)
                   }
                   setDraggedDevice(null)
                 }}
               >
                 {/* Light Bar for Fixtures */}
-                {device.type === 'fixture' && (() => {
-                  // Calculate light bar dimensions (6ft x 6inch = 72:6 ratio = 12:1)
-                  // Use a reasonable size that scales with canvas
-                  const barLength = Math.max(30, dimensions.width * 0.035) // ~3.5% of width, min 30px
-                  const barWidth = Math.max(3, barLength / 12) // Maintain 12:1 ratio
+                {isFixtureType(device.type) && (() => {
+                  // Get size multiplier based on fixture type (8ft, 12ft, 16ft)
+                  const sizeMultiplier = getFixtureSizeMultiplier(device.type)
+                  
+                  // Base size for 8ft fixture: small rectangle matching the blueprint
+                  // Base rectangle: width ~12px, height ~3px (4:1 ratio for a small rectangle)
+                  const baseWidth = 12
+                  const baseHeight = 3
+                  
+                  // Apply size multiplier
+                  const barLength = baseWidth * sizeMultiplier
+                  const barWidth = baseHeight * sizeMultiplier
+                  
                   // Larger invisible hit area for easier clicking
                   const hitAreaRadius = Math.max(20, barLength / 2 + 10) // At least 20px, or bar length/2 + 10px
                   
@@ -847,7 +910,7 @@ export function MapCanvas({
                           e.cancelBubble = true
                           if (mode === 'rotate') {
                             // Rotate mode: rotate the device
-                            if (device.type === 'fixture') {
+                            if (isFixtureType(device.type)) {
                               onDeviceRotate?.(device.id)
                             }
                           } else if (mode === 'select') {
@@ -879,7 +942,7 @@ export function MapCanvas({
                           e.cancelBubble = true
                           if (mode === 'rotate') {
                             // Rotate mode: rotate the device
-                            if (device.type === 'fixture') {
+                            if (isFixtureType(device.type)) {
                               onDeviceRotate?.(device.id)
                             }
                           } else if (mode === 'select') {
@@ -920,10 +983,10 @@ export function MapCanvas({
                           }
                         }}
                       />
-                      {/* Light bar rectangle - 6ft x 6inch (12:1 ratio) */}
+                      {/* Fixture rectangle - size varies by fixture type (8ft, 12ft, 16ft) */}
                       <Rect
-                        x={-barLength / 2} // Center the bar
-                        y={-barWidth / 2} // Center the bar
+                        x={-barLength / 2} // Center the rectangle
+                        y={-barWidth / 2} // Center the rectangle
                         width={barLength}
                         height={barWidth}
                         fill={getDeviceColor(device.type)}
@@ -936,11 +999,11 @@ export function MapCanvas({
                         dash={device.locked ? [4, 4] : undefined}
                         listening={false}
                       />
-                      {/* Center dot - visual only */}
+                      {/* Center dot - visual only, smaller to match rectangle size */}
                       <Circle
                         x={0}
                         y={0}
-                        radius={isSelected ? 6 : (isHovered ? 5 : 4)}
+                        radius={isSelected ? (3 * sizeMultiplier) : (isHovered ? (2.5 * sizeMultiplier) : (2 * sizeMultiplier))}
                         fill={getDeviceColor(device.type)}
                         stroke={device.locked ? colors.warning : (isSelected ? colors.text : 'rgba(255,255,255,0.4)')}
                         strokeWidth={device.locked ? 2 : (isSelected ? 2.5 : 1.5)}
@@ -954,7 +1017,7 @@ export function MapCanvas({
                 })()}
                 
                 {/* Regular dot for non-fixture devices */}
-                {device.type !== 'fixture' && (
+                {!isFixtureType(device.type) && (
                   <>
                     {/* Large invisible hit area for easier clicking */}
                   <Circle
@@ -1238,7 +1301,7 @@ export function MapCanvas({
         
         {/* Tooltip Layer - Always on top */}
         <Layer>
-          {hoveredDevice && hoveredDeviceData && (() => {
+          {hoveredDevice && hoveredDeviceData && !draggedDevice && mode !== 'move' && (() => {
             // Calculate tooltip dimensions based on content
             const componentsCount = hoveredDeviceData.components?.length || 0
             const hasComponents = componentsCount > 0
@@ -1468,7 +1531,7 @@ export function MapCanvas({
               })
               
               // Count by type
-              const fixtures = devicesInSelection.filter(d => d.type === 'fixture').length
+              const fixtures = devicesInSelection.filter(d => isFixtureType(d.type)).length
               const motion = devicesInSelection.filter(d => d.type === 'motion').length
               const sensors = devicesInSelection.filter(d => d.type === 'light-sensor').length
               const totalCount = devicesInSelection.length
@@ -1590,7 +1653,7 @@ export function MapCanvas({
                   {/* Device indicators - show prominent highlights for each device in selection */}
                   {devicesInSelection.map((device) => {
                     const deviceCoords = toCanvasCoords({ x: device.x, y: device.y })
-                    const color = device.type === 'fixture' ? '#4c7dff' : 
+                    const color = isFixtureType(device.type) ? '#4c7dff' : 
                                  device.type === 'motion' ? '#f97316' : 
                                  '#22c55e'
                     

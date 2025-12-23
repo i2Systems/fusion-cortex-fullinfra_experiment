@@ -56,9 +56,11 @@ function pointInPolygon(point: { x: number; y: number }, polygon: Array<{ x: num
 }
 
 export function ZoneProvider({ children }: { children: ReactNode }) {
-  const { activeStoreId, activeStore, ensureSite } = useStore()
+  const { activeStoreId, activeStore } = useStore()
   const [zones, setZones] = useState<Zone[]>([])
 
+  // Ensure site exists in database
+  const ensureSiteMutation = trpc.site.ensureExists.useMutation()
   const ensuredStoreIdRef = useRef<string | null>(null)
 
   // Fetch zones from database
@@ -99,12 +101,32 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
     },
   })
 
-  // Don't ensure sites here - StoreContext handles that
-  // Just mark that we've seen this store ID
+  // Ensure site exists when store changes (only once per store)
   useEffect(() => {
     if (!activeStoreId) return
+    if (ensuredStoreIdRef.current === activeStoreId) return // Already ensured
+
+    // Mark as being ensured
     ensuredStoreIdRef.current = activeStoreId
-  }, [activeStoreId])
+
+    // Use store name from context if available, otherwise generate
+    const storeName = activeStore?.name || `Store ${activeStoreId}`
+    const storeNumber = activeStore?.storeNumber || activeStoreId.replace('store-', '')
+
+    ensureSiteMutation.mutate({
+      id: activeStoreId,
+      name: storeName,
+      storeNumber: storeNumber,
+      address: activeStore?.address,
+      city: activeStore?.city,
+      state: activeStore?.state,
+      zipCode: activeStore?.zipCode,
+      phone: activeStore?.phone,
+      manager: activeStore?.manager,
+      squareFootage: activeStore?.squareFootage,
+      openedDate: activeStore?.openedDate,
+    })
+  }, [activeStoreId, activeStore])
 
   // Update local state when data from database changes
   // Only update if we have valid data - don't clear zones on error

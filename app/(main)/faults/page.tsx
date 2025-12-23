@@ -23,7 +23,7 @@ import { useStore } from '@/lib/StoreContext'
 import { Device } from '@/lib/mockData'
 import { FaultCategory, assignFaultCategory, generateFaultDescription, faultCategories } from '@/lib/faultDefinitions'
 import { trpc } from '@/lib/trpc/client'
-import { loadLocations } from '@/lib/locationStorage'
+import { useMap } from '@/lib/MapContext'
 import { Droplets, Zap, Thermometer, Plug, Settings, Package, Wrench, Lightbulb, TrendingUp, TrendingDown, AlertTriangle, Clock, ArrowUp, ArrowDown, Minus } from 'lucide-react'
 
 // Dynamically import FaultsMapCanvas to avoid SSR issues with Konva
@@ -49,12 +49,15 @@ export default function FaultsPage() {
   const { zones } = useZones()
   const { activeStoreId } = useStore()
 
+  // Use cached map data from context
+  const { mapData } = useMap()
+  const mapImageUrl = mapData.mapImageUrl
+  const vectorData = mapData.vectorData
+  const mapUploaded = mapData.mapUploaded
+  
   const [selectedFaultId, setSelectedFaultId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<MapViewMode>('list')
-  const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
-  const [vectorData, setVectorData] = useState<any>(null)
-  const [mapUploaded, setMapUploaded] = useState(false)
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
   
   // Fetch faults from database
@@ -227,86 +230,7 @@ export default function FaultsPage() {
   const listContainerRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
-  // Load map from shared location storage (same as map page)
-  useEffect(() => {
-    const loadMapData = async () => {
-      if (typeof window === 'undefined') return
-      
-      // Load locations from shared storage
-      const locations = await loadLocations(activeStoreId)
-      if (locations.length === 0) {
-        setMapUploaded(false)
-        setMapImageUrl(null)
-        setVectorData(null)
-        return
-      }
-      
-      // Use first location
-      const location = locations[0]
-      
-      // Load data from IndexedDB if storageKey exists
-      if (location.storageKey && activeStoreId) {
-        try {
-          const { getVectorData } = await import('@/lib/indexedDB')
-          const stored = await getVectorData(activeStoreId, location.storageKey)
-          if (stored) {
-            if (stored.paths || stored.texts) {
-              setVectorData(stored)
-              setMapImageUrl(null)
-            } else if (stored.data) {
-              setMapImageUrl(stored.data)
-              setVectorData(null)
-            }
-            setMapUploaded(true)
-            return
-          }
-        } catch (e) {
-          console.warn('Failed to load location data from IndexedDB:', e)
-        }
-      }
-      
-      // Fallback to direct data
-      if (location.imageUrl) {
-        // Check if it's an IndexedDB reference
-        if (location.imageUrl.startsWith('indexeddb:') && activeStoreId) {
-          try {
-            const { getImageDataUrl } = await import('@/lib/indexedDB')
-            const imageId = location.imageUrl.replace('indexeddb:', '')
-            const dataUrl = await getImageDataUrl(imageId)
-            if (dataUrl) {
-              setMapImageUrl(dataUrl)
-              setMapUploaded(true)
-              return
-            }
-          } catch (e) {
-            console.warn('Failed to load image from IndexedDB:', e)
-          }
-        }
-        setMapImageUrl(location.imageUrl)
-        setMapUploaded(true)
-      } else if (location.vectorData) {
-        setVectorData(location.vectorData)
-        setMapUploaded(true)
-      }
-      
-      // Also check for old localStorage format (backward compatibility)
-      if (!mapImageUrl && !vectorData && activeStoreId) {
-        const imageKey = `fusion_map-image-url_${activeStoreId}`
-        try {
-          const { loadMapImage } = await import('@/lib/indexedDB')
-          const imageUrl = await loadMapImage(imageKey)
-          if (imageUrl) {
-            setMapImageUrl(imageUrl)
-            setMapUploaded(true)
-          }
-        } catch (e) {
-          console.warn('Failed to load map from old storage:', e)
-        }
-      }
-    }
-    
-    loadMapData()
-  }, [activeStoreId])
+  // Map data is now loaded from MapContext - no need to load it here
 
   const handleMapUpload = (imageUrl: string) => {
     setMapImageUrl(imageUrl)
@@ -420,22 +344,12 @@ export default function FaultsPage() {
       })
     }
     
-    // Apply device filter (only if device is selected)
-    if (selectedDeviceId) {
-      filtered = filtered.filter(fault => fault.device.id === selectedDeviceId)
-    }
-    
-    // Also filter by selected fault ID if it's a database fault
-    if (selectedFaultId && dbFaults) {
-      const dbFault = dbFaults.find(f => f.id === selectedFaultId)
-      if (dbFault) {
-        // If a database fault is selected, show only that fault
-        filtered = filtered.filter(fault => fault.id === selectedFaultId)
-      }
-    }
+    // Note: We don't filter by selectedDeviceId or selectedFaultId here
+    // because we want to show the entire fault list even when one is selected.
+    // The selected fault will be highlighted in the UI, but all faults remain visible.
     
     return filtered
-  }, [faults, searchQuery, selectedDeviceId, showCategories])
+  }, [faults, searchQuery, showCategories])
 
   // Prepare zones for map
   const mapZones = useMemo(() => {

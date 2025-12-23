@@ -272,8 +272,14 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
   }
 
   const getTypeLabel = (type: string) => {
+    if (type.startsWith('fixture-')) {
+      // Format fixture types: 'fixture-16ft-power-entry' -> '16ft Power Entry'
+      const parts = type.replace('fixture-', '').split('-')
+      const size = parts[0].toUpperCase()
+      const category = parts.slice(1).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')
+      return `${size} ${category}`
+    }
     switch (type) {
-      case 'fixture': return 'Lighting Fixture'
       case 'motion': return 'Motion Sensor'
       case 'light-sensor': return 'Light Sensor'
       default: return type

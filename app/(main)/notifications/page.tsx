@@ -12,6 +12,7 @@
 import { useState, useMemo } from 'react'
 import { useNotifications, NotificationType } from '@/lib/NotificationContext'
 import { useRouter } from 'next/navigation'
+import { SearchIsland } from '@/components/layout/SearchIsland'
 import { AlertTriangle, Layers, Network, Workflow, Search, Home, X, CheckCheck, Mail, ArrowUpDown, Clock, Filter, Sparkles, List, Grid3x3, LayoutGrid } from 'lucide-react'
 import Link from 'next/link'
 
@@ -42,6 +43,7 @@ export default function NotificationsPage() {
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const [sortBy, setSortBy] = useState<SortOption>('newest')
   const [layout, setLayout] = useState<LayoutOption>('grid')
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Import generateRandomNotification from context (we'll need to export it)
   const handleGenerateRandom = () => {
@@ -127,6 +129,19 @@ export default function NotificationsPage() {
       ? notifications.filter(n => !n.read)
       : notifications
     
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim()
+      filtered = filtered.filter(notification => {
+        const searchableText = [
+          notification.title,
+          notification.message,
+          notification.type,
+        ].filter(Boolean).join(' ').toLowerCase()
+        return searchableText.includes(query)
+      })
+    }
+    
     // Sort notifications
     const sorted = [...filtered].sort((a, b) => {
       switch (sortBy) {
@@ -145,7 +160,7 @@ export default function NotificationsPage() {
     })
     
     return sorted
-  }, [notifications, filter, sortBy])
+  }, [notifications, filter, sortBy, searchQuery])
 
   // Determine card size and styling based on content and position
   const getCardSize = (notification: any, index: number) => {
@@ -186,15 +201,23 @@ export default function NotificationsPage() {
 
   return (
     <div className="h-full flex flex-col min-h-0 pb-2 overflow-visible">
-      {/* Header */}
-      <div className="px-[20px] pt-4 pb-4 border-b border-[var(--color-border-subtle)]">
+      {/* Top Search Island */}
+      <div className="flex-shrink-0 px-[20px] pt-4 pb-3">
+        <SearchIsland 
+          position="top" 
+          fullWidth={true}
+          title="Notifications"
+          subtitle={unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
+          placeholder="Search notifications..."
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+        />
+      </div>
+      
+      {/* Header Controls */}
+      <div className="px-[20px] pb-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-[var(--color-text)]">Notifications</h1>
-            <p className="text-sm text-[var(--color-text-muted)] mt-1">
-              {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
-            </p>
-          </div>
+          <div className="flex-1">
           <div className="flex items-center gap-3">
             {/* Layout Toggle */}
             <div className="flex items-center gap-1 bg-[var(--color-surface-subtle)] rounded-lg p-1">

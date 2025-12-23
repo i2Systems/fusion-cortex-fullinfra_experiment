@@ -33,49 +33,49 @@ model Site {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  devices       Device[]
-  zones         Zone[]
+  devices Device[]
+  zones   Zone[]
 }
 
 model Device {
-  id            String   @id @default(cuid())
-  serialNumber  String   @unique
-  deviceId      String   // User-facing ID (e.g., "765")
-  type          DeviceType
-  status        DeviceStatus @default(OFFLINE)
-  
+  id           String       @id @default(cuid())
+  serialNumber String       @unique
+  deviceId     String // User-facing ID (e.g., "765")
+  type         DeviceType
+  status       DeviceStatus @default(OFFLINE)
+
   // Location (for map rendering)
-  x             Float?
-  y             Float?
-  
+  x Float?
+  y Float?
+
   // Device properties
-  signal        Int?     // Signal strength
-  battery       Int?     // Battery level (if applicable)
-  
+  signal  Int? // Signal strength
+  battery Int? // Battery level (if applicable)
+
   // I2QR data
-  buildDate     DateTime?
-  cct           Int?     // Color temperature
+  buildDate      DateTime?
+  cct            Int? // Color temperature
   warrantyStatus String?
   warrantyExpiry DateTime? // Warranty expiration date
-  partsList     Json?    // Parts list as JSON
-  
+  partsList      Json? // Parts list as JSON
+
   // Parent-child relationships (for components)
-  parentId      String?  // Parent device ID (null for top-level devices like fixtures)
-  parent        Device?  @relation("DeviceComponents", fields: [parentId], references: [id], onDelete: Cascade)
-  components    Device[] @relation("DeviceComponents")
-  
+  parentId   String? // Parent device ID (null for top-level devices like fixtures)
+  parent     Device?  @relation("DeviceComponents", fields: [parentId], references: [id], onDelete: Cascade)
+  components Device[] @relation("DeviceComponents")
+
   // Component-specific fields
-  componentType String?  // e.g., "LED Module", "Driver", "Lens", "Mounting Bracket"
+  componentType         String? // e.g., "LCM", "Driver Board", "Power Supply", "LED Board", "Metal Bracket", "Cable Harness", "Lower LED Housing with Optic", "Sensor"
   componentSerialNumber String? // Serial number for the component itself
-  
+
   // Relationships
-  siteId        String
-  site          Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteId          String
+  site            Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
   zoneMemberships ZoneDevice[]
-  faults        Fault[]
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  faults          Fault[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([siteId])
   @@index([serialNumber])
@@ -84,7 +84,12 @@ model Device {
 }
 
 enum DeviceType {
-  FIXTURE
+  FIXTURE_16FT_POWER_ENTRY
+  FIXTURE_12FT_POWER_ENTRY
+  FIXTURE_8FT_POWER_ENTRY
+  FIXTURE_16FT_FOLLOWER
+  FIXTURE_12FT_FOLLOWER
+  FIXTURE_8FT_FOLLOWER
   MOTION_SENSOR
   LIGHT_SENSOR
 }
@@ -97,27 +102,27 @@ enum DeviceStatus {
 }
 
 model Zone {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
-  color       String   @default("#4c7dff") // Hex color for visualization
+  color       String  @default("#4c7dff") // Hex color for visualization
   description String?
-  
+
   // Zone shape/geometry (normalized coordinates 0-1)
-  polygon     Json?    // Array of {x: number, y: number} points
-  
+  polygon Json? // Array of {x: number, y: number} points
+
   // Daylight settings
   daylightEnabled Boolean @default(false)
-  minDaylight     Int?     // Minimum fc level
-  
+  minDaylight     Int? // Minimum fc level
+
   // Relationships
-  siteId      String
-  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  devices     ZoneDevice[]
+  siteId        String
+  site          Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  devices       ZoneDevice[]
   bacnetMapping BACnetMapping?
-  rules       Rule[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  rules         Rule[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([siteId])
 }
@@ -135,15 +140,15 @@ model ZoneDevice {
 }
 
 model BACnetMapping {
-  id            String   @id @default(cuid())
-  zoneId        String   @unique
-  zone          Zone     @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  id             String       @id @default(cuid())
+  zoneId         String       @unique
+  zone           Zone         @relation(fields: [zoneId], references: [id], onDelete: Cascade)
   bacnetObjectId String?
-  status        BACnetStatus @default(NOT_ASSIGNED)
-  lastConnected DateTime?
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  status         BACnetStatus @default(NOT_ASSIGNED)
+  lastConnected  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum BACnetStatus {
@@ -153,48 +158,48 @@ enum BACnetStatus {
 }
 
 model Rule {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
   description String?
-  
+
   // Rule definition (Alexa-style)
-  trigger     String   // e.g., "motion", "no_motion", "daylight", "bms"
-  condition   Json     // Condition parameters as JSON
-  action      Json     // Action parameters as JSON
-  
+  trigger   String // e.g., "motion", "no_motion", "daylight", "bms"
+  condition Json // Condition parameters as JSON
+  action    Json // Action parameters as JSON
+
   // Override settings
-  overrideBMS Boolean  @default(false)
-  duration    Int?     // Duration in minutes (if applicable)
-  
+  overrideBMS Boolean @default(false)
+  duration    Int? // Duration in minutes (if applicable)
+
   // Relationships
   zoneId      String?
   zone        Zone?    @relation(fields: [zoneId], references: [id], onDelete: SetNull)
   targetZones String[] // Array of zone IDs this rule affects
-  
-  enabled     Boolean  @default(true)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+
+  enabled Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([zoneId])
 }
 
 model Fault {
-  id          String   @id @default(cuid())
-  deviceId    String
-  device      Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  
-  faultType   String   // FaultCategory as string
+  id       String @id @default(cuid())
+  deviceId String
+  device   Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  faultType   String // FaultCategory as string
   description String
-  
+
   // Status
-  resolved    Boolean  @default(false)
-  resolvedAt  DateTime?
-  
-  detectedAt  DateTime @default(now())
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  resolved   Boolean   @default(false)
+  resolvedAt DateTime?
+
+  detectedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([deviceId])
   @@index([resolved])
@@ -226,4 +231,3 @@ model Fault {
 //   FAILED
 //   STOPPED
 // }
-

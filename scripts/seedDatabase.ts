@@ -17,6 +17,29 @@
 
 import { PrismaClient, DeviceType, DeviceStatus, BACnetStatus } from '@prisma/client'
 
+// Helper to check if a DeviceType is a fixture (any of the 6 fixture types)
+function isFixtureDeviceType(type: DeviceType): boolean {
+  return type === DeviceType.FIXTURE_16FT_POWER_ENTRY ||
+         type === DeviceType.FIXTURE_12FT_POWER_ENTRY ||
+         type === DeviceType.FIXTURE_8FT_POWER_ENTRY ||
+         type === DeviceType.FIXTURE_16FT_FOLLOWER ||
+         type === DeviceType.FIXTURE_12FT_FOLLOWER ||
+         type === DeviceType.FIXTURE_8FT_FOLLOWER
+}
+
+// Helper to get a random fixture type for seeding
+function getRandomFixtureType(): DeviceType {
+  const fixtureTypes = [
+    DeviceType.FIXTURE_16FT_POWER_ENTRY,
+    DeviceType.FIXTURE_12FT_POWER_ENTRY,
+    DeviceType.FIXTURE_8FT_POWER_ENTRY,
+    DeviceType.FIXTURE_16FT_FOLLOWER,
+    DeviceType.FIXTURE_12FT_FOLLOWER,
+    DeviceType.FIXTURE_8FT_FOLLOWER,
+  ]
+  return fixtureTypes[Math.floor(Math.random() * fixtureTypes.length)]
+}
+
 const prisma = new PrismaClient()
 
 // Store configurations with unique characteristics
@@ -207,42 +230,45 @@ const ZONE_TEMPLATES = {
 }
 
 // Generate device components for a fixture
+// Real component types with quantities:
+// - LCM (1), Driver Board (1), Power Supply (2), LED Board (4), 
+// - Metal Bracket (2), Cable Harness (2), Lower LED Housing with Optic (4), Sensor (2)
 function generateComponents(deviceId: string, serialNumber: string, buildDate: Date) {
-  const components = [
-    {
-      deviceId: `${deviceId}-led-module`,
-      serialNumber: `${serialNumber}-LED-01`,
-      type: DeviceType.FIXTURE,
-      status: DeviceStatus.ONLINE,
-      componentType: 'LED Module',
-      componentSerialNumber: `${serialNumber}-LED-01`,
-      buildDate,
-      warrantyStatus: 'Active',
-      warrantyExpiry: new Date(buildDate.getTime() + 5 * 365 * 24 * 60 * 60 * 1000), // 5 years
-    },
-    {
-      deviceId: `${deviceId}-driver`,
-      serialNumber: `${serialNumber}-DRV-01`,
-      type: DeviceType.FIXTURE,
-      status: DeviceStatus.ONLINE,
-      componentType: 'Driver',
-      componentSerialNumber: `${serialNumber}-DRV-01`,
-      buildDate,
-      warrantyStatus: 'Active',
-      warrantyExpiry: new Date(buildDate.getTime() + 5 * 365 * 24 * 60 * 60 * 1000),
-    },
-    {
-      deviceId: `${deviceId}-lens`,
-      serialNumber: `${serialNumber}-LNS-01`,
-      type: DeviceType.FIXTURE,
-      status: DeviceStatus.ONLINE,
-      componentType: 'Lens',
-      componentSerialNumber: `${serialNumber}-LNS-01`,
-      buildDate,
-      warrantyStatus: 'Active',
-      warrantyExpiry: new Date(buildDate.getTime() + 3 * 365 * 24 * 60 * 60 * 1000), // 3 years
-    },
+  const componentSpecs: Array<{ type: string; quantity: number; code: string }> = [
+    { type: 'LCM', quantity: 1, code: 'LCM' },
+    { type: 'Driver Board', quantity: 1, code: 'DRB' },
+    { type: 'Power Supply', quantity: 2, code: 'PWR' },
+    { type: 'LED Board', quantity: 4, code: 'LED' },
+    { type: 'Metal Bracket', quantity: 2, code: 'MTB' },
+    { type: 'Cable Harness', quantity: 2, code: 'CAB' },
+    { type: 'Lower LED Housing with Optic', quantity: 4, code: 'HOU' },
+    { type: 'Sensor', quantity: 2, code: 'SEN' },
   ]
+  
+  const components: any[] = []
+  
+  for (const spec of componentSpecs) {
+    for (let instance = 1; instance <= spec.quantity; instance++) {
+      const componentType = spec.quantity > 1 
+        ? `${spec.type} ${instance}` 
+        : spec.type
+      
+      const instanceCode = spec.quantity > 1 ? String(instance).padStart(2, '0') : '01'
+      const componentSerial = `${serialNumber}-${spec.code}${instanceCode}-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`
+      
+      components.push({
+        deviceId: `${deviceId}-${spec.code.toLowerCase()}-${instanceCode}`,
+        serialNumber: componentSerial,
+        type: DeviceType.FIXTURE_16FT_POWER_ENTRY,
+        status: DeviceStatus.ONLINE,
+        componentType: componentType,
+        componentSerialNumber: componentSerial,
+        buildDate,
+        warrantyStatus: 'Active',
+        warrantyExpiry: new Date(buildDate.getTime() + 5 * 365 * 24 * 60 * 60 * 1000), // 5 years
+      })
+    }
+  }
   return components
 }
 
@@ -289,16 +315,16 @@ function generateDevicesForZone(
       status,
       x,
       y,
-      signal: deviceType === DeviceType.FIXTURE ? undefined : Math.floor(Math.random() * 40) + 50,
-      battery: deviceType !== DeviceType.FIXTURE ? Math.floor(Math.random() * 40) + 60 : undefined,
+      signal: isFixtureDeviceType(deviceType) ? undefined : Math.floor(Math.random() * 40) + 50,
+      battery: !isFixtureDeviceType(deviceType) ? Math.floor(Math.random() * 40) + 60 : undefined,
       buildDate,
-      cct: deviceType === DeviceType.FIXTURE ? 4000 : undefined,
+      cct: isFixtureDeviceType(deviceType) ? 4000 : undefined,
       warrantyStatus: 'Active',
       warrantyExpiry: new Date(buildDate.getTime() + 5 * 365 * 24 * 60 * 60 * 1000),
       siteId,
     }
     
-    const components = deviceType === DeviceType.FIXTURE 
+    const components = isFixtureDeviceType(deviceType) 
       ? generateComponents(deviceId, serialNumber, buildDate)
       : []
     
@@ -323,7 +349,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
     groceryZone.name,
     groceryZone.polygon,
     storeConfig.characteristics.grocerySize === 'large' ? 45 : 30,
-    DeviceType.FIXTURE,
+    getRandomFixtureType(),
     deviceCounter
   )
   deviceCounter += groceryDevices.length
@@ -336,7 +362,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
     produceZone.name,
     produceZone.polygon,
     12,
-    DeviceType.FIXTURE,
+    getRandomFixtureType(),
     deviceCounter
   )
   deviceCounter += produceDevices.length
@@ -349,7 +375,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
     meatZone.name,
     meatZone.polygon,
     8,
-    DeviceType.FIXTURE,
+    getRandomFixtureType(),
     deviceCounter
   )
   deviceCounter += meatDevices.length
@@ -363,7 +389,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
       deliZone.name,
       deliZone.polygon,
       6,
-      DeviceType.FIXTURE,
+      getRandomFixtureType(),
       deviceCounter
     )
     deviceCounter += deliDevices.length
@@ -378,7 +404,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
       bakeryZone.name,
       bakeryZone.polygon,
       6,
-      DeviceType.FIXTURE,
+      getRandomFixtureType(),
       deviceCounter
     )
     deviceCounter += bakeryDevices.length
@@ -392,7 +418,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
     apparelZone.name,
     apparelZone.polygon,
     25,
-    DeviceType.FIXTURE,
+    getRandomFixtureType(),
     deviceCounter
   )
   deviceCounter += apparelDevices.length
@@ -405,7 +431,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
     homeZone.name,
     homeZone.polygon,
     20,
-    DeviceType.FIXTURE,
+    getRandomFixtureType(),
     deviceCounter
   )
   deviceCounter += homeDevices.length
@@ -418,7 +444,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
     electronicsZone.name,
     electronicsZone.polygon,
     18,
-    DeviceType.FIXTURE,
+    getRandomFixtureType(),
     deviceCounter
   )
   deviceCounter += electronicsDevices.length
@@ -431,7 +457,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
     toysZone.name,
     toysZone.polygon,
     22,
-    DeviceType.FIXTURE,
+    getRandomFixtureType(),
     deviceCounter
   )
   deviceCounter += toysDevices.length
@@ -444,7 +470,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
     lobbyZone.name,
     lobbyZone.polygon,
     8,
-    DeviceType.FIXTURE,
+    getRandomFixtureType(),
     deviceCounter
   )
   deviceCounter += lobbyDevices.length
