@@ -14,7 +14,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react'
 import { Device } from './mockData'
-import { useStore, useEnsureSite } from './StoreContext'
+import { useStore } from './StoreContext'
 import { trpc } from './trpc/client'
 
 interface DeviceContextType {
@@ -38,13 +38,11 @@ interface DeviceContextType {
 const DeviceContext = createContext<DeviceContextType | undefined>(undefined)
 
 export function DeviceProvider({ children }: { children: ReactNode }) {
-  const { activeStoreId, activeStore } = useStore()
+  const { activeStoreId, activeStore, ensureSite } = useStore()
   const [devices, setDevices] = useState<Device[]>([])
   const [history, setHistory] = useState<Device[][]>([[]])
   const [historyIndex, setHistoryIndex] = useState(0)
 
-  // Use shared deduplication hook for ensuring sites
-  const ensureSite = useEnsureSite()
   const ensuredStoreIdRef = useRef<string | null>(null)
   
   // Fetch devices from database

@@ -36,6 +36,19 @@ interface StoreContextType {
   addStore: (store: Omit<Store, 'id'>) => Store
   updateStore: (storeId: string, updates: Partial<Omit<Store, 'id'>>) => void
   removeStore: (storeId: string) => void
+  ensureSite: (siteData: {
+    id: string
+    name: string
+    storeNumber?: string
+    address?: string
+    city?: string
+    state?: string
+    zipCode?: string
+    phone?: string
+    manager?: string
+    squareFootage?: number
+    openedDate?: Date
+  }) => Promise<any>
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined)
@@ -181,6 +194,9 @@ const DEFAULT_STORES: Store[] = [
 ]
 
 export function StoreProvider({ children }: { children: ReactNode }) {
+  // Get the shared ensureSite function with deduplication
+  const ensureSite = useEnsureSite()
+  
   // Fetch sites from database
   const { data: sitesData, refetch: refetchSites } = trpc.site.list.useQuery(undefined, {
     refetchOnWindowFocus: false,
@@ -454,6 +470,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addStore,
         updateStore,
         removeStore,
+        ensureSite,
       }}
     >
       {children}

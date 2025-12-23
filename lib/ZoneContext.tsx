@@ -11,7 +11,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react'
 import { Device } from './mockData'
-import { useStore, useEnsureSite } from './StoreContext'
+import { useStore } from './StoreContext'
 import { trpc } from './trpc/client'
 
 export interface Zone {
@@ -56,11 +56,9 @@ function pointInPolygon(point: { x: number; y: number }, polygon: Array<{ x: num
 }
 
 export function ZoneProvider({ children }: { children: ReactNode }) {
-  const { activeStoreId, activeStore } = useStore()
+  const { activeStoreId, activeStore, ensureSite } = useStore()
   const [zones, setZones] = useState<Zone[]>([])
 
-  // Use shared deduplication hook for ensuring sites
-  const ensureSite = useEnsureSite()
   const ensuredStoreIdRef = useRef<string | null>(null)
 
   // Fetch zones from database
