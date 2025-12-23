@@ -53,15 +53,81 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined)
 
-// Global deduplication for ensureExists calls across all contexts
+// Global deduplication and queue for ensureExists calls
 // This prevents multiple contexts from calling ensureExists for the same site ID simultaneously
+// AND prevents multiple different sites from being batched together
 const globalEnsuringSites = new Set<string>()
 const globalEnsurePromises = new Map<string, Promise<any>>()
+const ensureQueue: Array<{
+  siteData: any
+  resolve: (value: any) => void
+  reject: (error: any) => void
+}> = []
+let isProcessingQueue = false
 
 /**
- * Global utility to ensure a site exists, with deduplication
+ * Process the ensureSite queue sequentially to prevent batching
+ */
+async function processEnsureQueue(mutation: any) {
+  if (isProcessingQueue || ensureQueue.length === 0) return
+  
+  isProcessingQueue = true
+  
+  while (ensureQueue.length > 0) {
+    const item = ensureQueue.shift()
+    if (!item) break
+    
+    const { siteData, resolve, reject } = item
+    const siteId = siteData.id
+    
+    // Double-check deduplication (in case it was added while processing)
+    if (globalEnsuringSites.has(siteId)) {
+      const existingPromise = globalEnsurePromises.get(siteId)
+      if (existingPromise) {
+        existingPromise.then(resolve).catch(reject)
+        continue
+      }
+    }
+    
+    // Mark as being ensured
+    globalEnsuringSites.add(siteId)
+    
+    // Create promise for this call
+    const promise = new Promise((res, rej) => {
+      mutation.mutate(siteData, {
+        onSuccess: (result: any) => {
+          globalEnsuringSites.delete(siteId)
+          globalEnsurePromises.delete(siteId)
+          res(result)
+        },
+        onError: (error: any) => {
+          globalEnsuringSites.delete(siteId)
+          globalEnsurePromises.delete(siteId)
+          rej(error)
+        },
+      })
+    })
+    
+    globalEnsurePromises.set(siteId, promise)
+    
+    try {
+      const result = await promise
+      resolve(result)
+    } catch (error) {
+      reject(error)
+    }
+    
+    // Small delay between calls to prevent batching
+    await new Promise(resolve => setTimeout(resolve, 50))
+  }
+  
+  isProcessingQueue = false
+}
+
+/**
+ * Global utility to ensure a site exists, with deduplication and queueing
  * This prevents multiple contexts from making duplicate calls
- * Uses synchronous checks to prevent race conditions
+ * AND prevents multiple different sites from being batched together
  */
 export function useEnsureSite() {
   const ensureSiteMutation = trpc.site.ensureExists.useMutation()
@@ -89,12 +155,7 @@ export function useEnsureSite() {
       }
     }
     
-    // Atomically mark as being ensured and create promise
-    // This prevents race conditions where multiple contexts check at the same time
-    globalEnsuringSites.add(siteId)
-    
-    // Create the promise and store it BEFORE calling mutate
-    // This ensures other contexts see the promise immediately
+    // Create promise for this call
     let resolvePromise: (value: any) => void
     let rejectPromise: (error: any) => void
     
@@ -103,21 +164,17 @@ export function useEnsureSite() {
       rejectPromise = reject
     })
     
-    // Store promise immediately so other contexts can find it
-    globalEnsurePromises.set(siteId, promise)
+    // Add to queue instead of calling immediately
+    // This prevents multiple sites from being batched together
+    ensureQueue.push({
+      siteData,
+      resolve: resolvePromise!,
+      reject: rejectPromise!,
+    })
     
-    // Now call mutate - if another context checks now, they'll get this promise
-    ensureSiteMutation.mutate(siteData, {
-      onSuccess: (result) => {
-        globalEnsuringSites.delete(siteId)
-        globalEnsurePromises.delete(siteId)
-        resolvePromise!(result)
-      },
-      onError: (error) => {
-        globalEnsuringSites.delete(siteId)
-        globalEnsurePromises.delete(siteId)
-        rejectPromise!(error)
-      },
+    // Process queue (will handle deduplication and sequential processing)
+    processEnsureQueue(ensureSiteMutation).catch(error => {
+      console.error('Error processing ensure queue:', error)
     })
     
     return promise
