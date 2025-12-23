@@ -58,6 +58,47 @@ export const zoneRouter = router({
           code: error.code,
           siteId: input.siteId,
         })
+        
+        // Handle prepared statement errors with retry
+        if (error.code === '26000' || error.message?.includes('prepared statement')) {
+          console.log('Retrying zone.list after prepared statement error...')
+          await new Promise(resolve => setTimeout(resolve, 200))
+          
+          try {
+            const zones = await prisma.zone.findMany({
+              where: {
+                siteId: input.siteId,
+              },
+              include: {
+                devices: {
+                  include: {
+                    device: true,
+                  },
+                },
+              },
+              orderBy: {
+                createdAt: 'asc',
+              },
+            })
+            
+            return zones.map(zone => ({
+              id: zone.id,
+              name: zone.name,
+              color: zone.color,
+              description: zone.description,
+              polygon: zone.polygon as Array<{ x: number; y: number }> | null,
+              deviceIds: zone.devices.map(zd => zd.deviceId),
+              daylightEnabled: zone.daylightEnabled,
+              minDaylight: zone.minDaylight,
+              createdAt: zone.createdAt,
+              updatedAt: zone.updatedAt,
+            }))
+          } catch (retryError: any) {
+            console.error('Retry also failed:', retryError)
+            return []
+          }
+        }
+        
         // Return empty array on error to prevent UI crashes
         return []
       }

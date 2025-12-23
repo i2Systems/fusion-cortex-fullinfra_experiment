@@ -169,6 +169,54 @@ export const siteRouter = router({
           input: input,
         })
         
+        // Handle prepared statement errors with retry
+        if (error.code === '26000' || error.message?.includes('prepared statement')) {
+          console.log('Retrying site.ensureExists after prepared statement error...')
+          await new Promise(resolve => setTimeout(resolve, 200))
+          
+          try {
+            const existing = await prisma.site.findUnique({
+              where: { id: input.id },
+            })
+
+            if (existing) {
+              return existing
+            }
+
+            if (input.storeNumber) {
+              const byStoreNumber = await prisma.site.findFirst({
+                where: { storeNumber: input.storeNumber },
+              })
+              if (byStoreNumber) {
+                return byStoreNumber
+              }
+            }
+
+            const siteData: any = {
+              id: input.id,
+              name: input.name,
+            }
+            
+            if (input.storeNumber !== undefined) siteData.storeNumber = input.storeNumber
+            if (input.address !== undefined) siteData.address = input.address
+            if (input.city !== undefined) siteData.city = input.city
+            if (input.state !== undefined) siteData.state = input.state
+            if (input.zipCode !== undefined) siteData.zipCode = input.zipCode
+            if (input.phone !== undefined) siteData.phone = input.phone
+            if (input.manager !== undefined) siteData.manager = input.manager
+            if (input.squareFootage !== undefined) siteData.squareFootage = input.squareFootage
+            if (input.openedDate !== undefined) siteData.openedDate = input.openedDate
+
+            const site = await prisma.site.create({
+              data: siteData,
+            })
+            return site
+          } catch (retryError: any) {
+            console.error('Retry also failed:', retryError)
+            // Fall through to other error handling
+          }
+        }
+        
         // If it's a unique constraint violation, try to find the existing site
         if (error.code === 'P2002') {
           try {
