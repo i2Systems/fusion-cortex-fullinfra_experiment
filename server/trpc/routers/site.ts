@@ -11,12 +11,21 @@ import { prisma } from '@/lib/prisma'
 
 export const siteRouter = router({
   list: publicProcedure.query(async () => {
-    const sites = await prisma.site.findMany({
-      orderBy: {
-        createdAt: 'asc',
-      },
-    })
-    return sites
+    try {
+      const sites = await prisma.site.findMany({
+        orderBy: {
+          createdAt: 'asc',
+        },
+      })
+      return sites
+    } catch (error: any) {
+      console.error('Error in site.list:', {
+        message: error.message,
+        code: error.code,
+      })
+      // Return empty array on error to prevent UI crashes
+      return []
+    }
   }),
 
   getById: publicProcedure

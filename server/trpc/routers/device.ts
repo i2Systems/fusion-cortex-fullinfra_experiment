@@ -241,44 +241,105 @@ export const deviceRouter = router({
       })).optional(),
     }))
     .mutation(async ({ input }) => {
-      const { components, ...deviceData } = input
+      try {
+        const { components, ...deviceData } = input
 
-      const device = await prisma.device.create({
-        data: {
-          siteId: deviceData.siteId,
-          deviceId: deviceData.deviceId,
-          serialNumber: deviceData.serialNumber,
-          type: toPrismaDeviceType(deviceData.type),
-          status: toPrismaDeviceStatus(deviceData.status || 'offline'),
-          signal: deviceData.signal,
-          battery: deviceData.battery,
-          x: deviceData.x,
-          y: deviceData.y,
-          warrantyStatus: deviceData.warrantyStatus,
-          warrantyExpiry: deviceData.warrantyExpiry,
-          components: components
-            ? {
-                create: components.map(comp => ({
-                  siteId: deviceData.siteId,
-                  deviceId: `${deviceData.deviceId}-${comp.componentType}`,
-                  serialNumber: comp.componentSerialNumber,
-                  type: DeviceType.FIXTURE, // Components are typically fixtures
-                  status: DeviceStatus.ONLINE,
-                  componentType: comp.componentType,
-                  componentSerialNumber: comp.componentSerialNumber,
-                  warrantyStatus: comp.warrantyStatus,
-                  warrantyExpiry: comp.warrantyExpiry,
-                  buildDate: comp.buildDate,
-                })),
-              }
-            : undefined,
-        },
-        include: {
-          components: true,
-        },
-      })
+        const device = await prisma.device.create({
+          data: {
+            siteId: deviceData.siteId,
+            deviceId: deviceData.deviceId,
+            serialNumber: deviceData.serialNumber,
+            type: toPrismaDeviceType(deviceData.type),
+            status: toPrismaDeviceStatus(deviceData.status || 'offline'),
+            signal: deviceData.signal,
+            battery: deviceData.battery,
+            x: deviceData.x,
+            y: deviceData.y,
+            warrantyStatus: deviceData.warrantyStatus,
+            warrantyExpiry: deviceData.warrantyExpiry,
+            components: components
+              ? {
+                  create: components.map(comp => ({
+                    siteId: deviceData.siteId,
+                    deviceId: `${deviceData.deviceId}-${comp.componentType}`,
+                    serialNumber: comp.componentSerialNumber,
+                    type: DeviceType.FIXTURE, // Components are typically fixtures
+                    status: DeviceStatus.ONLINE,
+                    componentType: comp.componentType,
+                    componentSerialNumber: comp.componentSerialNumber,
+                    warrantyStatus: comp.warrantyStatus,
+                    warrantyExpiry: comp.warrantyExpiry,
+                    buildDate: comp.buildDate,
+                  })),
+                }
+              : undefined,
+          },
+          include: {
+            components: true,
+          },
+        })
 
-      return transformDevice(device)
+        return transformDevice(device)
+      } catch (error: any) {
+        console.error('Error in device.create:', {
+          message: error.message,
+          code: error.code,
+          meta: error.meta,
+          input: input,
+        })
+        
+        // Handle prepared statement conflicts by retrying once
+        if (error.code === '42P05' || error.message?.includes('prepared statement')) {
+          console.log('Retrying device.create after prepared statement conflict...')
+          // Wait a bit and retry
+          await new Promise(resolve => setTimeout(resolve, 100))
+          
+          try {
+            const { components, ...deviceData } = input
+            const device = await prisma.device.create({
+              data: {
+                siteId: deviceData.siteId,
+                deviceId: deviceData.deviceId,
+                serialNumber: deviceData.serialNumber,
+                type: toPrismaDeviceType(deviceData.type),
+                status: toPrismaDeviceStatus(deviceData.status || 'offline'),
+                signal: deviceData.signal,
+                battery: deviceData.battery,
+                x: deviceData.x,
+                y: deviceData.y,
+                warrantyStatus: deviceData.warrantyStatus,
+                warrantyExpiry: deviceData.warrantyExpiry,
+                components: components
+                  ? {
+                      create: components.map(comp => ({
+                        siteId: deviceData.siteId,
+                        deviceId: `${deviceData.deviceId}-${comp.componentType}`,
+                        serialNumber: comp.componentSerialNumber,
+                        type: DeviceType.FIXTURE,
+                        status: DeviceStatus.ONLINE,
+                        componentType: comp.componentType,
+                        componentSerialNumber: comp.componentSerialNumber,
+                        warrantyStatus: comp.warrantyStatus,
+                        warrantyExpiry: comp.warrantyExpiry,
+                        buildDate: comp.buildDate,
+                      })),
+                    }
+                  : undefined,
+              },
+              include: {
+                components: true,
+              },
+            })
+            return transformDevice(device)
+          } catch (retryError: any) {
+            console.error('Retry also failed:', retryError)
+            throw new Error(`Failed to create device: ${retryError.message || 'Unknown error'}`)
+          }
+        }
+        
+        // Re-throw other errors
+        throw new Error(`Failed to create device: ${error.message || 'Unknown error'}`)
+      }
     }),
 
   update: publicProcedure
