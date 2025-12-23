@@ -26,17 +26,15 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
   const [trpcClient] = useState(() =>
     trpc.createClient({
       links: [
-        // Split link: use non-batched link for site.ensureExists, batched for everything else
+        // Split link: use non-batched link for mutations, batched for queries
+        // This ensures ensureExists and other mutations are never batched
         splitLink({
           condition: (op) => {
-            // Use non-batched link for site.ensureExists mutations
-            // Check both the path and type to be sure
-            const isEnsureExists = op.type === 'mutation' && 
-              (op.path === 'site.ensureExists' || 
-               (typeof op.path === 'string' && op.path.includes('site.ensureExists')))
+            // Use non-batched link for ALL mutations to prevent batching issues
+            const isMutation = op.type === 'mutation'
             
-            // Log for debugging in production
-            if (isEnsureExists && typeof window !== 'undefined') {
+            // Log ensureExists calls for debugging
+            if (isMutation && op.path === 'site.ensureExists' && typeof window !== 'undefined') {
               console.log('[tRPC] Routing site.ensureExists to non-batched link', {
                 type: op.type,
                 path: op.path,
@@ -44,19 +42,17 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
               })
             }
             
-            return isEnsureExists
+            return isMutation
           },
-          // Non-batched link for ensureExists
+          // Non-batched link for mutations (including ensureExists)
           true: httpLink({
             url: `${getBaseUrl()}/api/trpc`,
             transformer: superjson,
           }),
-          // Batched link for everything else
+          // Batched link for queries only
           false: httpBatchLink({
             url: `${getBaseUrl()}/api/trpc`,
             transformer: superjson,
-            // Increase maxBatchSize to prevent accidental batching
-            maxBatchSize: 1, // Actually, let's disable batching entirely for now
           }),
         }),
       ],
