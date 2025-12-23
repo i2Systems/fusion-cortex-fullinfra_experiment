@@ -62,13 +62,15 @@ const ensureQueue: Array<{
   siteData: any
   resolve: (value: any) => void
   reject: (error: any) => void
+  mutation: any
 }> = []
 let isProcessingQueue = false
+let queueProcessingTimeout: NodeJS.Timeout | null = null
 
 /**
  * Process the ensureSite queue sequentially to prevent batching
  */
-async function processEnsureQueue(mutation: any) {
+async function processEnsureQueue() {
   if (isProcessingQueue || ensureQueue.length === 0) return
   
   isProcessingQueue = true
@@ -77,7 +79,7 @@ async function processEnsureQueue(mutation: any) {
     const item = ensureQueue.shift()
     if (!item) break
     
-    const { siteData, resolve, reject } = item
+    const { siteData, resolve, reject, mutation } = item
     const siteId = siteData.id
     
     // Double-check deduplication (in case it was added while processing)
@@ -118,10 +120,22 @@ async function processEnsureQueue(mutation: any) {
     }
     
     // Small delay between calls to prevent batching
-    await new Promise(resolve => setTimeout(resolve, 50))
+    await new Promise(resolve => setTimeout(resolve, 100))
   }
   
   isProcessingQueue = false
+}
+
+/**
+ * Schedule queue processing with debounce
+ */
+function scheduleQueueProcessing() {
+  if (queueProcessingTimeout) {
+    clearTimeout(queueProcessingTimeout)
+  }
+  queueProcessingTimeout = setTimeout(() => {
+    processEnsureQueue()
+  }, 10) // Small delay to batch rapid calls
 }
 
 /**
@@ -170,12 +184,11 @@ export function useEnsureSite() {
       siteData,
       resolve: resolvePromise!,
       reject: rejectPromise!,
+      mutation: ensureSiteMutation,
     })
     
-    // Process queue (will handle deduplication and sequential processing)
-    processEnsureQueue(ensureSiteMutation).catch(error => {
-      console.error('Error processing ensure queue:', error)
-    })
+    // Schedule queue processing (debounced to batch rapid calls)
+    scheduleQueueProcessing()
     
     return promise
   }, [ensureSiteMutation])
