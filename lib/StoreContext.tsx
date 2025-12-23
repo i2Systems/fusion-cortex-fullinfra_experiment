@@ -124,6 +124,11 @@ async function processEnsureQueue() {
   }
   
   isProcessingQueue = false
+  
+  // If more items were added while processing, schedule another run
+  if (ensureQueue.length > 0) {
+    scheduleQueueProcessing()
+  }
 }
 
 /**
