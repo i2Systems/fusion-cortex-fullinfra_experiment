@@ -119,8 +119,9 @@ async function processEnsureQueue() {
       reject(error)
     }
     
-    // Small delay between calls to prevent batching
-    await new Promise(resolve => setTimeout(resolve, 100))
+    // Longer delay between calls to prevent batching
+    // This ensures each mutation is in a different tick
+    await new Promise(resolve => setTimeout(resolve, 250))
   }
   
   isProcessingQueue = false
@@ -284,19 +285,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Ensure all default sites exist in database on mount
   // Use the deduplicated ensureSite function to prevent duplicate calls
+  // Process sites one at a time with delays to prevent batching
   useEffect(() => {
     if (!sitesData) return
 
-    // Check which default sites are missing
-    DEFAULT_STORES.forEach(defaultStore => {
+    // Find which default sites are missing
+    const missingStores = DEFAULT_STORES.filter(defaultStore => {
       const exists = sitesData.some(site => site.id === defaultStore.id)
       const alreadyEnsured = ensuredSitesRef.current.has(defaultStore.id)
+      return !exists && !alreadyEnsured
+    })
+
+    if (missingStores.length === 0) return
+
+    // Process missing stores one at a time with delays to prevent batching
+    missingStores.forEach((defaultStore, index) => {
+      // Mark as being ensured immediately to prevent duplicate calls
+      ensuredSitesRef.current.add(defaultStore.id)
       
-      if (!exists && !alreadyEnsured) {
-        // Mark as being ensured to prevent duplicate calls
-        ensuredSitesRef.current.add(defaultStore.id)
-        
-        // Use the deduplicated ensureSite function
+      // Stagger the calls with increasing delays to prevent batching
+      setTimeout(() => {
         ensureSite({
           id: defaultStore.id,
           name: defaultStore.name,
@@ -310,17 +318,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           squareFootage: defaultStore.squareFootage,
           openedDate: defaultStore.openedDate,
         }).then(() => {
-          // Refetch sites after ensuring
-          setTimeout(() => {
-            refetchSites()
-          }, 500)
+          // Refetch sites after all ensures complete
+          if (index === missingStores.length - 1) {
+            setTimeout(() => {
+              refetchSites()
+            }, 500)
+          }
         }).catch(error => {
           console.error('Failed to ensure default site:', error)
           // Remove from ensured set on error so we can retry
           ensuredSitesRef.current.delete(defaultStore.id)
         })
-      } else if (exists) {
-        // Site exists, mark as ensured
+      }, index * 250) // 250ms delay between each call
+    })
+
+    // Mark existing sites as ensured
+    DEFAULT_STORES.forEach(defaultStore => {
+      const exists = sitesData.some(site => site.id === defaultStore.id)
+      if (exists) {
         ensuredSitesRef.current.add(defaultStore.id)
       }
     })
