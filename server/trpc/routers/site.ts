@@ -26,6 +26,37 @@ export const siteRouter = router({
         stack: error.stack,
       })
       
+      // Handle missing column error (P2022) - use raw SQL to select without imageUrl
+      if (error.code === 'P2022' && error.meta?.column === 'Site.imageUrl') {
+        console.log('imageUrl column missing, using raw SQL query without imageUrl...')
+        try {
+          const sites = await prisma.$queryRaw<Array<{
+            id: string
+            name: string
+            storeNumber: string | null
+            address: string | null
+            city: string | null
+            state: string | null
+            zipCode: string | null
+            phone: string | null
+            manager: string | null
+            squareFootage: number | null
+            openedDate: Date | null
+            createdAt: Date
+            updatedAt: Date
+          }>>`
+            SELECT id, name, "storeNumber", address, city, state, "zipCode", phone, manager, "squareFootage", "openedDate", "createdAt", "updatedAt"
+            FROM "Site"
+            ORDER BY "createdAt" ASC
+          `
+          // Add imageUrl as null for all sites
+          return sites.map(site => ({ ...site, imageUrl: null }))
+        } catch (rawError: any) {
+          console.error('Raw SQL query also failed:', rawError)
+          return []
+        }
+      }
+      
       // Handle authentication errors specifically
       if (error.message?.includes('Authentication failed') || 
           error.message?.includes('credentials') ||
@@ -188,9 +219,39 @@ export const siteRouter = router({
       
       while (retries < MAX_RETRIES) {
         try {
-          const existing = await prisma.site.findUnique({
-            where: { id: input.id },
-          })
+          // Try to find existing site - handle missing imageUrl column gracefully
+          let existing
+          try {
+            existing = await prisma.site.findUnique({
+              where: { id: input.id },
+            })
+          } catch (findError: any) {
+            // If imageUrl column is missing, use raw SQL
+            if (findError.code === 'P2022' && findError.meta?.column === 'Site.imageUrl') {
+              const rawSite = await prisma.$queryRaw<Array<{
+                id: string
+                name: string
+                storeNumber: string | null
+                address: string | null
+                city: string | null
+                state: string | null
+                zipCode: string | null
+                phone: string | null
+                manager: string | null
+                squareFootage: number | null
+                openedDate: Date | null
+                createdAt: Date
+                updatedAt: Date
+              }>>`
+                SELECT id, name, "storeNumber", address, city, state, "zipCode", phone, manager, "squareFootage", "openedDate", "createdAt", "updatedAt"
+                FROM "Site"
+                WHERE id = ${input.id}
+              `
+              existing = rawSite[0] ? { ...rawSite[0], imageUrl: null } : null
+            } else {
+              throw findError
+            }
+          }
 
           if (existing) {
             return existing
@@ -198,15 +259,45 @@ export const siteRouter = router({
 
           // Try to find by store number if provided
           if (input.storeNumber) {
-            const byStoreNumber = await prisma.site.findFirst({
-              where: { storeNumber: input.storeNumber },
-            })
+            let byStoreNumber
+            try {
+              byStoreNumber = await prisma.site.findFirst({
+                where: { storeNumber: input.storeNumber },
+              })
+            } catch (findError: any) {
+              // If imageUrl column is missing, use raw SQL
+              if (findError.code === 'P2022' && findError.meta?.column === 'Site.imageUrl') {
+                const rawSite = await prisma.$queryRaw<Array<{
+                  id: string
+                  name: string
+                  storeNumber: string | null
+                  address: string | null
+                  city: string | null
+                  state: string | null
+                  zipCode: string | null
+                  phone: string | null
+                  manager: string | null
+                  squareFootage: number | null
+                  openedDate: Date | null
+                  createdAt: Date
+                  updatedAt: Date
+                }>>`
+                  SELECT id, name, "storeNumber", address, city, state, "zipCode", phone, manager, "squareFootage", "openedDate", "createdAt", "updatedAt"
+                  FROM "Site"
+                  WHERE "storeNumber" = ${input.storeNumber}
+                  LIMIT 1
+                `
+                byStoreNumber = rawSite[0] ? { ...rawSite[0], imageUrl: null } : null
+              } else {
+                throw findError
+              }
+            }
             if (byStoreNumber) {
               return byStoreNumber
             }
           }
 
-          // Create new site - filter out undefined values
+          // Create new site - filter out undefined values and imageUrl if column doesn't exist
           const siteData: any = {
             id: input.id,
             name: input.name,
@@ -221,11 +312,27 @@ export const siteRouter = router({
           if (input.manager !== undefined) siteData.manager = input.manager
           if (input.squareFootage !== undefined) siteData.squareFootage = input.squareFootage
           if (input.openedDate !== undefined) siteData.openedDate = input.openedDate
-          if (input.imageUrl !== undefined) siteData.imageUrl = input.imageUrl
+          // Only include imageUrl if we know the column exists (will be handled in catch if it doesn't)
 
-          const site = await prisma.site.create({
-            data: siteData,
-          })
+          let site
+          try {
+            if (input.imageUrl !== undefined) siteData.imageUrl = input.imageUrl
+            site = await prisma.site.create({
+              data: siteData,
+            })
+          } catch (createError: any) {
+            // If imageUrl column is missing, create without it
+            if (createError.code === 'P2022' && createError.meta?.column === 'Site.imageUrl') {
+              delete siteData.imageUrl
+              site = await prisma.site.create({
+                data: siteData,
+              })
+              // Add imageUrl as null to match schema
+              site = { ...site, imageUrl: null }
+            } else {
+              throw createError
+            }
+          }
           return site
         } catch (error: any) {
           // Log error for debugging with full details
