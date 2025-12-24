@@ -183,32 +183,45 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingStore }: A
   }
 
   const handleSaveImage = async () => {
-    if (!previewImage) return
+    if (!previewImage) {
+      console.warn('No preview image to save')
+      return
+    }
     
+    console.log('💾 Starting image save process...')
     setIsUploading(true)
     try {
       const { setSiteImage, getSiteImage } = await import('@/lib/libraryUtils')
       
       if (editingStore) {
         // Save for existing store
+        console.log(`Saving image for existing store: ${editingStore.id}`)
         await setSiteImage(editingStore.id, previewImage)
         // Reload the image to display
         const savedImage = await getSiteImage(editingStore.id)
-        setCurrentImage(savedImage)
+        if (savedImage) {
+          console.log('✅ Image saved and retrieved successfully')
+          setCurrentImage(savedImage)
+        } else {
+          console.error('❌ Image saved but could not be retrieved')
+          alert('Image saved but could not be loaded. Please refresh the page.')
+        }
         setPreviewImage(null)
       } else {
         // For new sites, store in a temporary location
         const tempId = `temp-${Date.now()}`
+        console.log(`Saving image for new site (temp ID: ${tempId})`)
         await setSiteImage(tempId, previewImage)
         // Store the temp ID so we can move it after site creation
         setFormData(prev => ({ ...prev, imageUrl: tempId }))
         // Show the preview as current image for now
         setCurrentImage(previewImage)
         setPreviewImage(null)
+        console.log('✅ Image saved to temporary location')
       }
     } catch (error) {
-      console.error('Failed to save site image:', error)
-      alert('Failed to save image. It might be too large.')
+      console.error('❌ Failed to save site image:', error)
+      alert(`Failed to save image: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsUploading(false)
     }

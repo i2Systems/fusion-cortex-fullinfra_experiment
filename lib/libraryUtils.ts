@@ -371,18 +371,28 @@ export async function getSiteImage(siteId: string): Promise<string | null> {
  * Set site image (stored in localStorage or IndexedDB)
  */
 export async function setSiteImage(siteId: string, imageUrl: string): Promise<void> {
-  if (typeof window === 'undefined') return
+  if (typeof window === 'undefined') {
+    console.warn('setSiteImage called on server side, skipping')
+    return
+  }
+  
+  console.log(`📸 Saving site image for ${siteId}, size: ${imageUrl.length} chars`)
+  
   try {
     // Compress image first
+    console.log('Compressing image...')
     const compressedImage = await compressImage(imageUrl)
+    console.log(`Compressed size: ${compressedImage.length} chars`)
 
     // Check if compressed image is still too large for localStorage
     if (compressedImage.length > IMAGE_SIZE_THRESHOLD) {
+      console.log('Image is large, storing in IndexedDB...')
       // Large image - store in IndexedDB
       try {
         const { storeImage } = await import('./indexedDB')
         const response = await fetch(compressedImage)
         const blob = await response.blob()
+        console.log(`Blob size: ${blob.size} bytes`)
 
         // Store in IndexedDB
         const imageId = await storeImage(
@@ -391,28 +401,43 @@ export async function setSiteImage(siteId: string, imageUrl: string): Promise<vo
           `site_image_${siteId}.jpg`,
           blob.type || 'image/jpeg'
         )
+        console.log(`✅ Stored in IndexedDB with ID: ${imageId}`)
 
         // Store only the reference in localStorage
         const reference = `indexeddb:${imageId}`
         localStorage.setItem(`${SITE_IMAGE_PREFIX}${siteId}`, reference)
+        console.log(`✅ Saved reference to localStorage: ${SITE_IMAGE_PREFIX}${siteId}`)
       } catch (indexedDBError) {
-        console.error('Failed to store image in IndexedDB:', indexedDBError)
+        console.error('❌ Failed to store image in IndexedDB:', indexedDBError)
         // Try localStorage as fallback (might fail if too large)
         try {
           localStorage.setItem(`${SITE_IMAGE_PREFIX}${siteId}`, compressedImage)
+          console.log(`✅ Fallback: Saved to localStorage (may be too large)`)
         } catch (storageError) {
+          console.error('❌ Failed to save to localStorage:', storageError)
           throw new Error('Image is too large to store. Please use a smaller image.')
         }
       }
     } else {
       // Small image - can store in localStorage
+      console.log('Image is small, storing in localStorage...')
       localStorage.setItem(`${SITE_IMAGE_PREFIX}${siteId}`, compressedImage)
+      console.log(`✅ Saved to localStorage: ${SITE_IMAGE_PREFIX}${siteId}`)
+    }
+
+    // Verify it was saved
+    const verify = localStorage.getItem(`${SITE_IMAGE_PREFIX}${siteId}`)
+    if (verify) {
+      console.log(`✅ Verified: Image saved successfully for ${siteId}`)
+    } else {
+      console.error(`❌ Verification failed: Image not found after save for ${siteId}`)
     }
 
     // Dispatch event to notify components
     window.dispatchEvent(new CustomEvent('siteImageUpdated', { detail: { siteId } }))
+    console.log(`✅ Dispatched siteImageUpdated event for ${siteId}`)
   } catch (error) {
-    console.error('Failed to save site image:', error)
+    console.error(`❌ Failed to save site image for ${siteId}:`, error)
     throw error
   }
 }
