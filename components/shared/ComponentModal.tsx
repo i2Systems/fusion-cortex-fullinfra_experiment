@@ -10,9 +10,12 @@
 
 'use client'
 
-import { X, Package, Shield, Calendar, CheckCircle2, AlertCircle, XCircle, FileText, ExternalLink } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { X, Package, Shield, Calendar, CheckCircle2, AlertCircle, XCircle, FileText, ExternalLink, Info } from 'lucide-react'
 import { Component, Device } from '@/lib/mockData'
 import { calculateWarrantyStatus, getWarrantyStatusLabel, getWarrantyStatusTokenClass, formatWarrantyExpiry } from '@/lib/warranty'
+import { getComponentLibraryUrl, getComponentImage } from '@/lib/libraryUtils'
 
 interface ComponentModalProps {
   component: Component | null
@@ -54,6 +57,42 @@ export function ComponentModal({ component, parentDevice, isOpen, onClose }: Com
     }
   }
 
+  // Component Icon Component with image support
+  function ComponentIcon({ componentType }: { componentType: string }) {
+    const [imageError, setImageError] = useState(false)
+    const [imageKey, setImageKey] = useState(0)
+
+    // Listen for library image updates
+    useEffect(() => {
+      const handleImageUpdate = () => {
+        setImageKey(prev => prev + 1)
+        setImageError(false) // Reset error state
+      }
+      window.addEventListener('libraryImageUpdated', handleImageUpdate)
+      return () => window.removeEventListener('libraryImageUpdated', handleImageUpdate)
+    }, [])
+
+    // Call getComponentImage on every render (it checks localStorage each time)
+    const componentImage = getComponentImage(componentType)
+    const showImage = componentImage && !imageError
+
+    return (
+      <div className="w-12 h-12 rounded-lg bg-[var(--color-primary)]/20 border border-[var(--color-primary)]/30 flex items-center justify-center flex-shrink-0 overflow-hidden relative">
+        {showImage ? (
+          <img
+            key={imageKey}
+            src={componentImage}
+            alt={componentType}
+            className="absolute inset-0 w-full h-full object-cover"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <Package size={24} className="text-[var(--color-primary)]" />
+        )}
+      </div>
+    )
+  }
+
 
   return (
     <div
@@ -69,13 +108,23 @@ export function ComponentModal({ component, parentDevice, isOpen, onClose }: Com
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-[var(--color-border-subtle)]">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-[var(--color-primary)]/20 border border-[var(--color-primary)]/30 flex items-center justify-center">
-              <Package size={24} className="text-[var(--color-primary)]" />
-            </div>
+            <ComponentIcon componentType={component.componentType} />
             <div>
-              <h2 className="text-2xl font-bold text-[var(--color-text)]">
-                {component.componentType}
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-2xl font-bold text-[var(--color-text)]">
+                  {component.componentType}
+                </h2>
+                {getComponentLibraryUrl(component.componentType) && (
+                  <Link
+                    href={getComponentLibraryUrl(component.componentType)!}
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-1 rounded hover:bg-[var(--color-surface-subtle)] transition-colors"
+                    title="View in library"
+                  >
+                    <Info size={16} className="text-[var(--color-primary)]" />
+                  </Link>
+                )}
+              </div>
               {parentDevice && (
                 <p className="text-sm text-[var(--color-text-muted)] mt-0.5">
                   Component of {parentDevice.deviceId}

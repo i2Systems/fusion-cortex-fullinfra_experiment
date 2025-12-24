@@ -25,6 +25,7 @@ export interface Store {
   manager?: string
   squareFootage?: number
   openedDate?: Date
+  imageUrl?: string
 }
 
 interface StoreContextType {
@@ -54,6 +55,7 @@ const DEFAULT_STORES: Store[] = [
     manager: 'Sarah Johnson',
     squareFootage: 180000,
     openedDate: new Date('2018, 3, 15'),
+    imageUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&h=600&fit=crop',
   },
   {
     id: 'store-2156',
@@ -67,6 +69,7 @@ const DEFAULT_STORES: Store[] = [
     manager: 'Michael Chen',
     squareFootage: 165000,
     openedDate: new Date('2019, 6, 22'),
+    imageUrl: 'https://images.unsplash.com/photo-1555529669-2269763671c0?w=800&h=600&fit=crop',
   },
   {
     id: 'store-3089',
@@ -80,6 +83,7 @@ const DEFAULT_STORES: Store[] = [
     manager: 'Emily Rodriguez',
     squareFootage: 195000,
     openedDate: new Date('2020, 1, 10'),
+    imageUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&h=600&fit=crop',
   },
   {
     id: 'store-4421',
@@ -93,6 +97,7 @@ const DEFAULT_STORES: Store[] = [
     manager: 'David Kim',
     squareFootage: 172000,
     openedDate: new Date('2017, 9, 5'),
+    imageUrl: 'https://images.unsplash.com/photo-1555529669-2269763671c0?w=800&h=600&fit=crop',
   },
   {
     id: 'store-5567',
@@ -106,6 +111,7 @@ const DEFAULT_STORES: Store[] = [
     manager: 'Jessica Martinez',
     squareFootage: 188000,
     openedDate: new Date('2021, 4, 18'),
+    imageUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&h=600&fit=crop',
   },
 ]
 
@@ -184,6 +190,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           manager: site.manager ?? defaultStore.manager,
           squareFootage: site.squareFootage ?? defaultStore.squareFootage,
           openedDate: site.openedDate ?? defaultStore.openedDate,
+          imageUrl: (site as any).imageUrl ?? defaultStore.imageUrl,
         }
       } else {
         // New site from database (not in defaults)
@@ -199,6 +206,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           manager: site.manager ?? undefined,
           squareFootage: site.squareFootage ?? undefined,
           openedDate: site.openedDate ?? undefined,
+          imageUrl: (site as any).imageUrl ?? undefined,
         }
       }
     })
@@ -336,18 +344,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const updateStore = (storeId: string, updates: Partial<Omit<Store, 'id'>>) => {
     // Update in database (fire and forget for now)
+    // Note: imageUrl is stored client-side, not in database
+    const { imageUrl, ...dbUpdates } = updates
     updateSiteMutation.mutate({
       id: storeId,
-      name: updates.name,
-      storeNumber: updates.storeNumber,
-      address: updates.address,
-      city: updates.city,
-      state: updates.state,
-      zipCode: updates.zipCode,
-      phone: updates.phone,
-      manager: updates.manager,
-      squareFootage: updates.squareFootage,
-      openedDate: updates.openedDate,
+      name: dbUpdates.name,
+      storeNumber: dbUpdates.storeNumber,
+      address: dbUpdates.address,
+      city: dbUpdates.city,
+      state: dbUpdates.state,
+      zipCode: dbUpdates.zipCode,
+      phone: dbUpdates.phone,
+      manager: dbUpdates.manager,
+      squareFootage: dbUpdates.squareFootage,
+      openedDate: dbUpdates.openedDate,
+      // Don't pass imageUrl - it's stored client-side
     })
   }
 

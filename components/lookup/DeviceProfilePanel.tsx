@@ -9,14 +9,17 @@
 
 'use client'
 
-import { Image, Calendar, Thermometer, Shield, Package, MapPin, Radio, Battery, Wifi, WifiOff, CheckCircle2, AlertCircle, XCircle, QrCode, AlertTriangle, ExternalLink, Plus, Upload, Download } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Image, Calendar, Thermometer, Shield, Package, MapPin, Radio, Battery, Wifi, WifiOff, CheckCircle2, AlertCircle, XCircle, QrCode, AlertTriangle, ExternalLink, Plus, Upload, Download, Info } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { Device, Component } from '@/lib/mockData'
+import Link from 'next/link'
+import { Device, Component, DeviceType } from '@/lib/mockData'
 import { ComponentTree } from '@/components/shared/ComponentTree'
 import { calculateWarrantyStatus, getWarrantyStatusLabel, getWarrantyStatusTokenClass, formatWarrantyExpiry } from '@/lib/warranty'
 import { assignFaultCategory, generateFaultDescription, faultCategories } from '@/lib/faultDefinitions'
 import { useDevices } from '@/lib/DeviceContext'
 import { isFixtureType } from '@/lib/deviceUtils'
+import { getDeviceLibraryUrl, getDeviceImage } from '@/lib/libraryUtils'
 
 interface DeviceProfilePanelProps {
   device: Device | null
@@ -25,6 +28,60 @@ interface DeviceProfilePanelProps {
   onQRScan?: () => void
   onImport?: () => void
   onExport?: () => void
+}
+
+// Device Icon Component with image support
+function DeviceIcon({ deviceType }: { deviceType: string }) {
+  const [imageError, setImageError] = useState(false)
+  const [imageKey, setImageKey] = useState(0) // Force re-render when images update
+  
+  // Listen for library image updates
+  useEffect(() => {
+    const handleImageUpdate = () => {
+      // Force re-render by updating key - this will cause getDeviceImage to be called again
+      setImageKey(prev => prev + 1)
+      setImageError(false) // Reset error state in case new image loads
+    }
+    window.addEventListener('libraryImageUpdated', handleImageUpdate)
+    return () => window.removeEventListener('libraryImageUpdated', handleImageUpdate)
+  }, [])
+
+  // Call getDeviceImage on every render (it checks localStorage each time)
+  const deviceImage = getDeviceImage(deviceType as DeviceType)
+  const showImage = deviceImage && !imageError
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'fixture': return 'Lighting Fixture'
+      case 'motion': return 'Motion Sensor'
+      case 'light-sensor': return 'Light Sensor'
+      default: return type
+    }
+  }
+
+  return (
+    <div className="w-16 h-16 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border-subtle)] flex items-center justify-center flex-shrink-0 shadow-[var(--shadow-soft)] overflow-hidden relative">
+      {showImage ? (
+        <img
+          key={imageKey}
+          src={deviceImage}
+          alt={getTypeLabel(deviceType)}
+          className="absolute inset-0 w-full h-full object-cover"
+          onError={() => setImageError(true)}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          {isFixtureType(deviceType as DeviceType) ? (
+            <Image size={32} className="text-[var(--color-primary)]" />
+          ) : deviceType === 'motion' ? (
+            <Radio size={32} className="text-[var(--color-accent)]" />
+          ) : (
+            <Thermometer size={32} className="text-[var(--color-success)]" />
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function DeviceProfilePanel({ device, onComponentClick, onManualEntry, onQRScan, onImport, onExport }: DeviceProfilePanelProps) {
@@ -174,15 +231,7 @@ export function DeviceProfilePanel({ device, onComponentClick, onManualEntry, on
       <div className="p-4 border-b border-[var(--color-border-subtle)] bg-gradient-to-br from-[var(--color-primary-soft)]/30 to-[var(--color-surface-subtle)]">
         <div className="flex items-start gap-3 mb-3">
           {/* Device Image/Icon */}
-          <div className="w-16 h-16 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border-subtle)] flex items-center justify-center flex-shrink-0 shadow-[var(--shadow-soft)]">
-            {isFixtureType(device.type) ? (
-              <Image size={32} className="text-[var(--color-primary)]" />
-            ) : device.type === 'motion' ? (
-              <Radio size={32} className="text-[var(--color-accent)]" />
-            ) : (
-              <Thermometer size={32} className="text-[var(--color-success)]" />
-            )}
-          </div>
+          <DeviceIcon deviceType={device.type} />
           {/* Meta Information */}
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between mb-2">
@@ -190,9 +239,21 @@ export function DeviceProfilePanel({ device, onComponentClick, onManualEntry, on
                 <h3 className="text-base font-bold text-[var(--color-text)] mb-0.5 truncate">
                   {device.deviceId}
                 </h3>
-                <p className="text-xs text-[var(--color-text-muted)]">
-                  {getTypeLabel(device.type)}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs text-[var(--color-text-muted)]">
+                    {getTypeLabel(device.type)}
+                  </p>
+                  {getDeviceLibraryUrl(device.type) && (
+                    <Link
+                      href={getDeviceLibraryUrl(device.type)!}
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-0.5 rounded hover:bg-[var(--color-surface-subtle)] transition-colors"
+                      title="View in library"
+                    >
+                      <Info size={12} className="text-[var(--color-primary)]" />
+                    </Link>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <span className={getStatusTokenClass(device.status)}>

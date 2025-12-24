@@ -11,17 +11,18 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { Signal, Battery, Wifi, WifiOff, Image, Radio, Thermometer, MapPin, Edit2, Plus, ChevronRight, ChevronDown, Package, Shield, Calendar, CheckCircle2, AlertCircle, XCircle, Trash2, CheckSquare, Square } from 'lucide-react'
-import type { Component, Device as DeviceType } from '@/lib/mockData'
+import Link from 'next/link'
+import { Signal, Battery, Wifi, WifiOff, Image, Radio, Thermometer, MapPin, Edit2, Plus, ChevronRight, ChevronDown, Package, Shield, Calendar, CheckCircle2, AlertCircle, XCircle, Trash2, CheckSquare, Square, Info } from 'lucide-react'
+import type { Component, Device, DeviceType } from '@/lib/mockData'
 import { ComponentTree } from '@/components/shared/ComponentTree'
-
-import type { Device } from '@/lib/mockData'
+import { getDeviceLibraryUrl, getDeviceImage } from '@/lib/libraryUtils'
+import { isFixtureType } from '@/lib/deviceUtils'
 
 interface DeviceTableProps {
   devices: Device[]
   selectedDeviceId?: string | null
   onDeviceSelect?: (deviceId: string | null) => void
-  onComponentClick?: (component: Component, parentDevice: DeviceType) => void
+  onComponentClick?: (component: Component, parentDevice: Device) => void
   onDevicesDelete?: (deviceIds: string[]) => void
 }
 
@@ -146,6 +147,50 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect, onCompo
     }
   }
 
+  // Device Icon Component with image support
+  function DeviceIcon({ deviceType }: { deviceType: string }) {
+    const [imageError, setImageError] = useState(false)
+    const [imageKey, setImageKey] = useState(0)
+
+    // Listen for library image updates
+    useEffect(() => {
+      const handleImageUpdate = () => {
+        setImageKey(prev => prev + 1)
+        setImageError(false) // Reset error state
+      }
+      window.addEventListener('libraryImageUpdated', handleImageUpdate)
+      return () => window.removeEventListener('libraryImageUpdated', handleImageUpdate)
+    }, [])
+
+    // Call getDeviceImage on every render (it checks localStorage each time)
+    const deviceImage = getDeviceImage(deviceType as DeviceType)
+    const showImage = deviceImage && !imageError
+
+    return (
+      <div className="w-16 h-16 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border-subtle)] flex items-center justify-center flex-shrink-0 shadow-[var(--shadow-soft)] overflow-hidden relative">
+        {showImage ? (
+          <img
+            key={imageKey}
+            src={deviceImage}
+            alt={getTypeLabel(deviceType)}
+            className="absolute inset-0 w-full h-full object-cover"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            {isFixtureType(deviceType as DeviceType) ? (
+              <Image size={32} className="text-[var(--color-primary)]" />
+            ) : deviceType === 'motion' ? (
+              <Radio size={32} className="text-[var(--color-accent)]" />
+            ) : (
+              <Thermometer size={32} className="text-[var(--color-success)]" />
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const toggleDeviceExpansion = (deviceId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     setExpandedDevices(prev => {
@@ -240,14 +285,7 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect, onCompo
         <div className="p-4 border-b border-[var(--color-border-subtle)] bg-gradient-to-br from-[var(--color-primary-soft)]/30 to-[var(--color-surface-subtle)]">
           <div className="flex items-start gap-3 mb-3">
             {/* Device Image/Icon */}
-            {(() => {
-              const DeviceIcon = getDeviceIcon(selectedDevice.type)
-              return (
-                <div className={`w-16 h-16 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border-subtle)] flex items-center justify-center flex-shrink-0 shadow-[var(--shadow-soft)]`}>
-                  <DeviceIcon size={32} className={getDeviceIconColor(selectedDevice.type)} />
-                </div>
-              )
-            })()}
+            <DeviceIcon deviceType={selectedDevice.type} />
             {/* Meta Information */}
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between mb-2">
@@ -255,9 +293,21 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect, onCompo
                   <h3 className="text-base font-bold text-[var(--color-text)] mb-0.5 truncate">
                     {selectedDevice.deviceId}
                   </h3>
-                  <p className="text-xs text-[var(--color-text-muted)]">
-                    {getTypeLabel(selectedDevice.type)}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs text-[var(--color-text-muted)]">
+                      {getTypeLabel(selectedDevice.type)}
+                    </p>
+                    {getDeviceLibraryUrl(selectedDevice.type) && (
+                      <Link
+                        href={getDeviceLibraryUrl(selectedDevice.type)!}
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-0.5 rounded hover:bg-[var(--color-surface-subtle)] transition-colors"
+                        title="View in library"
+                      >
+                        <Info size={12} className="text-[var(--color-primary)]" />
+                      </Link>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button
@@ -446,7 +496,19 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect, onCompo
                   {device.serialNumber}
                 </td>
                 <td className="py-3.5 px-5 text-sm text-[var(--color-text-muted)]">
-                  {getTypeLabel(device.type)}
+                  <div className="flex items-center gap-1.5">
+                    <span>{getTypeLabel(device.type)}</span>
+                    {getDeviceLibraryUrl(device.type) && (
+                      <Link
+                        href={getDeviceLibraryUrl(device.type)!}
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-0.5 rounded hover:bg-[var(--color-surface-subtle)] transition-colors"
+                        title="View in library"
+                      >
+                        <Info size={12} className="text-[var(--color-primary)]" />
+                      </Link>
+                    )}
+                  </div>
                 </td>
                 <td className="py-3.5 px-5">
                     {device.signal > 0 ? (

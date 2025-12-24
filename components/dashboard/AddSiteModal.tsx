@@ -9,8 +9,8 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
-import { X, Building2, MapPin, Phone, User, Calendar, Hash } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { X, Building2, MapPin, Phone, User, Calendar, Hash, Image as ImageIcon, Upload, Trash2 } from 'lucide-react'
 import { Store } from '@/lib/StoreContext'
 
 interface AddSiteModalProps {
@@ -32,7 +32,76 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingStore }: A
     phone: '',
     manager: '',
     squareFootage: '',
+    imageUrl: '',
   })
+  const [previewImage, setPreviewImage] = useState<string | null>(null)
+  const [currentImage, setCurrentImage] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Compress image function
+  const compressImage = async (base64String: string, maxWidth: number = 800, quality: number = 0.8): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let width = img.width
+        let height = img.height
+        
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width
+          width = maxWidth
+        }
+        
+        canvas.width = width
+        canvas.height = height
+        
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height)
+          const compressed = canvas.toDataURL('image/jpeg', quality)
+          resolve(compressed)
+        } else {
+          resolve(base64String)
+        }
+      }
+      img.onerror = () => resolve(base64String)
+      img.src = base64String
+    })
+  }
+
+  // Load site image when editing
+  useEffect(() => {
+    const loadSiteImage = async () => {
+      if (!isOpen) return
+      
+      if (editingStore) {
+        // Load client-side stored image
+        try {
+          const { getSiteImage } = await import('@/lib/libraryUtils')
+          const image = await getSiteImage(editingStore.id)
+          setCurrentImage(image)
+        } catch (error) {
+          console.error('Failed to load site image:', error)
+          setCurrentImage(null)
+        }
+      } else {
+        setCurrentImage(null)
+      }
+    }
+    
+    loadSiteImage()
+    
+    // Listen for site image updates
+    const handleSiteImageUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ siteId: string }>
+      if (editingStore && customEvent.detail?.siteId === editingStore.id) {
+        loadSiteImage()
+      }
+    }
+    window.addEventListener('siteImageUpdated', handleSiteImageUpdate)
+    return () => window.removeEventListener('siteImageUpdated', handleSiteImageUpdate)
+  }, [editingStore, isOpen])
 
   // Populate form when editing
   useEffect(() => {
@@ -47,7 +116,9 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingStore }: A
         phone: editingStore.phone || '',
         manager: editingStore.manager || '',
         squareFootage: editingStore.squareFootage?.toString() || '',
+        imageUrl: '', // Don't use imageUrl from store - load from client storage
       })
+      setPreviewImage(null) // Reset preview when editing
     } else {
       // Reset form for new site
       setFormData({
@@ -60,11 +131,117 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingStore }: A
         phone: '',
         manager: '',
         squareFootage: '',
+        imageUrl: '',
       })
+      setPreviewImage(null)
+      setCurrentImage(null)
     }
   }, [editingStore, isOpen])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select a valid image file')
+      return
+    }
+
+    const maxSize = 10 * 1024 * 1024
+    if (file.size > maxSize) {
+      alert('Image size must be less than 10MB')
+      return
+    }
+
+    setIsUploading(true)
+
+    try {
+      const reader = new FileReader()
+      reader.onload = async (event) => {
+        const base64String = event.target?.result as string
+        if (base64String) {
+          // Compress the image
+          const compressed = await compressImage(base64String)
+          setPreviewImage(compressed)
+          setIsUploading(false)
+        }
+      }
+      reader.onerror = () => {
+        alert('Failed to read image file')
+        setIsUploading(false)
+      }
+      reader.readAsDataURL(file)
+    } catch (error) {
+      console.error('Error processing image:', error)
+      alert('Failed to process image')
+      setIsUploading(false)
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const handleSaveImage = async () => {
+    if (!previewImage) return
+    
+    setIsUploading(true)
+    try {
+      const { setSiteImage, getSiteImage } = await import('@/lib/libraryUtils')
+      
+      if (editingStore) {
+        // Save for existing store
+        await setSiteImage(editingStore.id, previewImage)
+        // Reload the image to display
+        const savedImage = await getSiteImage(editingStore.id)
+        setCurrentImage(savedImage)
+        setPreviewImage(null)
+      } else {
+        // For new sites, store in a temporary location
+        const tempId = `temp-${Date.now()}`
+        await setSiteImage(tempId, previewImage)
+        // Store the temp ID so we can move it after site creation
+        setFormData(prev => ({ ...prev, imageUrl: tempId }))
+        // Show the preview as current image for now
+        setCurrentImage(previewImage)
+        setPreviewImage(null)
+      }
+    } catch (error) {
+      console.error('Failed to save site image:', error)
+      alert('Failed to save image. It might be too large.')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleCancelPreview = () => {
+    setPreviewImage(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const handleRemoveImage = async () => {
+    if (!confirm('Remove image?')) return
+    
+    if (editingStore) {
+      try {
+        const { removeSiteImage } = await import('@/lib/libraryUtils')
+        await removeSiteImage(editingStore.id)
+        setCurrentImage(null)
+      } catch (error) {
+        console.error('Failed to remove site image:', error)
+        alert('Failed to remove image.')
+      }
+    }
+    
+    setPreviewImage(null)
+    setCurrentImage(null)
+  }
+
+  const displayImage = previewImage || currentImage
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!formData.name.trim()) {
@@ -77,6 +254,8 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingStore }: A
       return
     }
 
+    // Site images are stored client-side (localStorage/IndexedDB), NOT in database
+    // So we don't pass imageUrl to the database
     const siteData: Omit<Store, 'id'> = {
       name: formData.name.trim(),
       storeNumber: formData.storeNumber.trim(),
@@ -88,6 +267,18 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingStore }: A
       manager: formData.manager.trim() || undefined,
       squareFootage: formData.squareFootage ? parseInt(formData.squareFootage) : undefined,
       openedDate: new Date(),
+      // Don't save imageUrl to database - it's stored client-side
+    }
+    
+    // Save image client-side if we have one (for new sites)
+    if (previewImage && !editingStore) {
+      try {
+        // Image will be saved after site creation in the callback
+        // Store preview temporarily
+      } catch (error) {
+        console.error('Failed to save site image:', error)
+        // Don't block form submission if image save fails
+      }
     }
 
     if (editingStore && onEdit) {
@@ -278,6 +469,101 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingStore }: A
               min="0"
               className="w-full px-4 py-2.5 rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
             />
+          </div>
+
+          {/* Store Image Upload */}
+          <div>
+            <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
+              Store Image
+            </label>
+            <div className="space-y-3">
+              {/* Image Preview */}
+              {displayImage && (
+                <div className="relative aspect-video w-full rounded-lg bg-[var(--color-surface-subtle)] overflow-hidden border border-[var(--color-border-subtle)]">
+                  <img
+                    src={displayImage}
+                    alt="Store preview"
+                    className="w-full h-full object-cover"
+                  />
+                  {/* Image Controls - Lower Left */}
+                  <div className="absolute bottom-3 left-3 flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                    />
+                    {previewImage ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleSaveImage}
+                          className="px-3 py-1.5 text-xs rounded-lg bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-[var(--color-text-on-primary)] transition-colors flex items-center gap-1.5 shadow-lg font-medium"
+                        >
+                          Save Image
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelPreview}
+                          className="px-3 py-1.5 text-xs rounded-lg bg-[var(--color-surface)]/90 backdrop-blur-sm hover:bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors shadow-lg"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploading}
+                          className="px-3 py-1.5 text-xs rounded-lg bg-[var(--color-surface)]/90 backdrop-blur-sm hover:bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                        >
+                          <Upload size={14} />
+                          {isUploading ? 'Uploading...' : 'Replace Image'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleRemoveImage}
+                          className="p-1.5 rounded-lg bg-[var(--color-surface)]/90 backdrop-blur-sm hover:bg-[var(--color-danger)]/20 border border-[var(--color-border-subtle)] hover:border-[var(--color-danger)]/30 text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors shadow-lg"
+                          title="Remove image"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Upload Button (when no image) */}
+              {!displayImage && (
+                <div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="w-full px-4 py-3 rounded-lg bg-[var(--color-surface-subtle)] border-2 border-dashed border-[var(--color-border-subtle)] hover:border-[var(--color-primary)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Upload size={18} />
+                    {isUploading ? 'Uploading...' : 'Upload Store Image'}
+                  </button>
+                </div>
+              )}
+              
+              {previewImage && (
+                <p className="text-xs text-[var(--color-text-muted)] text-center">
+                  Preview - Click Save to apply
+                </p>
+              )}
+            </div>
           </div>
         </form>
 

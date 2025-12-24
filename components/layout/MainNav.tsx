@@ -23,7 +23,8 @@ import {
   AlertTriangle,
   User,
   Bell,
-  Workflow
+  Workflow,
+  HelpCircle
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { useRole } from '@/lib/role'
@@ -113,7 +114,7 @@ export function MainNav() {
           ))}
         </div>
 
-        {/* Bottom: Notifications, Profile & Settings */}
+        {/* Bottom: Notifications, Library, Profile & Settings */}
         <div className="p-4 flex flex-col items-center gap-2 border-t border-[var(--color-border-subtle)]">
           {/* Notifications Icon */}
           <Link
@@ -129,6 +130,22 @@ export function MainNav() {
             title={notificationsItem.label}
           >
             <Bell size={22} strokeWidth={pathname === notificationsItem.href || pathname?.startsWith(notificationsItem.href + '/') ? 2.5 : 2} />
+          </Link>
+
+          {/* Library Icon */}
+          <Link
+            href="/library"
+            className={`
+              w-14 h-14 flex items-center justify-center rounded-lg
+              transition-all duration-200
+              ${pathname === '/library' || pathname?.startsWith('/library')
+                ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)] shadow-[var(--shadow-glow-primary)]' 
+                : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-primary)] hover:shadow-[0_0_15px_rgba(0,217,255,0.3)]'
+              }
+            `}
+            title="Library"
+          >
+            <HelpCircle size={22} strokeWidth={pathname === '/library' || pathname?.startsWith('/library') ? 2.5 : 2} />
           </Link>
 
           {/* Subtle separator */}

@@ -14,6 +14,7 @@
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { SearchIsland } from '@/components/layout/SearchIsland'
+import { ResizablePanel } from '@/components/layout/ResizablePanel'
 import { StoreDetailsPanel } from '@/components/dashboard/StoreDetailsPanel'
 import { AddSiteModal } from '@/components/dashboard/AddSiteModal'
 import { useStore, Store } from '@/lib/StoreContext'
@@ -68,6 +69,62 @@ interface StoreSummary {
   mapUploaded: boolean
   lastActivity?: string
   needsAttention: boolean
+}
+
+// Store Image Card Component (loads from client storage)
+function StoreImageCard({ storeId }: { storeId: string }) {
+  const [displayUrl, setDisplayUrl] = useState<string | null>(null)
+  const [imageKey, setImageKey] = useState(0) // Force re-render on update
+
+  useEffect(() => {
+    const loadImage = async () => {
+      try {
+        const { getSiteImage } = await import('@/lib/libraryUtils')
+        const image = await getSiteImage(storeId)
+        setDisplayUrl(image)
+      } catch (error) {
+        console.error('Failed to load store image:', error)
+        setDisplayUrl(null)
+      }
+    }
+
+    loadImage()
+
+    // Listen for site image updates
+    const handleSiteImageUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ siteId: string }>
+      if (customEvent.detail?.siteId === storeId) {
+        setImageKey(prev => prev + 1) // Force re-render
+        loadImage() // Reload image
+      }
+    }
+    window.addEventListener('siteImageUpdated', handleSiteImageUpdate)
+    return () => window.removeEventListener('siteImageUpdated', handleSiteImageUpdate)
+  }, [storeId, imageKey])
+
+  return (
+    <div className="flex-shrink-0 w-24 h-24 rounded-lg bg-gradient-to-br from-[var(--color-primary-soft)]/20 to-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-center relative overflow-hidden">
+      {displayUrl ? (
+        <img
+          src={displayUrl}
+          alt="Store"
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none'
+          }}
+        />
+      ) : (
+        <>
+          <Building2 size={32} className="text-[var(--color-primary)]/40" />
+          <div className="absolute bottom-1 right-1">
+            <div className="p-1 rounded bg-[var(--color-surface)]/80 backdrop-blur-sm border border-[var(--color-border-subtle)]">
+              <ImageIcon size={10} className="text-[var(--color-text-muted)]" />
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
 }
 
 export default function DashboardPage() {
@@ -311,12 +368,35 @@ export default function DashboardPage() {
     setStoreSummaries(prev => prev.filter(s => s.storeId !== storeId))
   }, [removeStore])
 
-  const handleAddSiteSubmit = useCallback((siteData: Omit<Store, 'id'>) => {
+  const handleAddSiteSubmit = useCallback(async (siteData: Omit<Store, 'id'>) => {
     const newStore = addStore(siteData)
+    
+    // If there's a temp image stored, move it to the new site ID
+    // The AddSiteModal should have stored it with a temp ID in formData.imageUrl
+    if (siteData.imageUrl && siteData.imageUrl.startsWith('temp-')) {
+      try {
+        const { getSiteImage, setSiteImage, removeSiteImage } = await import('@/lib/libraryUtils')
+        const tempImage = await getSiteImage(siteData.imageUrl)
+        if (tempImage) {
+          // Wait a bit for the store to be created and get a real ID
+          setTimeout(async () => {
+            // Get the actual store ID from the stores list
+            const actualStore = stores.find(s => s.name === newStore.name && s.storeNumber === newStore.storeNumber)
+            if (actualStore && siteData.imageUrl) {
+              await setSiteImage(actualStore.id, tempImage)
+              await removeSiteImage(siteData.imageUrl) // Clean up temp
+            }
+          }, 1000)
+        }
+      } catch (error) {
+        console.error('Failed to move temp image to new site:', error)
+      }
+    }
+    
     setActiveStore(newStore.id)
     setSelectedStoreId(newStore.id)
     setShowAddSiteModal(false)
-  }, [addStore, setActiveStore])
+  }, [addStore, setActiveStore, stores])
 
   const handleEditSiteSubmit = useCallback((storeId: string, updates: Partial<Omit<Store, 'id'>>) => {
     updateStore(storeId, updates)
@@ -577,15 +657,8 @@ export default function DashboardPage() {
               } ${summary.needsAttention && summary.storeId !== selectedStoreId ? 'ring-2 ring-[var(--color-warning)]/30' : ''}`}
               onClick={() => handleStoreClick(summary.storeId)}
             >
-              {/* Store Image Placeholder - Top Left */}
-              <div className="flex-shrink-0 w-24 h-24 rounded-lg bg-gradient-to-br from-[var(--color-primary-soft)]/20 to-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-center relative overflow-hidden">
-                <Building2 size={32} className="text-[var(--color-primary)]/40" />
-                <div className="absolute bottom-1 right-1">
-                  <div className="p-1 rounded bg-[var(--color-surface)]/80 backdrop-blur-sm border border-[var(--color-border-subtle)]">
-                    <ImageIcon size={10} className="text-[var(--color-text-muted)]" />
-            </div>
-          </div>
-        </div>
+              {/* Store Image - Top Left */}
+              <StoreImageCard storeId={summary.storeId} />
 
               {/* Card Content - Right Side */}
               <div className="flex-1 min-w-0 flex flex-col">
@@ -770,27 +843,35 @@ export default function DashboardPage() {
           </div>
 
         {/* Store Details Panel - Right Side */}
-        <div className="flex-shrink-0">
-          <StoreDetailsPanel
-            store={activeStore || (selectedStoreId ? stores.find(s => s.id === selectedStoreId) : stores[0]) || null}
-            devices={selectedStoreData.devices}
-            zones={selectedStoreData.zones}
-            rules={selectedStoreData.rules}
-            criticalFaults={selectedStoreSummary?.criticalFaults || []}
-            warrantiesExpiring={selectedStoreSummary?.warrantiesExpiring || 0}
-            warrantiesExpired={selectedStoreSummary?.warrantiesExpired || 0}
-            mapUploaded={selectedStoreSummary?.mapUploaded || false}
-            healthPercentage={selectedStoreSummary?.healthPercentage || 100}
-            onlineDevices={selectedStoreSummary?.onlineDevices || 0}
-            offlineDevices={selectedStoreSummary?.offlineDevices || 0}
-            missingDevices={(selectedStoreSummary?.totalDevices || 0) - (selectedStoreSummary?.onlineDevices || 0) - (selectedStoreSummary?.offlineDevices || 0)}
-            onAddSite={handleAddSite}
-            onEditSite={handleEditSite}
-            onRemoveSite={handleRemoveSite}
-            onImportSites={handleImportSites}
-            onExportSites={handleExportSites}
-          />
-        </div>
+        {selectedStoreId && (
+          <ResizablePanel
+            defaultWidth={384}
+            minWidth={320}
+            maxWidth={512}
+            collapseThreshold={200}
+            storageKey="dashboard_panel"
+          >
+            <StoreDetailsPanel
+              store={activeStore || (selectedStoreId ? stores.find(s => s.id === selectedStoreId) : stores[0]) || null}
+              devices={selectedStoreData.devices}
+              zones={selectedStoreData.zones}
+              rules={selectedStoreData.rules}
+              criticalFaults={selectedStoreSummary?.criticalFaults || []}
+              warrantiesExpiring={selectedStoreSummary?.warrantiesExpiring || 0}
+              warrantiesExpired={selectedStoreSummary?.warrantiesExpired || 0}
+              mapUploaded={selectedStoreSummary?.mapUploaded || false}
+              healthPercentage={selectedStoreSummary?.healthPercentage || 100}
+              onlineDevices={selectedStoreSummary?.onlineDevices || 0}
+              offlineDevices={selectedStoreSummary?.offlineDevices || 0}
+              missingDevices={(selectedStoreSummary?.totalDevices || 0) - (selectedStoreSummary?.onlineDevices || 0) - (selectedStoreSummary?.offlineDevices || 0)}
+              onAddSite={handleAddSite}
+              onEditSite={handleEditSite}
+              onRemoveSite={handleRemoveSite}
+              onImportSites={handleImportSites}
+              onExportSites={handleExportSites}
+            />
+          </ResizablePanel>
+        )}
       </div>
 
       {/* Add/Edit Site Modal */}

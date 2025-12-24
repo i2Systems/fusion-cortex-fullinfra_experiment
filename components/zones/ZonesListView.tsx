@@ -8,8 +8,10 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Device } from '@/lib/mockData'
-import { Wifi, Battery, WifiOff } from 'lucide-react'
+import { Wifi, Battery, WifiOff, Info } from 'lucide-react'
+import { getDeviceLibraryUrl } from '@/lib/libraryUtils'
 
 interface Zone {
   id: string
@@ -212,9 +214,21 @@ export function ZonesListView({
                               <span className="text-xs">{device.battery}%</span>
                             </div>
                           )}
-                          <span className="text-xs text-[var(--color-text-muted)] capitalize">
-                            {device.type}
-                          </span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-[var(--color-text-muted)] capitalize">
+                              {device.type}
+                            </span>
+                            {getDeviceLibraryUrl(device.type) && (
+                              <Link
+                                href={getDeviceLibraryUrl(device.type)!}
+                                onClick={(e) => e.stopPropagation()}
+                                className="p-0.5 rounded hover:bg-[var(--color-surface-subtle)] transition-colors"
+                                title="View in library"
+                              >
+                                <Info size={10} className="text-[var(--color-primary)]" />
+                              </Link>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))
@@ -295,9 +309,21 @@ export function ZonesListView({
                           <span className="text-xs">{device.battery}%</span>
                         </div>
                       )}
-                      <span className="text-xs text-[var(--color-text-muted)] capitalize">
-                        {device.type}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-[var(--color-text-muted)] capitalize">
+                          {device.type}
+                        </span>
+                        {getDeviceLibraryUrl(device.type) && (
+                          <Link
+                            href={getDeviceLibraryUrl(device.type)!}
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-0.5 rounded hover:bg-[var(--color-surface-subtle)] transition-colors"
+                            title="View in library"
+                          >
+                            <Info size={10} className="text-[var(--color-primary)]" />
+                          </Link>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

@@ -9,9 +9,11 @@
 
 'use client'
 
-import { useState } from 'react'
-import { ChevronRight, ChevronDown, Package, Shield, Calendar, CheckCircle2, AlertCircle, XCircle } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { ChevronRight, ChevronDown, Package, Shield, Calendar, CheckCircle2, AlertCircle, XCircle, Info } from 'lucide-react'
 import { Component, Device } from '@/lib/mockData'
+import { getComponentLibraryUrl, getComponentImage } from '@/lib/libraryUtils'
 
 interface ComponentTreeProps {
   components: Component[]
@@ -33,6 +35,16 @@ export function ComponentTree({
   onComponentClick
 }: ComponentTreeProps) {
   const [expanded, setExpanded] = useState(initialExpanded)
+  const [imageKey, setImageKey] = useState(0)
+
+  // Listen for library image updates
+  useEffect(() => {
+    const handleImageUpdate = () => {
+      setImageKey(prev => prev + 1)
+    }
+    window.addEventListener('libraryImageUpdated', handleImageUpdate)
+    return () => window.removeEventListener('libraryImageUpdated', handleImageUpdate)
+  }, [])
   
   const handleToggle = () => {
     const newExpanded = !expanded
@@ -106,10 +118,43 @@ export function ComponentTree({
               <div className="flex items-start justify-between gap-2 mb-1.5">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-1">
-                    <Package size={12} className="text-[var(--color-primary)] flex-shrink-0" />
+                    <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 overflow-hidden bg-[var(--color-surface-subtle)]">
+                      {(() => {
+                        const componentImage = getComponentImage(component.componentType)
+                        if (componentImage) {
+                          return (
+                            <img
+                              key={`${component.id}-${imageKey}`}
+                              src={componentImage}
+                              alt={component.componentType}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                              }}
+                            />
+                          )
+                        }
+                        return <Package size={12} className="text-[var(--color-primary)]" />
+                      })()}
+                    </div>
                     <span className="font-semibold text-[var(--color-text)] truncate">
                       {component.componentType}
                     </span>
+                    {getComponentLibraryUrl(component.componentType) && (
+                      <Link
+                        href={getComponentLibraryUrl(component.componentType)!}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (onComponentClick && parentDevice) {
+                            onComponentClick(component, parentDevice)
+                          }
+                        }}
+                        className="p-0.5 rounded hover:bg-[var(--color-surface-subtle)] transition-colors flex-shrink-0"
+                        title="View in library"
+                      >
+                        <Info size={10} className="text-[var(--color-primary)]" />
+                      </Link>
+                    )}
                     {component.status && getStatusIcon(component.status)}
                   </div>
                   <div className="text-[var(--color-text-muted)] font-mono text-xs truncate ml-4">

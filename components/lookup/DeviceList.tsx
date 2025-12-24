@@ -10,9 +10,11 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Signal, Battery, Wifi, WifiOff, Shield, Plus, QrCode, Upload, Download } from 'lucide-react'
+import Link from 'next/link'
+import { Signal, Battery, Wifi, WifiOff, Shield, Plus, QrCode, Upload, Download, Info } from 'lucide-react'
 import { Device } from '@/lib/mockData'
 import { calculateWarrantyStatus, getWarrantyStatusLabel, getWarrantyStatusTokenClass } from '@/lib/warranty'
+import { getDeviceLibraryUrl } from '@/lib/libraryUtils'
 
 interface DeviceListProps {
   devices: Device[]
@@ -301,7 +303,19 @@ export function DeviceList({ devices, selectedDeviceId, onDeviceSelect, searchQu
                     {device.serialNumber}
                   </td>
                   <td className="py-3 px-4 text-sm text-[var(--color-text-muted)]">
-                    {getTypeLabel(device.type)}
+                    <div className="flex items-center gap-1.5">
+                      <span>{getTypeLabel(device.type)}</span>
+                      {getDeviceLibraryUrl(device.type) && (
+                        <Link
+                          href={getDeviceLibraryUrl(device.type)!}
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-0.5 rounded hover:bg-[var(--color-surface-subtle)] transition-colors"
+                          title="View in library"
+                        >
+                          <Info size={12} className="text-[var(--color-primary)]" />
+                        </Link>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3 px-4">
                       {device.signal > 0 ? (

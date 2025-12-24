@@ -9,6 +9,7 @@
 
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Store, useStore } from '@/lib/StoreContext'
 import { Device } from '@/lib/mockData'
@@ -89,6 +90,40 @@ export function StoreDetailsPanel({
 }: StoreDetailsPanelProps) {
   const router = useRouter()
   const { setActiveStore, stores } = useStore()
+  const [storeImageUrl, setStoreImageUrl] = useState<string | null>(null)
+  const [imageKey, setImageKey] = useState(0) // Force re-render on update
+
+  // Load store image from client storage
+  useEffect(() => {
+    const loadStoreImage = async () => {
+      if (!store?.id) {
+        setStoreImageUrl(null)
+        return
+      }
+
+      try {
+        const { getSiteImage } = await import('@/lib/libraryUtils')
+        const image = await getSiteImage(store.id)
+        setStoreImageUrl(image)
+      } catch (error) {
+        console.error('Failed to load store image:', error)
+        setStoreImageUrl(null)
+      }
+    }
+
+    loadStoreImage()
+
+    // Listen for site image updates
+    const handleSiteImageUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ siteId: string }>
+      if (customEvent.detail?.siteId === store?.id) {
+        setImageKey(prev => prev + 1) // Force re-render
+        loadStoreImage() // Reload image
+      }
+    }
+    window.addEventListener('siteImageUpdated', handleSiteImageUpdate)
+    return () => window.removeEventListener('siteImageUpdated', handleSiteImageUpdate)
+  }, [store?.id, imageKey])
 
   if (!store) {
     return (
@@ -179,10 +214,24 @@ export function StoreDetailsPanel({
   ].slice(0, 5)
 
   return (
-    <div className="w-96 min-w-[20rem] max-w-[32rem] bg-[var(--color-surface)] backdrop-blur-xl rounded-2xl border border-[var(--color-border-subtle)] flex flex-col shadow-[var(--shadow-strong)] overflow-hidden flex-shrink-0 h-full">
+    <div className="w-full h-full bg-[var(--color-surface)] backdrop-blur-xl rounded-2xl border border-[var(--color-border-subtle)] flex flex-col shadow-[var(--shadow-strong)] overflow-hidden">
       <div className="flex-1 overflow-auto p-6 space-y-6">
       {/* Store Header */}
       <div>
+        {/* Store Image */}
+        {storeImageUrl && (
+          <div className="mb-4 rounded-lg overflow-hidden aspect-video bg-[var(--color-surface-subtle)]">
+            <img
+              src={storeImageUrl}
+              alt={store.name}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                // Hide image on error
+                e.currentTarget.style.display = 'none'
+              }}
+            />
+          </div>
+        )}
         <div className="flex items-start justify-between mb-2">
           <h2 className="text-xl font-bold text-[var(--color-text)]">{store.name}</h2>
           <div className="flex items-center gap-1 flex-shrink-0">

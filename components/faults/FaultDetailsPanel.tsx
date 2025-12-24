@@ -9,12 +9,15 @@
 
 'use client'
 
-import { useState } from 'react'
-import { AlertCircle, Droplets, Zap, Thermometer, Plug, Settings, Package, Wrench, Lightbulb, MapPin, Radio, RefreshCw, CheckCircle2, Clock, TrendingDown, XCircle, Battery, Shield, ExternalLink, Plus, X, ChevronDown } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { AlertCircle, Droplets, Zap, Thermometer, Plug, Settings, Package, Wrench, Lightbulb, MapPin, Radio, RefreshCw, CheckCircle2, Clock, TrendingDown, XCircle, Battery, Shield, ExternalLink, Plus, X, ChevronDown, Info, Image } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { Device } from '@/lib/mockData'
+import { Device, DeviceType } from '@/lib/mockData'
 import { FaultCategory, faultCategories, generateFaultDescription } from '@/lib/faultDefinitions'
 import { calculateWarrantyStatus, getWarrantyStatusLabel, getWarrantyStatusTokenClass, formatWarrantyExpiry } from '@/lib/warranty'
+import { getDeviceLibraryUrl, getDeviceImage } from '@/lib/libraryUtils'
+import { isFixtureType } from '@/lib/deviceUtils'
 
 interface Fault {
   device: Device
@@ -298,6 +301,50 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
     return 'token token-data token-data-battery-low'
   }
 
+  // Device Icon Component with image support
+  function DeviceIcon({ deviceType }: { deviceType: string }) {
+    const [imageError, setImageError] = useState(false)
+    const [imageKey, setImageKey] = useState(0)
+
+    // Listen for library image updates
+    useEffect(() => {
+      const handleImageUpdate = () => {
+        setImageKey(prev => prev + 1)
+        setImageError(false) // Reset error state
+      }
+      window.addEventListener('libraryImageUpdated', handleImageUpdate)
+      return () => window.removeEventListener('libraryImageUpdated', handleImageUpdate)
+    }, [])
+
+    // Call getDeviceImage on every render (it checks localStorage each time)
+    const deviceImage = getDeviceImage(deviceType as DeviceType)
+    const showImage = deviceImage && !imageError
+
+    return (
+      <div className="w-16 h-16 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border-subtle)] flex items-center justify-center flex-shrink-0 shadow-[var(--shadow-soft)] overflow-hidden relative">
+        {showImage ? (
+          <img
+            key={imageKey}
+            src={deviceImage}
+            alt={getTypeLabel(deviceType)}
+            className="absolute inset-0 w-full h-full object-cover"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            {isFixtureType(deviceType as DeviceType) ? (
+              <Image size={32} className="text-[var(--color-primary)]" />
+            ) : deviceType === 'motion' ? (
+              <Radio size={32} className="text-[var(--color-accent)]" />
+            ) : (
+              <Thermometer size={32} className="text-[var(--color-success)]" />
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const troubleshootingSteps = getTroubleshootingSteps(fault.faultType)
 
   // If showing add form while viewing a fault, show it as an overlay
@@ -443,9 +490,7 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
       <div className={`p-4 border-b border-[var(--color-border-subtle)] bg-gradient-to-br ${getFaultColor(fault.faultType)}/10 to-[var(--color-surface-subtle)]`}>
         <div className="flex items-start gap-3 mb-3">
           {/* Device Image/Icon */}
-          <div className={`w-16 h-16 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border-subtle)] flex items-center justify-center flex-shrink-0 shadow-[var(--shadow-soft)] ${getFaultColor(fault.faultType)}`}>
-            {getFaultIcon(fault.faultType)}
-          </div>
+          <DeviceIcon deviceType={fault.device.type} />
           {/* Meta Information */}
           <div className="flex-1 min-w-0">
             <div className="mb-2">
@@ -462,9 +507,21 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
                 </h3>
                 <ExternalLink size={14} className="text-[var(--color-text-muted)] group-hover:text-[var(--color-primary)] transition-colors flex-shrink-0" />
               </button>
-              <p className="text-xs text-[var(--color-text-muted)]">
-                {faultCategories[fault.faultType]?.shortLabel || getFaultLabel(fault.faultType)} • {getTypeLabel(fault.device.type)}
-              </p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  {faultCategories[fault.faultType]?.shortLabel || getFaultLabel(fault.faultType)} • {getTypeLabel(fault.device.type)}
+                </p>
+                {getDeviceLibraryUrl(fault.device.type) && (
+                  <Link
+                    href={getDeviceLibraryUrl(fault.device.type)!}
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-0.5 rounded hover:bg-[var(--color-surface-subtle)] transition-colors"
+                    title="View in library"
+                  >
+                    <Info size={10} className="text-[var(--color-primary)]" />
+                  </Link>
+                )}
+              </div>
             </div>
             {/* Quick Stats */}
             <div className="grid grid-cols-2 gap-2.5">

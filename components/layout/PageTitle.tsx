@@ -25,6 +25,7 @@ const pageTitles: Record<string, { primary: string; secondary?: string }> = {
   '/rules': { primary: 'Fusion', secondary: 'i2 Cloud' },
   '/lookup': { primary: 'Fusion', secondary: 'i2 Cloud' },
   '/faults': { primary: 'Fusion', secondary: 'i2 Cloud' },
+  '/library': { primary: 'Fusion', secondary: 'i2 Cloud' },
 }
 
 export function PageTitle() {

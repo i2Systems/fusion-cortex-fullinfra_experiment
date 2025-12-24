@@ -73,6 +73,7 @@ export const siteRouter = router({
       manager: z.string().optional(),
       squareFootage: z.number().optional(),
       openedDate: z.date().optional(),
+      imageUrl: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
       const site = await prisma.site.create({
@@ -87,6 +88,7 @@ export const siteRouter = router({
           manager: input.manager,
           squareFootage: input.squareFootage,
           openedDate: input.openedDate,
+          imageUrl: input.imageUrl,
         },
       })
       return site
@@ -105,14 +107,63 @@ export const siteRouter = router({
       manager: z.string().optional(),
       squareFootage: z.number().optional(),
       openedDate: z.date().optional(),
+      imageUrl: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
-      const { id, ...updates } = input
-      const site = await prisma.site.update({
-        where: { id },
-        data: updates,
-      })
-      return site
+      try {
+        const { id, ...updates } = input
+        
+        // Log imageUrl length if present (for debugging)
+        if (updates.imageUrl) {
+          console.log('Updating site imageUrl length:', updates.imageUrl.length, 'starts with:', updates.imageUrl.substring(0, 50))
+        }
+        
+        const site = await prisma.site.update({
+          where: { id },
+          data: updates,
+        })
+        return site
+      } catch (error: any) {
+        console.error('Error in site.update:', {
+          message: error.message,
+          code: error.code,
+          meta: error.meta,
+          stack: error.stack,
+          input: input,
+        })
+        
+        // Handle "record not found" errors
+        if (error.code === 'P2025' || error.message?.includes('Record to update not found')) {
+          throw new Error(`Site with ID ${input.id} not found in database`)
+        }
+        
+        // Handle column doesn't exist errors (migration needed)
+        if (error.code === '42703' || error.message?.includes('column') || error.message?.includes('does not exist')) {
+          console.error('❌ Database column missing. You may need to run: npx prisma db push')
+          throw new Error('Database schema is out of date. Please run database migration.')
+        }
+        
+        // Handle prepared statement errors with retry
+        if (error.code === '26000' || error.message?.includes('prepared statement')) {
+          console.log('Retrying site.update after prepared statement error...')
+          await new Promise(resolve => setTimeout(resolve, 200))
+          
+          try {
+            const { id, ...updates } = input
+            const site = await prisma.site.update({
+              where: { id },
+              data: updates,
+            })
+            return site
+          } catch (retryError: any) {
+            console.error('Retry also failed:', retryError)
+            throw new Error(`Failed to update site: ${retryError.message || 'Unknown error'}`)
+          }
+        }
+        
+        // Re-throw with more context
+        throw new Error(`Failed to update site: ${error.message || 'Unknown error'}`)
+      }
     }),
 
   // Ensure site exists - creates if it doesn't, returns if it does
@@ -129,6 +180,7 @@ export const siteRouter = router({
       manager: z.string().optional(),
       squareFootage: z.number().optional(),
       openedDate: z.date().optional(),
+      imageUrl: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
       try {
@@ -165,6 +217,7 @@ export const siteRouter = router({
         if (input.manager !== undefined) siteData.manager = input.manager
         if (input.squareFootage !== undefined) siteData.squareFootage = input.squareFootage
         if (input.openedDate !== undefined) siteData.openedDate = input.openedDate
+        if (input.imageUrl !== undefined) siteData.imageUrl = input.imageUrl
 
         const site = await prisma.site.create({
           data: siteData,
