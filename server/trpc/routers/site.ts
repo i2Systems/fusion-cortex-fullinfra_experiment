@@ -183,139 +183,116 @@ export const siteRouter = router({
       imageUrl: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
-      try {
-        const existing = await prisma.site.findUnique({
-          where: { id: input.id },
-        })
-
-        if (existing) {
-          return existing
-        }
-
-        // Try to find by store number if provided
-        if (input.storeNumber) {
-          const byStoreNumber = await prisma.site.findFirst({
-            where: { storeNumber: input.storeNumber },
+      const MAX_RETRIES = 3
+      let retries = 0
+      
+      while (retries < MAX_RETRIES) {
+        try {
+          const existing = await prisma.site.findUnique({
+            where: { id: input.id },
           })
-          if (byStoreNumber) {
-            return byStoreNumber
+
+          if (existing) {
+            return existing
           }
-        }
 
-        // Create new site - filter out undefined values
-        const siteData: any = {
-          id: input.id,
-          name: input.name,
-        }
-        
-        if (input.storeNumber !== undefined) siteData.storeNumber = input.storeNumber
-        if (input.address !== undefined) siteData.address = input.address
-        if (input.city !== undefined) siteData.city = input.city
-        if (input.state !== undefined) siteData.state = input.state
-        if (input.zipCode !== undefined) siteData.zipCode = input.zipCode
-        if (input.phone !== undefined) siteData.phone = input.phone
-        if (input.manager !== undefined) siteData.manager = input.manager
-        if (input.squareFootage !== undefined) siteData.squareFootage = input.squareFootage
-        if (input.openedDate !== undefined) siteData.openedDate = input.openedDate
-        if (input.imageUrl !== undefined) siteData.imageUrl = input.imageUrl
+          // Try to find by store number if provided
+          if (input.storeNumber) {
+            const byStoreNumber = await prisma.site.findFirst({
+              where: { storeNumber: input.storeNumber },
+            })
+            if (byStoreNumber) {
+              return byStoreNumber
+            }
+          }
 
-        const site = await prisma.site.create({
-          data: siteData,
-        })
-        return site
-      } catch (error: any) {
-        // Log error for debugging with full details
-        console.error('Error in ensureExists:', {
-          message: error.message,
-          code: error.code,
-          meta: error.meta,
-          stack: error.stack,
-          input: input,
-        })
-        
-        // Handle prepared statement errors with retry
-        if (error.code === '26000' || error.message?.includes('prepared statement')) {
-          console.log('Retrying site.ensureExists after prepared statement error...')
-          await new Promise(resolve => setTimeout(resolve, 200))
+          // Create new site - filter out undefined values
+          const siteData: any = {
+            id: input.id,
+            name: input.name,
+          }
           
-          try {
-            const existing = await prisma.site.findUnique({
-              where: { id: input.id },
-            })
+          if (input.storeNumber !== undefined) siteData.storeNumber = input.storeNumber
+          if (input.address !== undefined) siteData.address = input.address
+          if (input.city !== undefined) siteData.city = input.city
+          if (input.state !== undefined) siteData.state = input.state
+          if (input.zipCode !== undefined) siteData.zipCode = input.zipCode
+          if (input.phone !== undefined) siteData.phone = input.phone
+          if (input.manager !== undefined) siteData.manager = input.manager
+          if (input.squareFootage !== undefined) siteData.squareFootage = input.squareFootage
+          if (input.openedDate !== undefined) siteData.openedDate = input.openedDate
+          if (input.imageUrl !== undefined) siteData.imageUrl = input.imageUrl
 
-            if (existing) {
-              return existing
+          const site = await prisma.site.create({
+            data: siteData,
+          })
+          return site
+        } catch (error: any) {
+          // Log error for debugging with full details
+          console.error('Error in ensureExists:', {
+            message: error.message,
+            code: error.code,
+            meta: error.meta,
+            stack: error.stack,
+            input: input,
+            retry: retries,
+          })
+          
+          // Handle prepared statement errors with retry
+          if (error.code === '26000' || error.code === '42P05' || error.message?.includes('prepared statement')) {
+            retries++
+            if (retries < MAX_RETRIES) {
+              console.log(`Retrying site.ensureExists after prepared statement error. Attempt ${retries}/${MAX_RETRIES}...`)
+              await new Promise(resolve => setTimeout(resolve, 200 * retries)) // Exponential backoff
+              continue // Retry the loop
             }
-
-            if (input.storeNumber) {
-              const byStoreNumber = await prisma.site.findFirst({
-                where: { storeNumber: input.storeNumber },
-              })
-              if (byStoreNumber) {
-                return byStoreNumber
+          }
+          
+          // If it's a unique constraint violation, try to find the existing site
+          if (error.code === 'P2002') {
+            try {
+              // Unique constraint violation - site might exist with different ID
+              // Try to find by store number or name
+              const orConditions: Array<{ storeNumber?: string } | { name: string }> = [
+                { name: input.name },
+              ]
+              if (input.storeNumber) {
+                orConditions.push({ storeNumber: input.storeNumber })
               }
+              
+              const found = await prisma.site.findFirst({
+                where: {
+                  OR: orConditions,
+                },
+              })
+              if (found) {
+                return found
+              }
+            } catch (findError) {
+              console.error('Error finding existing site during P2002 handling:', findError)
             }
-
-            const siteData: any = {
-              id: input.id,
-              name: input.name,
-            }
-            
-            if (input.storeNumber !== undefined) siteData.storeNumber = input.storeNumber
-            if (input.address !== undefined) siteData.address = input.address
-            if (input.city !== undefined) siteData.city = input.city
-            if (input.state !== undefined) siteData.state = input.state
-            if (input.zipCode !== undefined) siteData.zipCode = input.zipCode
-            if (input.phone !== undefined) siteData.phone = input.phone
-            if (input.manager !== undefined) siteData.manager = input.manager
-            if (input.squareFootage !== undefined) siteData.squareFootage = input.squareFootage
-            if (input.openedDate !== undefined) siteData.openedDate = input.openedDate
-
-            const site = await prisma.site.create({
-              data: siteData,
-            })
-            return site
-          } catch (retryError: any) {
-            console.error('Retry also failed:', retryError)
-            // Fall through to other error handling
           }
-        }
-        
-        // If it's a unique constraint violation, try to find the existing site
-        if (error.code === 'P2002') {
-          try {
-            // Unique constraint violation - site might exist with different ID
-            // Try to find by store number or name
-            const orConditions: Array<{ storeNumber?: string } | { name: string }> = [
-              { name: input.name },
-            ]
-            if (input.storeNumber) {
-              orConditions.push({ storeNumber: input.storeNumber })
-            }
-            
-            const found = await prisma.site.findFirst({
-              where: {
-                OR: orConditions,
-              },
-            })
-            if (found) {
-              return found
-            }
-          } catch (findError) {
-            console.error('Error finding existing site:', findError)
+          
+          // Check for database connection errors
+          if (error.message?.includes('Can\'t reach database') || 
+              error.message?.includes('P1001') ||
+              error.message?.includes('Authentication failed') ||
+              error.code === 'P1001' ||
+              error.code === 'P1000') {
+            throw new Error('Database connection failed. Please check your DATABASE_URL environment variable.')
           }
+          
+          // If we've exhausted retries, throw the error
+          if (retries >= MAX_RETRIES) {
+            throw new Error(`Failed to ensure site exists after ${MAX_RETRIES} retries: ${error.message || 'Unknown error'}`)
+          }
+          
+          // For other errors, throw immediately
+          throw new Error(`Failed to ensure site exists: ${error.message || 'Unknown error'}`)
         }
-        
-        // Check for database connection errors
-        if (error.message?.includes('Can\'t reach database') || 
-            error.message?.includes('P1001') ||
-            error.code === 'P1001') {
-          throw new Error('Database connection failed. Please check your DATABASE_URL environment variable.')
-        }
-        
-        // Re-throw the error so tRPC can handle it
-        throw new Error(`Failed to ensure site exists: ${error.message || 'Unknown error'}`)
       }
+      
+      throw new Error(`Failed to ensure site exists after ${MAX_RETRIES} retries.`)
     }),
 
   // Note: Seeding endpoint removed because Next.js cannot resolve TypeScript files
