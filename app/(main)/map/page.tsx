@@ -399,6 +399,20 @@ export default function MapPage() {
     setLocations(prev => [...prev, newLocation])
     setCurrentLocationId(newLocation.id)
     setShowUploadModal(false)
+    
+    // Also save the uploaded image as the site image for the dashboard
+    if (activeStoreId) {
+      try {
+        const { setSiteImage } = await import('@/lib/libraryUtils')
+        await setSiteImage(activeStoreId, imageUrl)
+        console.log(`✅ Saved map image as site image for ${activeStoreId}`)
+        // Dispatch event to notify components
+        window.dispatchEvent(new CustomEvent('siteImageUpdated', { detail: { siteId: activeStoreId } }))
+      } catch (error) {
+        console.error('Failed to save map image as site image:', error)
+        // Don't block the upload if site image save fails
+      }
+    }
   }
 
   const handleVectorDataUpload = async (data: any) => {
