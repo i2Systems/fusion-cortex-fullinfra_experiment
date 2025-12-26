@@ -585,22 +585,28 @@ export async function setSiteImage(siteId: string, imageUrl: string, trpcClient?
         const { trpc } = await import('./trpc/client')
         // Note: This won't work in non-React contexts, but we'll try
         console.log('💾 Attempting to save to Supabase database (dynamic import)...')
-        // We can't use hooks here, so we'll need to make a direct API call
-        const response = await fetch('/api/trpc/image.saveSiteImage', {
+        // We can't use hooks here, so we'll need to make a direct API call (tRPC format)
+        const input = encodeURIComponent(JSON.stringify({
+          siteId,
+          imageData: compressedImage,
+          mimeType,
+        }))
+        const response = await fetch(`/api/trpc/image.saveSiteImage?batch=1&input=${input}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            json: {
-              siteId,
-              imageData: compressedImage,
-              mimeType,
-            },
-          }),
         })
         if (response.ok) {
-          console.log('✅ Site image saved to Supabase database via API')
+          const result = await response.json()
+          if (result[0]?.result?.data) {
+            console.log('✅ Site image saved to Supabase database via API')
+          } else if (result[0]?.error) {
+            throw new Error(result[0].error.message || 'Database save failed')
+          } else {
+            throw new Error('Invalid response format')
+          }
         } else {
-          throw new Error(`API returned ${response.status}`)
+          const errorText = await response.text()
+          throw new Error(`API returned ${response.status}: ${errorText}`)
         }
       } catch (apiError: any) {
         console.warn('⚠️ Failed to save to database via API, using client storage:', apiError.message)
