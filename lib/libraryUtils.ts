@@ -98,9 +98,13 @@ async function getCustomImage(libraryId: string, trpcClient?: any): Promise<stri
       }
     } else {
       // Try direct API call (tRPC format)
+      // Use POST for queries (same as mutations) with batch format
       try {
         const input = encodeURIComponent(JSON.stringify({ libraryId }))
-        const response = await fetch(`/api/trpc/image.getLibraryImage?batch=1&input=${input}`)
+        const response = await fetch(`/api/trpc/image.getLibraryImage?batch=1&input=${input}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        })
         if (response.ok) {
           const result = await response.json()
           // tRPC batch response format: array of results
@@ -491,9 +495,13 @@ export async function getSiteImage(siteId: string, retries: number = 3, trpcClie
       }
     } else {
       // Try direct API call (tRPC format)
+      // Use POST for queries (same as mutations) with batch format
       try {
         const input = encodeURIComponent(JSON.stringify({ siteId }))
-        const response = await fetch(`/api/trpc/image.getSiteImage?batch=1&input=${input}`)
+        const response = await fetch(`/api/trpc/image.getSiteImage?batch=1&input=${input}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        })
         if (response.ok) {
           const result = await response.json()
           // tRPC batch response format: array of results
