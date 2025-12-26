@@ -13,7 +13,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ChevronRight, ChevronDown, Package, Shield, Calendar, CheckCircle2, AlertCircle, XCircle, Info } from 'lucide-react'
 import { Component, Device } from '@/lib/mockData'
-import { getComponentLibraryUrl, getComponentImage } from '@/lib/libraryUtils'
+import { getComponentLibraryUrl, getComponentImage, getComponentImageAsync } from '@/lib/libraryUtils'
 
 interface ComponentTreeProps {
   components: Component[]
@@ -45,6 +45,58 @@ export function ComponentTree({
     window.addEventListener('libraryImageUpdated', handleImageUpdate)
     return () => window.removeEventListener('libraryImageUpdated', handleImageUpdate)
   }, [])
+  
+  // Component Image Icon (async for IndexedDB)
+  function ComponentImageIcon({ componentType, componentId }: { componentType: string, componentId: string }) {
+    const [componentImage, setComponentImage] = useState<string | null>(null)
+    const [imageError, setImageError] = useState(false)
+
+    useEffect(() => {
+      const loadImage = async () => {
+        try {
+          // Try sync first (for localStorage)
+          const syncImage = getComponentImage(componentType)
+          if (syncImage) {
+            setComponentImage(syncImage)
+            return
+          }
+          
+          // If sync returned null, try async (for IndexedDB)
+          const asyncImage = await getComponentImageAsync(componentType)
+          if (asyncImage) {
+            setComponentImage(asyncImage)
+          } else {
+            setComponentImage(null)
+          }
+        } catch (error) {
+          console.error('Failed to load component image:', error)
+          setComponentImage(null)
+        }
+      }
+
+      loadImage()
+
+      const handleImageUpdate = () => {
+        setImageError(false)
+        loadImage()
+      }
+      window.addEventListener('libraryImageUpdated', handleImageUpdate)
+      return () => window.removeEventListener('libraryImageUpdated', handleImageUpdate)
+    }, [componentType, imageKey])
+
+    if (componentImage && !imageError) {
+      return (
+        <img
+          key={`${componentId}-${imageKey}`}
+          src={componentImage}
+          alt={componentType}
+          className="w-full h-full object-cover"
+          onError={() => setImageError(true)}
+        />
+      )
+    }
+    return <Package size={12} className="text-[var(--color-primary)]" />
+  }
   
   const handleToggle = () => {
     const newExpanded = !expanded
@@ -119,23 +171,7 @@ export function ComponentTree({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-1">
                     <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 overflow-hidden bg-[var(--color-surface-subtle)]">
-                      {(() => {
-                        const componentImage = getComponentImage(component.componentType)
-                        if (componentImage) {
-                          return (
-                            <img
-                              key={`${component.id}-${imageKey}`}
-                              src={componentImage}
-                              alt={component.componentType}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none'
-                              }}
-                            />
-                          )
-                        }
-                        return <Package size={12} className="text-[var(--color-primary)]" />
-                      })()}
+                      <ComponentImageIcon componentType={component.componentType} componentId={component.id} />
                     </div>
                     <span className="font-semibold text-[var(--color-text)] truncate">
                       {component.componentType}

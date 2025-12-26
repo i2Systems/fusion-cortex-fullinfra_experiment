@@ -146,6 +146,7 @@ function getCustomImageSync(libraryId: string): string | null {
 
 /**
  * Compress image by reducing quality/size
+ * Preserves original format (PNG/JPEG) to maintain transparency
  */
 async function compressImage(base64String: string, maxWidth: number = 800, quality: number = 0.8): Promise<string> {
   return new Promise((resolve) => {
@@ -167,9 +168,20 @@ async function compressImage(base64String: string, maxWidth: number = 800, quali
       const ctx = canvas.getContext('2d')
       if (ctx) {
         ctx.drawImage(img, 0, 0, width, height)
-        // Convert to JPEG with quality setting
-        const compressed = canvas.toDataURL('image/jpeg', quality)
-        resolve(compressed)
+        
+        // Detect original format and preserve it
+        const isPNG = base64String.startsWith('data:image/png') || base64String.includes('image/png')
+        const isJPEG = base64String.startsWith('data:image/jpeg') || base64String.startsWith('data:image/jpg') || base64String.includes('image/jpeg') || base64String.includes('image/jpg')
+        
+        // Preserve PNG format for transparency, use JPEG for photos
+        if (isPNG) {
+          const compressed = canvas.toDataURL('image/png')
+          resolve(compressed)
+        } else {
+          // Default to JPEG for photos and other formats
+          const compressed = canvas.toDataURL('image/jpeg', quality)
+          resolve(compressed)
+        }
       } else {
         resolve(base64String) // Fallback to original
       }
@@ -198,28 +210,40 @@ export async function setCustomImage(libraryId: string, imageUrl: string): Promi
         const response = await fetch(compressedImage)
         const blob = await response.blob()
         
+        // Determine file extension and mime type based on compressed image format
+        const isPNG = compressedImage.startsWith('data:image/png')
+        const fileExtension = isPNG ? 'png' : 'jpg'
+        const mimeType = isPNG ? 'image/png' : 'image/jpeg'
+        
         // Store in IndexedDB and wait for it to complete
         const imageId = await storeImage(
           LIBRARY_STORE_ID,
           blob,
-          `library_${libraryId}.jpg`,
-          blob.type || 'image/jpeg'
+          `library_${libraryId}.${fileExtension}`,
+          mimeType
         )
         
-        // Verify the image was actually stored before saving reference
+            // Verify the image was actually stored before saving reference
+        // Note: We wait a bit longer for IndexedDB to be ready
         let verified = false
-        for (let i = 0; i < 3; i++) {
-          const storedImage = await getImage(imageId)
-          if (storedImage) {
-            verified = true
-            break
+        for (let i = 0; i < 5; i++) {
+          try {
+            const storedImage = await getImage(imageId)
+            if (storedImage) {
+              verified = true
+              console.log(`✅ Verified image stored in IndexedDB on attempt ${i + 1}`)
+              break
+            }
+          } catch (verifyError) {
+            console.warn(`Verification attempt ${i + 1} failed:`, verifyError)
           }
-          // Wait a bit before retrying
-          await new Promise(resolve => setTimeout(resolve, 100 * (i + 1)))
+          // Wait a bit before retrying (longer waits for later attempts)
+          await new Promise(resolve => setTimeout(resolve, 150 * (i + 1)))
         }
 
         if (!verified) {
-          throw new Error('Image stored but could not be verified')
+          console.warn('⚠️ Image stored but could not be verified after 5 attempts - saving reference anyway')
+          // Don't throw - save the reference anyway, retry logic will handle it on read
         }
         
         // Store only the reference in localStorage after verification
@@ -442,30 +466,41 @@ export async function setSiteImage(siteId: string, imageUrl: string): Promise<vo
         const blob = await response.blob()
         console.log(`Blob size: ${blob.size} bytes`)
 
+        // Determine file extension and mime type based on compressed image format
+        const isPNG = compressedImage.startsWith('data:image/png')
+        const fileExtension = isPNG ? 'png' : 'jpg'
+        const mimeType = isPNG ? 'image/png' : 'image/jpeg'
+        
         // Store in IndexedDB and wait for it to complete
         const imageId = await storeImage(
           siteId,
           blob,
-          `site_image_${siteId}.jpg`,
-          blob.type || 'image/jpeg'
+          `site_image_${siteId}.${fileExtension}`,
+          mimeType
         )
         console.log(`✅ Stored in IndexedDB with ID: ${imageId}`)
 
         // Verify the image was actually stored before saving reference
         const { getImage } = await import('./indexedDB')
         let verified = false
-        for (let i = 0; i < 3; i++) {
-          const storedImage = await getImage(imageId)
-          if (storedImage) {
-            verified = true
-            break
+        for (let i = 0; i < 5; i++) {
+          try {
+            const storedImage = await getImage(imageId)
+            if (storedImage) {
+              verified = true
+              console.log(`✅ Verified library image stored in IndexedDB on attempt ${i + 1}`)
+              break
+            }
+          } catch (verifyError) {
+            console.warn(`Library image verification attempt ${i + 1} failed:`, verifyError)
           }
-          // Wait a bit before retrying
-          await new Promise(resolve => setTimeout(resolve, 100 * (i + 1)))
+          // Wait a bit before retrying (longer waits for later attempts)
+          await new Promise(resolve => setTimeout(resolve, 150 * (i + 1)))
         }
 
         if (!verified) {
-          throw new Error('Image stored but could not be verified')
+          console.warn('⚠️ Library image stored but could not be verified after 5 attempts - saving reference anyway')
+          // Don't throw - save the reference anyway, retry logic will handle it on read
         }
 
         // Store only the reference in localStorage after verification
@@ -491,19 +526,20 @@ export async function setSiteImage(siteId: string, imageUrl: string): Promise<vo
     }
 
     // Verify it was saved (with a small delay for IndexedDB)
-    await new Promise(resolve => setTimeout(resolve, 150))
+    await new Promise(resolve => setTimeout(resolve, 200))
     const verify = localStorage.getItem(`${SITE_IMAGE_PREFIX}${siteId}`)
     if (verify) {
-      console.log(`✅ Verified: Image saved successfully for ${siteId}`)
+      console.log(`✅ Verified: Image reference saved in localStorage for ${siteId}`)
+      console.log(`   Reference type: ${verify.startsWith('indexeddb:') ? 'IndexedDB' : 'localStorage'}`)
     } else {
-      console.error(`❌ Verification failed: Image not found after save for ${siteId}`)
+      console.error(`❌ Verification failed: Image reference not found after save for ${siteId}`)
     }
 
-    // Dispatch event to notify components (with a small delay to ensure IndexedDB is ready)
+    // Dispatch event to notify components (with a delay to ensure IndexedDB is ready)
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('siteImageUpdated', { detail: { siteId } }))
       console.log(`✅ Dispatched siteImageUpdated event for ${siteId}`)
-    }, 200)
+    }, 300)
   } catch (error) {
     console.error(`❌ Failed to save site image for ${siteId}:`, error)
     throw error

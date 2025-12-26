@@ -57,23 +57,49 @@ export function ComponentModal({ component, parentDevice, isOpen, onClose }: Com
     }
   }
 
-  // Component Icon Component with image support
+  // Component Icon Component with image support (async for IndexedDB)
   function ComponentIcon({ componentType }: { componentType: string }) {
+    const [componentImage, setComponentImage] = useState<string | null>(null)
     const [imageError, setImageError] = useState(false)
     const [imageKey, setImageKey] = useState(0)
 
-    // Listen for library image updates
+    // Load component image (handles both sync and async)
     useEffect(() => {
+      const loadImage = async () => {
+        try {
+          // Try sync first (for localStorage)
+          const syncImage = getComponentImage(componentType)
+          if (syncImage) {
+            setComponentImage(syncImage)
+            return
+          }
+          
+          // If sync returned null, try async (for IndexedDB)
+          const { getComponentImageAsync } = await import('@/lib/libraryUtils')
+          const asyncImage = await getComponentImageAsync(componentType)
+          if (asyncImage) {
+            setComponentImage(asyncImage)
+          } else {
+            setComponentImage(null)
+          }
+        } catch (error) {
+          console.error('Failed to load component image:', error)
+          setComponentImage(null)
+        }
+      }
+
+      loadImage()
+
+      // Listen for library image updates
       const handleImageUpdate = () => {
         setImageKey(prev => prev + 1)
         setImageError(false) // Reset error state
+        loadImage() // Reload image
       }
       window.addEventListener('libraryImageUpdated', handleImageUpdate)
       return () => window.removeEventListener('libraryImageUpdated', handleImageUpdate)
-    }, [])
+    }, [componentType, imageKey])
 
-    // Call getComponentImage on every render (it checks localStorage each time)
-    const componentImage = getComponentImage(componentType)
     const showImage = componentImage && !imageError
 
     return (
