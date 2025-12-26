@@ -396,6 +396,76 @@ export const deviceRouter = router({
           input: input,
         })
         
+        // Handle unique constraint violation (duplicate serial number)
+        if (error.code === 'P2002' && error.meta?.target?.includes('serialNumber')) {
+          console.log('Device with serial number already exists, checking if we should update or return existing...')
+          
+          try {
+            // Check if device exists with this serial number
+            const existingDevice = await prisma.device.findUnique({
+              where: { serialNumber: input.serialNumber },
+              include: { components: true },
+            })
+            
+            if (existingDevice) {
+              // If it's in the same site, update it with new data
+              if (existingDevice.siteId === input.siteId) {
+                console.log('Device exists in same site, updating...')
+                
+                const prismaType = toPrismaDeviceType(input.type as FrontendDeviceType)
+                if (!prismaType) {
+                  throw new Error(`Invalid device type: ${input.type}`)
+                }
+                
+                // Update the existing device
+                const updatedDevice = await prisma.device.update({
+                  where: { id: existingDevice.id },
+                  data: {
+                    deviceId: input.deviceId,
+                    type: prismaType,
+                    status: toPrismaDeviceStatus(input.status || 'offline'),
+                    signal: input.signal,
+                    battery: input.battery,
+                    x: input.x,
+                    y: input.y,
+                    warrantyStatus: input.warrantyStatus,
+                    warrantyExpiry: input.warrantyExpiry,
+                    // Update components if provided
+                    ...(input.components && input.components.length > 0 ? {
+                      components: {
+                        deleteMany: {}, // Remove old components
+                        create: input.components.map(comp => ({
+                          siteId: input.siteId,
+                          deviceId: `${input.deviceId}-${comp.componentType}`,
+                          serialNumber: comp.componentSerialNumber,
+                          type: DeviceType.FIXTURE_16FT_POWER_ENTRY,
+                          status: DeviceStatus.ONLINE,
+                          componentType: comp.componentType,
+                          componentSerialNumber: comp.componentSerialNumber,
+                          warrantyStatus: comp.warrantyStatus,
+                          warrantyExpiry: comp.warrantyExpiry,
+                          buildDate: comp.buildDate,
+                        })),
+                      },
+                    } : {}),
+                  },
+                  include: {
+                    components: true,
+                  },
+                })
+                
+                return transformDevice(updatedDevice)
+              } else {
+                // Device exists in a different site
+                throw new Error(`Device with serial number ${input.serialNumber} already exists in a different site`)
+              }
+            }
+          } catch (checkError: any) {
+            console.error('Error checking for existing device:', checkError)
+            throw new Error(`Device with serial number ${input.serialNumber} already exists: ${checkError.message}`)
+          }
+        }
+        
         // Handle prepared statement conflicts by retrying once
         if (error.code === '42P05' || error.code === '26000' || error.message?.includes('prepared statement')) {
           console.log('Retrying device.create after prepared statement conflict...')
