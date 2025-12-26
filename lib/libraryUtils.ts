@@ -103,14 +103,20 @@ async function getCustomImage(libraryId: string, trpcClient?: any): Promise<stri
         const response = await fetch(`/api/trpc/image.getLibraryImage?batch=1&input=${input}`)
         if (response.ok) {
           const result = await response.json()
+          // tRPC batch response format: array of results
           if (result[0]?.result?.data) {
             console.log(`✅ Loaded library image from Supabase database via API for ${libraryId}`)
             return result[0].result.data
+          } else if (result[0]?.result?.data === null) {
+            console.log(`ℹ️ No database image found in API response for ${libraryId} (null)`)
+          } else if (result[0]?.error) {
+            console.warn(`⚠️ API returned error for ${libraryId}:`, result[0].error)
           } else {
-            console.log(`ℹ️ No database image found in API response for ${libraryId}`)
+            console.log(`ℹ️ No database image found in API response for ${libraryId} (empty result)`)
           }
         } else {
-          console.warn(`⚠️ API returned ${response.status} for ${libraryId}`)
+          const errorText = await response.text()
+          console.warn(`⚠️ API returned ${response.status} for ${libraryId}:`, errorText.substring(0, 200))
         }
       } catch (apiError: any) {
         console.warn(`⚠️ API call failed for ${libraryId}:`, apiError.message)

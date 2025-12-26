@@ -26,7 +26,7 @@ export function LibraryCard({ object, onClick }: LibraryCardProps) {
   // Uses async loading to check database first, then client storage, then default
   useEffect(() => {
     const loadImage = async () => {
-      console.log(`🖼️ Loading image for ${isComponent ? 'component' : 'device'}: ${object.name || object.id}`)
+      console.log(`🖼️ Loading image for ${isComponent ? 'component' : 'device'}: ${isComponent ? object.name : (object as any).id || object.name}`)
       if (isComponent) {
         // Try sync first (for localStorage images)
         const syncImage = getComponentImage(object.name)
