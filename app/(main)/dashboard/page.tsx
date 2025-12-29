@@ -94,7 +94,7 @@ function SiteImageCard({ siteId }: { siteId: string }) {
   // Also use enabled to prevent query execution if siteId is invalid
   // Ensure input is always a proper object, never undefined
   const queryInput = isValidSiteId && siteId ? { siteId: String(siteId).trim() } : skipToken
-  const { data: dbImage, refetch: refetchSiteImage } = trpc.image.getSiteImage.useQuery(
+  const { data: dbImage, isLoading: isDbLoading, refetch: refetchSiteImage } = trpc.image.getSiteImage.useQuery(
     queryInput,
     { 
       // Double protection: enabled flag prevents query execution
@@ -111,6 +111,12 @@ function SiteImageCard({ siteId }: { siteId: string }) {
     const loadImage = async () => {
       console.log(`🖼️ Loading image for site: ${siteId}`)
       try {
+        // Wait for database query to complete before checking
+        if (isDbLoading) {
+          console.log(`⏳ Database query still loading for site ${siteId}, waiting...`)
+          return
+        }
+
         // First try database (from tRPC query)
         if (dbImage) {
           console.log(`✅ Loaded image from database for site ${siteId}`)
@@ -118,7 +124,8 @@ function SiteImageCard({ siteId }: { siteId: string }) {
           return
         }
 
-        // Fallback to client storage
+        // Only fallback to client storage if database query completed and returned null
+        console.log(`ℹ️ No database image found for site ${siteId}, checking client storage...`)
         const { getSiteImage } = await import('@/lib/libraryUtils')
         const image = await getSiteImage(siteId)
         if (image) {
@@ -149,7 +156,7 @@ function SiteImageCard({ siteId }: { siteId: string }) {
     }
     window.addEventListener('siteImageUpdated', handleSiteImageUpdate)
     return () => window.removeEventListener('siteImageUpdated', handleSiteImageUpdate)
-  }, [siteId, dbImage, refetchSiteImage])
+  }, [siteId, dbImage, isDbLoading, refetchSiteImage])
 
   return (
     <div className="flex-shrink-0 w-24 h-24 rounded-lg bg-gradient-to-br from-[var(--color-primary-soft)]/20 to-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-center relative overflow-hidden">
@@ -329,11 +336,11 @@ export default function DashboardPage() {
       const mapUploaded = typeof window !== 'undefined' ? !!localStorage.getItem(mapImageKey) : false
 
       // Calculate stats
-      const onlineDevices = devices.filter(d => d.status === 'online').length
+  const onlineDevices = devices.filter(d => d.status === 'online').length
       const offlineDevices = devices.filter(d => d.status === 'offline' || d.status === 'missing')
-      const healthPercentage = devices.length > 0 
-        ? Math.round((onlineDevices / devices.length) * 100)
-        : 100
+  const healthPercentage = devices.length > 0 
+    ? Math.round((onlineDevices / devices.length) * 100)
+    : 100
 
       // Count warranties expiring/expired
       const now = new Date()

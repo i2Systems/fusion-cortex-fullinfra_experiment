@@ -104,7 +104,7 @@ export function SiteDetailsPanel({
   // Also use enabled to prevent query execution if siteId is invalid
   // Ensure input is always a proper object, never undefined
   const queryInput = isValidSiteId && site?.id ? { siteId: String(site.id).trim() } : skipToken
-  const { data: dbImage, refetch: refetchSiteImage } = trpc.image.getSiteImage.useQuery(
+  const { data: dbImage, isLoading: isDbLoading, refetch: refetchSiteImage } = trpc.image.getSiteImage.useQuery(
     queryInput,
     { 
       // Double protection: enabled flag prevents query execution
@@ -127,6 +127,12 @@ export function SiteDetailsPanel({
 
       console.log(`🖼️ Loading image for site: ${site.id}`)
       try {
+        // Wait for database query to complete before checking
+        if (isDbLoading) {
+          console.log(`⏳ Database query still loading for site ${site.id}, waiting...`)
+          return
+        }
+
         // First try database (from tRPC query)
         if (dbImage) {
           console.log(`✅ Loaded image from database for site ${site.id}`)
@@ -134,7 +140,8 @@ export function SiteDetailsPanel({
           return
         }
 
-        // Fallback to client storage
+        // Only fallback to client storage if database query completed and returned null
+        console.log(`ℹ️ No database image found for site ${site.id}, checking client storage...`)
         const { getSiteImage } = await import('@/lib/libraryUtils')
         const image = await getSiteImage(site.id)
         if (image) {
@@ -165,7 +172,7 @@ export function SiteDetailsPanel({
     }
     window.addEventListener('siteImageUpdated', handleSiteImageUpdate)
     return () => window.removeEventListener('siteImageUpdated', handleSiteImageUpdate)
-  }, [site?.id, dbImage, refetchSiteImage])
+  }, [site?.id, dbImage, isDbLoading, refetchSiteImage])
 
   if (!site) {
     return (
