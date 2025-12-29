@@ -210,24 +210,24 @@ export default function FaultsPage() {
     
     // Create notifications for database faults that don't have notifications yet
     dbFaults.forEach(dbFault => {
+      const notificationId = `fault-notification-${dbFault.id}`
+      
       // Skip if we've already synced this fault (globally, not per-site)
       if (syncedFaultIdsRef.current.has(dbFault.id)) return
+      
+      // Check if notification already exists in the notifications list
+      // This prevents duplicates if the component re-renders
+      const existingNotification = notifications.find(n => n.id === notificationId)
+      if (existingNotification) {
+        // Notification already exists, mark fault as synced
+        syncedFaultIdsRef.current.add(dbFault.id)
+        return
+      }
       
       const device = devices.find(d => d.id === dbFault.deviceId)
       if (device) {
         const categoryInfo = faultCategories[dbFault.faultType as FaultCategory]
         if (categoryInfo) {
-          const notificationId = `fault-notification-${dbFault.id}`
-          
-          // Check if notification already exists before creating
-          // This prevents duplicates if the component re-renders
-          const existingNotification = notifications.find(n => n.id === notificationId)
-          if (existingNotification) {
-            // Notification already exists, mark fault as synced
-            syncedFaultIdsRef.current.add(dbFault.id)
-            return
-          }
-          
           addNotification({
             id: notificationId,
             type: 'fault',
@@ -238,7 +238,7 @@ export default function FaultsPage() {
             link: '/faults',
             siteId: activeSiteId,
           })
-          // Mark this fault as synced
+          // Mark this fault as synced immediately to prevent duplicates
           syncedFaultIdsRef.current.add(dbFault.id)
         }
       }

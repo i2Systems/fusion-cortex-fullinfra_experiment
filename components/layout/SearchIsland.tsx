@@ -21,6 +21,7 @@ interface Metric {
   delta?: number
   description?: string
   icon?: React.ReactNode
+  onClick?: () => void
 }
 
 interface SearchIslandProps {
@@ -110,7 +111,10 @@ export function SearchIsland({
               {metrics.map((metric, index) => (
                 <div 
                   key={index}
-                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)]"
+                  onClick={metric.onClick}
+                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] ${
+                    metric.onClick ? 'cursor-pointer hover:bg-[var(--color-surface)] hover:border-[var(--color-primary)]/30 transition-all duration-200' : ''
+                  }`}
                 >
                   {metric.icon && (
                     <div className="flex-shrink-0">

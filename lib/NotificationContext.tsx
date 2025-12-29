@@ -560,7 +560,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }
 
   const addNotification = (notification: Notification) => {
-    setNotifications(prev => [notification, ...prev])
+    setNotifications(prev => {
+      // Check if notification with this ID already exists to prevent duplicates
+      const exists = prev.some(n => n.id === notification.id)
+      if (exists) {
+        console.warn(`[Notifications] Duplicate notification prevented: ${notification.id}`)
+        return prev
+      }
+      return [notification, ...prev]
+    })
   }
 
   return (

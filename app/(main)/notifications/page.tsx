@@ -9,10 +9,10 @@
 
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNotifications, NotificationType } from '@/lib/NotificationContext'
 import { useSite } from '@/lib/SiteContext'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { SearchIsland } from '@/components/layout/SearchIsland'
 import { AlertTriangle, Layers, Network, Workflow, Search, Home, X, CheckCheck, Mail, ArrowUpDown, Clock, Filter, Sparkles, List, Grid3x3, LayoutGrid, Columns, Rss, Building2 } from 'lucide-react'
 import Link from 'next/link'
@@ -42,11 +42,30 @@ export default function NotificationsPage() {
   const { notifications, unreadCount, markAsRead, markAsUnread, markAllAsRead, dismissNotification, addNotification } = useNotifications()
   const { sites, activeSiteId } = useSite()
   const router = useRouter()
-  const [filter, setFilter] = useState<'all' | 'unread' | 'faults'>('all')
-  const [siteFilter, setSiteFilter] = useState<string | 'all'>('all') // 'all' or specific siteId
+  const searchParams = useSearchParams()
+  
+  // Initialize filters from URL params
+  const [filter, setFilter] = useState<'all' | 'unread' | 'faults'>(
+    (searchParams.get('filter') as 'all' | 'unread' | 'faults') || 'all'
+  )
+  const [siteFilter, setSiteFilter] = useState<string | 'all'>(
+    searchParams.get('siteFilter') || 'all'
+  )
   const [sortBy, setSortBy] = useState<SortOption>('newest')
   const [layout, setLayout] = useState<LayoutOption>('singular')
   const [searchQuery, setSearchQuery] = useState('')
+  
+  // Update filters when URL params change
+  useEffect(() => {
+    const filterParam = searchParams.get('filter')
+    const siteFilterParam = searchParams.get('siteFilter')
+    if (filterParam && ['all', 'unread', 'faults'].includes(filterParam)) {
+      setFilter(filterParam as 'all' | 'unread' | 'faults')
+    }
+    if (siteFilterParam) {
+      setSiteFilter(siteFilterParam)
+    }
+  }, [searchParams])
 
   // Import generateRandomNotification from context (we'll need to export it)
   const handleGenerateRandom = () => {

@@ -435,12 +435,38 @@ export default function DashboardPage() {
   }, [sites, siteDevicesMap, siteZonesMap, siteFaultsMap])
 
   const handleSiteClick = (siteId: string, targetPage?: string) => {
+    // If navigating to a page, always select
+    if (targetPage) {
+      setActiveSite(siteId)
+      setSelectedSiteId(siteId)
+      router.push(targetPage)
+      return
+    }
+    
+    // Toggle selection: if clicking the same site, deselect it
+    if (selectedSiteId === siteId) {
+      setSelectedSiteId('')
+      return
+    }
+    
     setActiveSite(siteId)
     setSelectedSiteId(siteId)
-    if (targetPage) {
-      router.push(targetPage)
+  }
+
+  // Handle clicking outside cards to deselect
+  const cardsContainerRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  
+  const handleMainContentClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement
+    // Deselect if clicking outside both the cards container and panel
+    if (
+      cardsContainerRef.current &&
+      (!panelRef.current || !panelRef.current.contains(target)) &&
+      !cardsContainerRef.current.contains(target)
+    ) {
+      setSelectedSiteId('')
     }
-    // Don't navigate by default - just select the site
   }
 
   // Site management handlers
@@ -747,6 +773,16 @@ export default function DashboardPage() {
               )}%`,
               color: 'var(--color-success)',
             },
+            {
+              label: 'Total Faults',
+              value: siteSummaries.reduce((sum, s) => sum + s.criticalFaults.length, 0),
+              color: 'var(--color-danger)',
+              icon: <AlertTriangle size={14} className="text-[var(--color-danger)]" />,
+              onClick: () => {
+                // Navigate to notifications with filters set to show all faults for all sites
+                router.push('/notifications?filter=faults&siteFilter=all')
+              },
+            },
             ...(dashboardInsight ? [{
               label: dashboardInsight.healthTrend.label,
               value: `${dashboardInsight.healthTrend.value}%`,
@@ -774,9 +810,10 @@ export default function DashboardPage() {
       {/* Main Content: Site Cards + Details Panel */}
       <div 
         className="main-content-area flex-1 flex min-h-0 gap-4 px-[20px] pb-14 overflow-hidden"
+        onClick={handleMainContentClick}
       >
         {/* Site Cards - Left Side */}
-        <div className="flex-1 min-w-0 flex flex-col overflow-y-auto">
+        <div ref={cardsContainerRef} className="flex-1 min-w-0 flex flex-col overflow-y-auto">
           {/* Site Cards Grid - Responsive */}
           <div className="flex-1 min-h-0">
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
@@ -785,12 +822,15 @@ export default function DashboardPage() {
             return (
             <div
               key={summary.siteId}
+              onClick={(e) => {
+                e.stopPropagation()
+                handleSiteClick(summary.siteId)
+              }}
               className={`fusion-card cursor-pointer transition-all hover:border-[var(--color-primary)]/50 hover:shadow-[var(--shadow-strong)] flex flex-row gap-4 ${
                 summary.siteId === selectedSiteId 
-                  ? 'border-[var(--color-primary)]/50 bg-[var(--color-primary-soft)]/10 ring-2 ring-[var(--color-primary)]/20' 
-                  : ''
+                  ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)] shadow-[var(--shadow-glow-primary)] ring-2 ring-[var(--color-primary)]/30' 
+                  : 'border-[var(--color-border-subtle)]'
               } ${summary.needsAttention && summary.siteId !== selectedSiteId ? 'ring-2 ring-[var(--color-warning)]/30' : ''}`}
-              onClick={() => handleSiteClick(summary.siteId)}
             >
               {/* Site Image - Top Left */}
               <SiteImageCard siteId={summary.siteId} />
@@ -903,6 +943,7 @@ export default function DashboardPage() {
 
         {/* Site Details Panel - Right Side */}
         {selectedSiteId && (
+          <div ref={panelRef}>
           <ResizablePanel
             defaultWidth={384}
             minWidth={320}
@@ -930,6 +971,7 @@ export default function DashboardPage() {
               onExportSites={handleExportSites}
             />
           </ResizablePanel>
+          </div>
         )}
       </div>
 

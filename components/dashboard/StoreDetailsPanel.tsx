@@ -42,7 +42,8 @@ import {
   Download,
   Building2,
   Trash2,
-  Edit2
+  Edit2,
+  ChevronDown
 } from 'lucide-react'
 
 interface SiteDetailsPanelProps {
@@ -91,9 +92,15 @@ export function SiteDetailsPanel({
   onExportSites,
 }: SiteDetailsPanelProps) {
   const router = useRouter()
-  const { setActiveSite, sites } = useSite()
+  const { setActiveSite, sites, activeSiteId } = useSite()
+  const [isSiteDropdownOpen, setIsSiteDropdownOpen] = useState(false)
   const [siteImageUrl, setSiteImageUrl] = useState<string | null>(null)
   const [imageKey, setImageKey] = useState(0) // Force re-render on update
+  
+  // Close dropdown when activeSiteId changes (synced from top-right selector)
+  useEffect(() => {
+    setIsSiteDropdownOpen(false)
+  }, [activeSiteId])
 
   // Validate siteId before querying - use skipToken to completely skip query if invalid
   // Accept both 'site-*' and 'store-*' prefixes for backward compatibility with database
@@ -283,8 +290,75 @@ export function SiteDetailsPanel({
             />
           </div>
         )}
-        <div className="flex items-start justify-between mb-2">
-          <h2 className="text-xl font-bold text-[var(--color-text)]">{site.name}</h2>
+        <div className="flex items-start justify-between mb-2 gap-3">
+          {/* Site Dropdown */}
+          <div className="flex-1 relative">
+            <button
+              onClick={() => setIsSiteDropdownOpen(!isSiteDropdownOpen)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[var(--color-border-subtle)] bg-transparent hover:bg-[var(--color-surface-subtle)] transition-all duration-200 group"
+              style={{ 
+                borderColor: 'var(--color-border-subtle)',
+                opacity: 0.6,
+              }}
+            >
+              <Building2 size={16} className="text-[var(--color-text-soft)] flex-shrink-0" />
+              <span className="text-xl font-bold text-[var(--color-text)]">
+                {activeSiteId ? sites.find(s => s.id === activeSiteId)?.name || site?.name : site?.name || 'Select a site'}
+              </span>
+              <ChevronDown 
+                size={16} 
+                className={`text-[var(--color-text-soft)] transition-transform duration-200 flex-shrink-0 ${
+                  isSiteDropdownOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+            
+            {/* Dropdown Menu */}
+            {isSiteDropdownOpen && (
+              <>
+                <div 
+                  className="fixed inset-0 z-10" 
+                  onClick={() => setIsSiteDropdownOpen(false)}
+                />
+                <div className="absolute top-full left-0 mt-1 w-64 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-lg shadow-[var(--shadow-strong)] z-20 max-h-80 overflow-auto">
+                  {sites.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => {
+                        setActiveSite(s.id)
+                        setIsSiteDropdownOpen(false)
+                      }}
+                      className={`w-full text-left px-4 py-2.5 hover:bg-[var(--color-surface-subtle)] transition-colors flex items-center gap-2 ${
+                        activeSiteId === s.id 
+                          ? 'bg-[var(--color-primary)]/10 border-l-2 border-l-[var(--color-primary)]' 
+                          : ''
+                      }`}
+                    >
+                      <Building2 
+                        size={14} 
+                        className={`flex-shrink-0 ${
+                          activeSiteId === s.id 
+                            ? 'text-[var(--color-primary)]' 
+                            : 'text-[var(--color-text-muted)]'
+                        }`}
+                      />
+                      <span className={`font-medium ${
+                        activeSiteId === s.id 
+                          ? 'text-[var(--color-text)]' 
+                          : 'text-[var(--color-text-muted)]'
+                      }`}>
+                        {s.name}
+                      </span>
+                      {activeSiteId === s.id && (
+                        <div className="ml-auto w-2 h-2 rounded-full bg-[var(--color-primary)]" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+          
           <div className="flex items-center gap-1 flex-shrink-0">
             <button
               onClick={() => onEditSite?.(site)}
