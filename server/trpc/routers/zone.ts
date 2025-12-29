@@ -59,6 +59,16 @@ export const zoneRouter = router({
           siteId: input.siteId,
         })
         
+        // Handle database connection/permission errors in development
+        if (error.code === 'P1010' || error.code === 'P1001' || error.message?.includes('denied access') || error.message?.includes('Authentication failed')) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('⚠️  Database connection/permission error in development. Returning empty array.')
+            console.warn('   To fix: Run ./scripts/fix-local-db.sh or check your DATABASE_URL')
+            return []
+          }
+          throw new Error('Database connection failed. Please check your DATABASE_URL environment variable.')
+        }
+        
         // Handle prepared statement errors with retry
         if (error.code === '26000' || error.message?.includes('prepared statement')) {
           console.log('Retrying zone.list after prepared statement error...')
@@ -175,6 +185,16 @@ export const zoneRouter = router({
           meta: error.meta,
           input: input,
         })
+        
+        // Handle database connection/permission errors in development
+        if (error.code === 'P1010' || error.code === 'P1001' || error.message?.includes('denied access') || error.message?.includes('Authentication failed')) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('⚠️  Database connection/permission error in development.')
+            console.warn('   To fix: Run ./scripts/fix-local-db.sh or check your DATABASE_URL')
+            throw new Error('Database connection failed. Please fix your local database setup.')
+          }
+          throw new Error('Database connection failed. Please check your DATABASE_URL environment variable.')
+        }
         
         // Handle foreign key constraint violations
         if (error.code === 'P2003' || error.message?.includes('Foreign key constraint')) {
@@ -335,6 +355,16 @@ export const zoneRouter = router({
           meta: error.meta,
           input: input,
         })
+        
+        // Handle database connection/permission errors in development
+        if (error.code === 'P1010' || error.code === 'P1001' || error.message?.includes('denied access') || error.message?.includes('Authentication failed')) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('⚠️  Database connection/permission error in development.')
+            console.warn('   To fix: Run ./scripts/fix-local-db.sh or check your DATABASE_URL')
+            throw new Error('Database connection failed. Please fix your local database setup.')
+          }
+          throw new Error('Database connection failed. Please check your DATABASE_URL environment variable.')
+        }
         
         // Handle foreign key constraint violations
         if (error.code === 'P2003' || error.message?.includes('Foreign key constraint')) {
