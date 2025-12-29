@@ -100,9 +100,12 @@ export function SiteDetailsPanel({
 
   // Query site image from database using tRPC
   // Use skipToken to completely skip the query when siteId is invalid
+  // Also use enabled to prevent query execution if siteId is invalid
   const { data: dbImage, refetch: refetchSiteImage } = trpc.image.getSiteImage.useQuery(
     isValidSiteId ? { siteId: site.id } : skipToken,
     { 
+      // Double protection: enabled flag prevents query execution
+      enabled: isValidSiteId,
       // Skip if siteId is invalid to avoid validation errors
       retry: false,
       // Don't refetch on mount if disabled

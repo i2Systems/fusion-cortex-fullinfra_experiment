@@ -50,6 +50,8 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
   const { data: dbImage, refetch: refetchSiteImage } = trpc.image.getSiteImage.useQuery(
     isValidSiteId ? { siteId: editingSite.id } : skipToken,
     { 
+      // Double protection: enabled flag prevents query execution
+      enabled: isValidSiteId,
       // Skip if siteId is invalid to avoid validation errors
       retry: false,
       // Don't refetch on mount if disabled
