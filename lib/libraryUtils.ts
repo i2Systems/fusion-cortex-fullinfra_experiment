@@ -495,12 +495,16 @@ export async function getSiteImage(siteId: string, retries: number = 3, trpcClie
       }
     } else {
       // Try direct API call (tRPC format)
-      // Use POST for queries (same as mutations) with batch format
+      // Use POST for queries with JSON body (tRPC batch format)
       try {
-        const input = encodeURIComponent(JSON.stringify({ siteId }))
-        const response = await fetch(`/api/trpc/image.getSiteImage?batch=1&input=${input}`, {
+        const response = await fetch(`/api/trpc/image.getSiteImage?batch=1`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            0: {
+              json: { siteId }
+            }
+          }),
         })
         if (response.ok) {
           const result = await response.json()
