@@ -84,11 +84,13 @@ export const imageRouter = router({
       siteId: z.string(),
     }))
     .query(async ({ input }) => {
+      console.log(`🔍 [SERVER] getSiteImage called for siteId: ${input.siteId}`)
       const MAX_RETRIES = 3
       
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {
           if (attempt > 0) {
+            console.log(`  [SERVER] Retry attempt ${attempt + 1}/${MAX_RETRIES}...`)
             await new Promise(resolve => setTimeout(resolve, 200 * attempt))
           }
           
@@ -97,12 +99,23 @@ export const imageRouter = router({
             select: { imageUrl: true },
           })
           
-          return site?.imageUrl || null
+          if (site?.imageUrl) {
+            console.log(`✅ [SERVER] Found image in database for ${input.siteId}, length: ${site.imageUrl.length}`)
+            return site.imageUrl
+          } else {
+            console.log(`ℹ️ [SERVER] No image found in database for ${input.siteId}`)
+            return null
+          }
         } catch (error: any) {
-          console.error(`Error getting site image from database (attempt ${attempt + 1}):`, error)
+          console.error(`❌ [SERVER] Error getting site image from database (attempt ${attempt + 1}):`, {
+            message: error.message,
+            code: error.code,
+            siteId: input.siteId,
+          })
           
           // Handle missing column error
           if (error.code === 'P2022' && error.meta?.column === 'Site.imageUrl') {
+            console.warn(`⚠️ [SERVER] imageUrl column missing for ${input.siteId}`)
             return null
           }
           
@@ -116,6 +129,7 @@ export const imageRouter = router({
         }
       }
       
+      console.warn(`⚠️ [SERVER] Failed to get site image after ${MAX_RETRIES} attempts for ${input.siteId}`)
       return null
     }),
 

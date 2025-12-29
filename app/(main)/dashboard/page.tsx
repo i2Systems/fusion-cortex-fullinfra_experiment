@@ -94,7 +94,7 @@ function SiteImageCard({ siteId }: { siteId: string }) {
   // Also use enabled to prevent query execution if siteId is invalid
   // Ensure input is always a proper object, never undefined
   const queryInput = isValidSiteId && siteId ? { siteId: String(siteId).trim() } : skipToken
-  const { data: dbImage, isLoading: isDbLoading, refetch: refetchSiteImage } = trpc.image.getSiteImage.useQuery(
+  const { data: dbImage, isLoading: isDbLoading, isError: isDbError, error: dbError, refetch: refetchSiteImage } = trpc.image.getSiteImage.useQuery(
     queryInput,
     { 
       // Double protection: enabled flag prevents query execution
@@ -107,6 +107,19 @@ function SiteImageCard({ siteId }: { siteId: string }) {
     }
   )
 
+  // Log query state for debugging
+  useEffect(() => {
+    if (isValidSiteId && siteId) {
+      console.log(`🔍 [CLIENT] Query state for ${siteId}:`, {
+        isLoading: isDbLoading,
+        isError: isDbError,
+        hasData: !!dbImage,
+        dataLength: dbImage?.length,
+        error: dbError?.message,
+      })
+    }
+  }, [siteId, isDbLoading, isDbError, dbImage, dbError, isValidSiteId])
+
   useEffect(() => {
     const loadImage = async () => {
       console.log(`🖼️ Loading image for site: ${siteId}`)
@@ -117,9 +130,15 @@ function SiteImageCard({ siteId }: { siteId: string }) {
           return
         }
 
+        // Check for query errors
+        if (isDbError) {
+          console.warn(`⚠️ Database query error for site ${siteId}:`, dbError?.message)
+          // Fall through to client storage
+        }
+
         // First try database (from tRPC query)
         if (dbImage) {
-          console.log(`✅ Loaded image from database for site ${siteId}`)
+          console.log(`✅ Loaded image from database for site ${siteId}, length: ${dbImage.length}`)
           setDisplayUrl(dbImage)
           return
         }
@@ -156,7 +175,7 @@ function SiteImageCard({ siteId }: { siteId: string }) {
     }
     window.addEventListener('siteImageUpdated', handleSiteImageUpdate)
     return () => window.removeEventListener('siteImageUpdated', handleSiteImageUpdate)
-  }, [siteId, dbImage, isDbLoading, refetchSiteImage])
+  }, [siteId, dbImage, isDbLoading, isDbError, dbError, refetchSiteImage])
 
   return (
     <div className="flex-shrink-0 w-24 h-24 rounded-lg bg-gradient-to-br from-[var(--color-primary-soft)]/20 to-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-center relative overflow-hidden">
