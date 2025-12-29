@@ -111,14 +111,16 @@ function SiteImageCard({ siteId }: { siteId: string }) {
   useEffect(() => {
     if (isValidSiteId && siteId) {
       console.log(`🔍 [CLIENT] Query state for ${siteId}:`, {
+        enabled: isValidSiteId && !!siteId && siteId.trim().length > 0,
         isLoading: isDbLoading,
         isError: isDbError,
         hasData: !!dbImage,
         dataLength: dbImage?.length,
         error: dbError?.message,
+        queryInput: queryInput === skipToken ? 'skipToken' : queryInput,
       })
     }
-  }, [siteId, isDbLoading, isDbError, dbImage, dbError, isValidSiteId])
+  }, [siteId, isDbLoading, isDbError, dbImage, dbError, isValidSiteId, queryInput])
 
   useEffect(() => {
     const loadImage = async () => {

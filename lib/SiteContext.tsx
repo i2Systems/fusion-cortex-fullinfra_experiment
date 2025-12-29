@@ -123,93 +123,27 @@ export function SiteProvider({ children }: { children: ReactNode }) {
     gcTime: 10 * 60 * 1000, // 10 minutes
   })
 
-  // Ensure default sites exist in database
-  const ensureSiteMutations = trpc.site.ensureExists.useMutation({
-    onSuccess: () => {
-      // Only refetch if we're not already refetching
-      setTimeout(() => {
-        refetchSites()
-      }, 500)
-    },
-  })
+  // No longer auto-creating default sites - users manage their own sites
 
-  // Track which sites we've already initiated creation for
-  const ensuredSitesRef = useRef<Set<string>>(new Set())
-
-  // Ensure all default sites exist in database on mount
-  useEffect(() => {
-    if (!sitesData) return
-
-    // Check which default sites are missing
-    DEFAULT_SITES.forEach(defaultSite => {
-      const exists = sitesData.some(site => site.id === defaultSite.id)
-      const alreadyEnsured = ensuredSitesRef.current.has(defaultSite.id)
-      
-      if (!exists && !alreadyEnsured) {
-        // Mark as being ensured to prevent duplicate calls
-        ensuredSitesRef.current.add(defaultSite.id)
-        
-        ensureSiteMutations.mutate({
-          id: defaultSite.id,
-          name: defaultSite.name,
-          storeNumber: defaultSite.siteNumber, // Database field is still storeNumber
-          address: defaultSite.address,
-          city: defaultSite.city,
-          state: defaultSite.state,
-          zipCode: defaultSite.zipCode,
-          phone: defaultSite.phone,
-          manager: defaultSite.manager,
-          squareFootage: defaultSite.squareFootage,
-          openedDate: defaultSite.openedDate,
-        })
-      } else if (exists) {
-        // Site exists, mark as ensured
-        ensuredSitesRef.current.add(defaultSite.id)
-      }
-    })
-  }, [sitesData]) // Removed ensureSiteMutations from deps - it's stable
-
-  // Merge database sites with default site metadata
+  // Map database sites to Site interface (no default sites)
   const sites = useMemo<Site[]>(() => {
-    if (!sitesData) return DEFAULT_SITES
+    if (!sitesData) return []
 
-    // Map database sites to Site interface, merging with default metadata
-    return sitesData.map(site => {
-      const defaultSite = DEFAULT_SITES.find(ds => ds.id === site.id)
-      if (defaultSite) {
-        // Merge database data with default metadata (database takes precedence)
-        return {
-          id: site.id,
-          name: site.name,
-          siteNumber: site.storeNumber || defaultSite.siteNumber, // Map storeNumber to siteNumber
-          address: site.address ?? defaultSite.address,
-          city: site.city ?? defaultSite.city,
-          state: site.state ?? defaultSite.state,
-          zipCode: site.zipCode ?? defaultSite.zipCode,
-          phone: site.phone ?? defaultSite.phone,
-          manager: site.manager ?? defaultSite.manager,
-          squareFootage: site.squareFootage ?? defaultSite.squareFootage,
-          openedDate: site.openedDate ?? defaultSite.openedDate,
-          imageUrl: (site as any).imageUrl ?? defaultSite.imageUrl,
-        }
-      } else {
-        // New site from database (not in defaults)
-        return {
-          id: site.id,
-          name: site.name,
-          siteNumber: site.storeNumber || '', // Map storeNumber to siteNumber
-          address: site.address ?? undefined,
-          city: site.city ?? undefined,
-          state: site.state ?? undefined,
-          zipCode: site.zipCode ?? undefined,
-          phone: site.phone ?? undefined,
-          manager: site.manager ?? undefined,
-          squareFootage: site.squareFootage ?? undefined,
-          openedDate: site.openedDate ?? undefined,
-          imageUrl: (site as any).imageUrl ?? undefined,
-        }
-      }
-    })
+    // Map database sites to Site interface
+    return sitesData.map(site => ({
+      id: site.id,
+      name: site.name,
+      siteNumber: site.storeNumber || '', // Map storeNumber to siteNumber
+      address: site.address ?? undefined,
+      city: site.city ?? undefined,
+      state: site.state ?? undefined,
+      zipCode: site.zipCode ?? undefined,
+      phone: site.phone ?? undefined,
+      manager: site.manager ?? undefined,
+      squareFootage: site.squareFootage ?? undefined,
+      openedDate: site.openedDate ?? undefined,
+      imageUrl: (site as any).imageUrl ?? undefined,
+    }))
   }, [sitesData])
 
   const [activeSiteId, setActiveSiteId] = useState<string | null>(null)
@@ -268,16 +202,12 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   // Only save active site ID
 
   // Save active site to localStorage when it changes
-  // Only save if it's a valid site ID (not a temporary one starting with 'site-' and timestamp)
   useEffect(() => {
     if (typeof window !== 'undefined' && activeSiteId) {
-      // Don't save temporary IDs - only save real database IDs
-      // Real IDs are either from DEFAULT_SITES or are cuid format (24 chars, starts with 'c')
-      // Temporary IDs are like 'site-1234567890' (long numeric timestamp)
-      const isTemporaryId = activeSiteId.startsWith('site-') && /^site-\d+$/.test(activeSiteId)
-      if (!isTemporaryId) {
-        localStorage.setItem('fusion_active_site_id', activeSiteId)
-      }
+      localStorage.setItem('fusion_active_site_id', activeSiteId)
+    } else if (typeof window !== 'undefined' && !activeSiteId) {
+      // Clear if no active site
+      localStorage.removeItem('fusion_active_site_id')
     }
   }, [activeSiteId])
 
@@ -374,14 +304,6 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   })
 
   const removeSite = (siteId: string) => {
-    // Prevent removal of default sites
-    const isDefault = DEFAULT_SITES.some(ds => ds.id === siteId)
-    if (isDefault) {
-      console.warn('Cannot remove default sites')
-      alert('Cannot remove default sites')
-      return
-    }
-
     // Confirm deletion
     if (!confirm(`Are you sure you want to delete this site? This will also delete all devices, zones, rules, and other data associated with this site.`)) {
       return
