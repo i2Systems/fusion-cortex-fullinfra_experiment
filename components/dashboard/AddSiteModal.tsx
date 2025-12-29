@@ -45,13 +45,16 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
   const utils = trpc.useUtils()
   
   // Validate siteId before querying - use skipToken to completely skip query if invalid
+  // Accept both 'site-*' and 'store-*' prefixes for backward compatibility with database
   const isValidSiteId = !!(editingSite?.id && typeof editingSite.id === 'string' && editingSite.id.length > 0 && isOpen)
   
+  // Ensure input is always a proper object, never undefined
+  const queryInput = isValidSiteId && editingSite?.id ? { siteId: String(editingSite.id).trim() } : skipToken
   const { data: dbImage, refetch: refetchSiteImage } = trpc.image.getSiteImage.useQuery(
-    isValidSiteId ? { siteId: editingSite.id } : skipToken,
+    queryInput,
     { 
       // Double protection: enabled flag prevents query execution
-      enabled: isValidSiteId,
+      enabled: isValidSiteId && !!editingSite?.id && editingSite.id.trim().length > 0 && isOpen,
       // Skip if siteId is invalid to avoid validation errors
       retry: false,
       // Don't refetch on mount if disabled

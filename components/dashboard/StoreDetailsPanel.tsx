@@ -96,16 +96,19 @@ export function SiteDetailsPanel({
   const [imageKey, setImageKey] = useState(0) // Force re-render on update
 
   // Validate siteId before querying - use skipToken to completely skip query if invalid
+  // Accept both 'site-*' and 'store-*' prefixes for backward compatibility with database
   const isValidSiteId = !!(site?.id && typeof site.id === 'string' && site.id.length > 0)
 
   // Query site image from database using tRPC
   // Use skipToken to completely skip the query when siteId is invalid
   // Also use enabled to prevent query execution if siteId is invalid
+  // Ensure input is always a proper object, never undefined
+  const queryInput = isValidSiteId && site?.id ? { siteId: String(site.id).trim() } : skipToken
   const { data: dbImage, refetch: refetchSiteImage } = trpc.image.getSiteImage.useQuery(
-    isValidSiteId ? { siteId: site.id } : skipToken,
+    queryInput,
     { 
       // Double protection: enabled flag prevents query execution
-      enabled: isValidSiteId,
+      enabled: isValidSiteId && !!site?.id && site.id.trim().length > 0,
       // Skip if siteId is invalid to avoid validation errors
       retry: false,
       // Don't refetch on mount if disabled

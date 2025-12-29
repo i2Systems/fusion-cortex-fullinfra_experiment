@@ -92,11 +92,13 @@ function SiteImageCard({ siteId }: { siteId: string }) {
   // Query site image from database using tRPC
   // Use skipToken to completely skip the query when siteId is invalid
   // Also use enabled to prevent query execution if siteId is invalid
+  // Ensure input is always a proper object, never undefined
+  const queryInput = isValidSiteId && siteId ? { siteId: String(siteId).trim() } : skipToken
   const { data: dbImage, refetch: refetchSiteImage } = trpc.image.getSiteImage.useQuery(
-    isValidSiteId ? { siteId } : skipToken,
+    queryInput,
     { 
       // Double protection: enabled flag prevents query execution
-      enabled: isValidSiteId,
+      enabled: isValidSiteId && !!siteId && siteId.trim().length > 0,
       // Skip if siteId is invalid to avoid validation errors
       retry: false,
       // Don't refetch on mount if disabled
