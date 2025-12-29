@@ -401,6 +401,38 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    // Check if there's an unsaved preview image (only for existing sites)
+    if (previewImage && editingSite?.id) {
+      const shouldSaveImage = confirm(
+        '⚠️ You have an unsaved image preview!\n\n' +
+        'Would you like to save the image now before saving the site changes?\n\n' +
+        'Click OK to save the image first, or Cancel to proceed without saving the image.'
+      )
+      
+      if (shouldSaveImage) {
+        console.log('💾 User chose to save image before submitting form')
+        try {
+          // Save the image first
+          await handleSaveImage()
+          // Wait a moment for the image save to complete
+          await new Promise(resolve => setTimeout(resolve, 500))
+          console.log('✅ Image saved, proceeding with form submission')
+        } catch (error) {
+          console.error('❌ Failed to save image:', error)
+          const proceed = confirm(
+            'Failed to save the image. Would you like to proceed with saving the site anyway?'
+          )
+          if (!proceed) {
+            return // User cancelled, don't submit the form
+          }
+        }
+      } else {
+        console.log('ℹ️ User chose to proceed without saving the image')
+        // Clear the preview so it doesn't get saved accidentally
+        setPreviewImage(null)
+      }
+    }
+    
     if (!formData.name.trim()) {
       alert('Site name is required')
       return
