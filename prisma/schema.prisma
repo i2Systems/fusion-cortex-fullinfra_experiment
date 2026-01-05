@@ -49,6 +49,7 @@ model Device {
   // Location (for map rendering)
   x Float?
   y Float?
+  orientation Float? // Rotation angle in degrees (0 = horizontal, 90 = vertical)
 
   // Device properties
   signal  Int? // Signal strength

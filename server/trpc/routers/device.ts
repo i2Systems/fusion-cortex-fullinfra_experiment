@@ -131,7 +131,7 @@ function transformDevice(dbDevice: any) {
     location: 'Unknown', // Not stored in DB currently, could add to schema later
     x: dbDevice.x || undefined,
     y: dbDevice.y || undefined,
-    orientation: undefined, // Not stored in DB currently
+    orientation: dbDevice.orientation || undefined,
     locked: undefined, // Not stored in DB currently
     components: components.length > 0 ? components : undefined,
     warrantyStatus: dbDevice.warrantyStatus || undefined,
@@ -558,6 +558,7 @@ export const deviceRouter = router({
       battery: z.number().optional(),
       x: z.number().optional(),
       y: z.number().optional(),
+      orientation: z.number().optional(),
       warrantyStatus: z.string().optional(),
       warrantyExpiry: z.date().optional(),
     }))
@@ -592,6 +593,7 @@ export const deviceRouter = router({
         if (updates.battery !== undefined) updateData.battery = updates.battery
         if (updates.x !== undefined) updateData.x = updates.x
         if (updates.y !== undefined) updateData.y = updates.y
+        if (updates.orientation !== undefined) updateData.orientation = updates.orientation
         if (updates.warrantyStatus !== undefined) updateData.warrantyStatus = updates.warrantyStatus
         if (updates.warrantyExpiry !== undefined) updateData.warrantyExpiry = updates.warrantyExpiry
 
@@ -651,6 +653,7 @@ export const deviceRouter = router({
       if (updates.battery !== undefined) updateData.battery = updates.battery
       if (updates.x !== undefined) updateData.x = updates.x
       if (updates.y !== undefined) updateData.y = updates.y
+      if (updates.orientation !== undefined) updateData.orientation = updates.orientation
       if (updates.warrantyStatus !== undefined) updateData.warrantyStatus = updates.warrantyStatus
       if (updates.warrantyExpiry !== undefined) updateData.warrantyExpiry = updates.warrantyExpiry
 

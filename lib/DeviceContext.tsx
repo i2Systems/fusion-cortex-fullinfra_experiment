@@ -214,6 +214,9 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       if (updates.status !== undefined) dbUpdates.status = updates.status
       if (updates.signal !== undefined) dbUpdates.signal = updates.signal
       if (updates.battery !== undefined) dbUpdates.battery = updates.battery
+      if (updates.x !== undefined) dbUpdates.x = updates.x
+      if (updates.y !== undefined) dbUpdates.y = updates.y
+      if (updates.orientation !== undefined) dbUpdates.orientation = updates.orientation
       if (updates.warrantyStatus !== undefined) dbUpdates.warrantyStatus = updates.warrantyStatus
       if (updates.warrantyExpiry !== undefined) dbUpdates.warrantyExpiry = updates.warrantyExpiry
 
@@ -281,6 +284,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
           const dbUpdates: any = {}
           if (deviceUpdates.x !== undefined) dbUpdates.x = deviceUpdates.x
           if (deviceUpdates.y !== undefined) dbUpdates.y = deviceUpdates.y
+          if (deviceUpdates.orientation !== undefined) dbUpdates.orientation = deviceUpdates.orientation
           if (deviceUpdates.status !== undefined) dbUpdates.status = deviceUpdates.status
           if (deviceUpdates.signal !== undefined) dbUpdates.signal = deviceUpdates.signal
           if (deviceUpdates.battery !== undefined) dbUpdates.battery = deviceUpdates.battery

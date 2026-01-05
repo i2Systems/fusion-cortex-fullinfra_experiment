@@ -87,6 +87,26 @@ export async function POST() {
       changes.locationTableCreated = false;
     }
 
+    // Check if orientation column exists in Device table, if not add it
+    const orientationColumnExists = await prisma.$queryRaw<Array<{ column_name: string }>>`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'Device' AND column_name = 'orientation';
+    `;
+
+    if (orientationColumnExists.length === 0) {
+      console.log('Adding orientation column to Device table...');
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE "Device" 
+        ADD COLUMN IF NOT EXISTS "orientation" DOUBLE PRECISION;
+      `);
+      console.log('✅ Added orientation column to Device table.');
+      changes.orientationColumnAdded = true;
+    } else {
+      console.log('orientation column already exists in Device table.');
+      changes.orientationColumnAdded = false;
+    }
+
     console.log('✅ Schema migration completed successfully.');
     return NextResponse.json({ 
       success: true, 
