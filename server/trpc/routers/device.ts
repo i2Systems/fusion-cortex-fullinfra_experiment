@@ -307,6 +307,7 @@ export const deviceRouter = router({
       battery: z.number().optional(),
       x: z.number().optional(),
       y: z.number().optional(),
+      orientation: z.number().optional(),
       warrantyStatus: z.string().optional(),
       warrantyExpiry: z.date().optional(),
       components: z.array(z.object({
@@ -349,6 +350,7 @@ export const deviceRouter = router({
           battery: deviceData.battery,
           x: deviceData.x,
           y: deviceData.y,
+          orientation: deviceData.orientation,
           warrantyStatus: deviceData.warrantyStatus,
           warrantyExpiry: deviceData.warrantyExpiry,
         }
@@ -358,13 +360,6 @@ export const deviceRouter = router({
         const device = await prisma.device.create({
           data: {
             ...deviceDataForPrisma,
-            status: toPrismaDeviceStatus(deviceData.status || 'offline'),
-            signal: deviceData.signal,
-            battery: deviceData.battery,
-            x: deviceData.x,
-            y: deviceData.y,
-            warrantyStatus: deviceData.warrantyStatus,
-            warrantyExpiry: deviceData.warrantyExpiry,
             components: components
               ? {
                   create: components.map((comp, index) => {

@@ -190,6 +190,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
         battery: device.battery,
         x: device.x,
         y: device.y,
+        orientation: device.orientation,
         warrantyStatus: device.warrantyStatus,
         warrantyExpiry: device.warrantyExpiry,
         components: device.components?.map(comp => ({
