@@ -10,15 +10,23 @@ export const locationRouter = router({
             siteId: z.string(),
         }))
         .query(async ({ input }) => {
-            const locations = await prisma.location.findMany({
-                where: { siteId: input.siteId },
-                orderBy: { createdAt: 'desc' },
-            })
+            try {
+                const locations = await prisma.location.findMany({
+                    where: { siteId: input.siteId },
+                    orderBy: { createdAt: 'desc' },
+                })
 
-            // Sort: bases first, then by date
-            // We can do client-side hierarchical sorting if needed, 
-            // but returning flat list is fine as long as parentId is there
-            return locations
+                // Sort: bases first, then by date
+                // We can do client-side hierarchical sorting if needed, 
+                // but returning flat list is fine as long as parentId is there
+                return locations
+            } catch (error: any) {
+                console.error('Error fetching locations:', error)
+                throw new TRPCError({
+                    code: 'INTERNAL_SERVER_ERROR',
+                    message: `Failed to fetch locations: ${error.message}`,
+                })
+            }
         }),
 
     // Create a new location

@@ -51,6 +51,12 @@ const BUCKETS = [
     allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png'],
     fileSizeLimit: 2097152, // 2MB
   },
+  {
+    name: 'map-data',
+    public: true,
+    allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'],
+    fileSizeLimit: 52428800, // 50MB (for large floor plans)
+  },
 ]
 
 async function setupBuckets() {
