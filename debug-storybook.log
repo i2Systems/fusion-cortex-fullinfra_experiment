@@ -1,0 +1,33 @@
+[14:29:12.310] [INFO] Initializing Storybook
+[14:29:12.661] [DEBUG] Getting package.json info for /Users/powerox/Local_attempt_branch/package.json...
+[14:29:12.661] [DEBUG] Getting CLI versions from NPM for storybook...
+[14:29:12.661] [DEBUG] Executing command: npm info storybook version
+[14:29:13.114] [INFO] Adding Storybook version 10.1.11 to your project
+[14:29:13.115] [INFO] Installing Storybook for user specified project type: react_scripts
+[14:29:13.116] [INFO] Framework detected: react-webpack5
+[14:29:13.116] [DEBUG] Getting installed version for vitest...
+[14:29:13.116] [DEBUG] Executing command: npm ls --json --depth=99 2>/dev/null
+[14:29:13.531] [DEBUG] Executing command: npm ls --json --depth=0 2>/dev/null
+[14:29:13.795] [DEBUG] An issue occurred while trying to find dependencies metadata using npm: Error: Command failed with exit code 1: npm ls --json --depth=0 2>/dev/null
+{
+  "version": "0.4.0",
+  "name": "fusion-cortex"
+}
+[14:29:13.795] [DEBUG] Getting installed version for msw...
+[14:29:13.795] [DEBUG] Executing command: npm ls --json --depth=99 2>/dev/null
+[14:29:14.214] [DEBUG] Executing command: npm ls --json --depth=0 2>/dev/null
+[14:29:14.478] [DEBUG] An issue occurred while trying to find dependencies metadata using npm: Error: Command failed with exit code 1: npm ls --json --depth=0 2>/dev/null
+{
+  "version": "0.4.0",
+  "name": "fusion-cortex"
+}
+[14:29:14.480] [ERROR] [38;2;241;97;97mError: It looks like you're trying to initialize Storybook in a CRA project that does not have react-scripts installed.
+Please install it and make sure it's of version 5 or higher, which are the versions supported by Storybook 7.0+.[39m
+    at Object.configure (file:///Users/powerox/.npm/_npx/96f9239703459233/node_modules/create-storybook/dist/_node-chunks/chunk-C75MJVFW.js:2129:13)
+    at async GeneratorExecutionCommand.executeProjectGenerator (file:///Users/powerox/.npm/_npx/96f9239703459233/node_modules/create-storybook/dist/_node-chunks/chunk-C75MJVFW.js:1318:58)
+    at async GeneratorExecutionCommand.execute (file:///Users/powerox/.npm/_npx/96f9239703459233/node_modules/create-storybook/dist/_node-chunks/chunk-C75MJVFW.js:1367:27)
+    at async doInitiate (file:///Users/powerox/.npm/_npx/96f9239703459233/node_modules/create-storybook/dist/_node-chunks/chunk-C75MJVFW.js:2279:68)
+    at async file:///Users/powerox/.npm/_npx/96f9239703459233/node_modules/create-storybook/dist/_node-chunks/chunk-C75MJVFW.js:2322:20
+    at async withTelemetry (file:///Users/powerox/.npm/_npx/96f9239703459233/node_modules/storybook/dist/_node-chunks/chunk-2372JZ52.js:209:12)
+    at async initiate (file:///Users/powerox/.npm/_npx/96f9239703459233/node_modules/create-storybook/dist/_node-chunks/chunk-C75MJVFW.js:2315:24)
+    at async _Command.<anonymous> (file:///Users/powerox/.npm/_npx/96f9239703459233/node_modules/create-storybook/dist/_node-chunks/run-TKNEFAFQ.js:2683:144)

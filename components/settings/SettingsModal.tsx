@@ -12,7 +12,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { X, Search, Settings, User, Bell, Shield, Palette, Database, Info, Type, Wrench } from 'lucide-react'
+import { X, Search, Settings, User, Bell, Shield, Palette, Database, Info, Type, Wrench, BookOpen } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { useTheme } from '@/lib/theme'
 import { useRole } from '@/lib/role'
@@ -539,10 +539,31 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     {/* Header */}
                     <div className="p-4 bg-[var(--color-surface-subtle)] rounded-lg border border-[var(--color-border-subtle)]">
                       <div className="text-lg font-semibold text-[var(--color-text)] mb-1">Fusion / Cortex</div>
-                      <div className="text-xs text-[var(--color-text-muted)] mb-2">Version 0.1.0</div>
+                      <div className="text-xs text-[var(--color-text-muted)] mb-2">Version 0.4.0</div>
                       <div className="text-sm text-[var(--color-text-muted)]">
                         Commissioning & Configuration UI for large-scale retail lighting deployments.
                       </div>
+                    </div>
+
+                    {/* Component Library / Storybook Link */}
+                    <div className="p-4 bg-[var(--color-surface-subtle)] rounded-lg border border-[var(--color-border-subtle)]">
+                      <div className="flex items-center gap-3 mb-3">
+                        <BookOpen size={20} className="text-[var(--color-primary)]" />
+                        <div className="text-sm font-medium text-[var(--color-text)]">Component Library</div>
+                      </div>
+                      <p className="text-xs text-[var(--color-text-muted)] mb-3">
+                        View and inspect all design tokens and atomic components in Storybook.
+                      </p>
+                      <a
+                        href="/storybook"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="fusion-button fusion-button-primary inline-flex items-center gap-2"
+                        style={{ textDecoration: 'none' }}
+                      >
+                        <BookOpen size={16} />
+                        Open Storybook
+                      </a>
                     </div>
 
                     {/* README Content */}

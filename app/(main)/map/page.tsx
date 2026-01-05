@@ -43,14 +43,14 @@ import { useSite } from '@/lib/SiteContext'
 import { useMap } from '@/lib/MapContext'
 import { useRole } from '@/lib/role'
 import { detectAllLights, createDevicesFromLights } from '@/lib/lightDetection'
-import { 
-  loadLocations, 
-  addLocation, 
-  updateLocation, 
+import {
+  loadLocations,
+  addLocation,
+  updateLocation,
   deleteLocation,
   saveLocations,
   convertZoomToParent,
-  type Location 
+  type Location
 } from '@/lib/locationStorage'
 import { LocationsMenu } from '@/components/map/LocationsMenu'
 import { ZoomViewCreator } from '@/components/map/ZoomViewCreator'
@@ -64,7 +64,7 @@ function pointInPolygon(point: { x: number; y: number }, polygon: Array<{ x: num
     const yi = polygon[i].y
     const xj = polygon[j].x
     const yj = polygon[j].y
-    
+
     const intersect = ((yi > point.y) !== (yj > point.y)) &&
       (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi)
     if (intersect) inside = !inside
@@ -75,7 +75,7 @@ function pointInPolygon(point: { x: number; y: number }, polygon: Array<{ x: num
 // Helper to find which zone contains a device
 function findZoneForDevice(device: { x?: number; y?: number }, zones: Array<{ id: string; polygon: Array<{ x: number; y: number }> }>): { id: string; polygon: Array<{ x: number; y: number }> } | null {
   if (device.x === undefined || device.y === undefined) return null
-  
+
   for (const zone of zones) {
     if (pointInPolygon({ x: device.x, y: device.y }, zone.polygon)) {
       return zone
@@ -85,10 +85,10 @@ function findZoneForDevice(device: { x?: number; y?: number }, zones: Array<{ id
 }
 
 export default function MapPage() {
-  const { 
-    devices, 
+  const {
+    devices,
     isLoading: devicesLoading,
-    updateDevicePosition, 
+    updateDevicePosition,
     updateMultipleDevices,
     addDevice,
     setDevices,
@@ -109,14 +109,14 @@ export default function MapPage() {
   const [showZoomCreator, setShowZoomCreator] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [imageBounds, setImageBounds] = useState<{ x: number; y: number; width: number; height: number; naturalWidth: number; naturalHeight: number } | null>(null)
-  
+
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null)
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([])
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null) // Zone to arrange devices into
   const [expandedComponents, setExpandedComponents] = useState<Set<string>>(new Set())
   const [selectedComponent, setSelectedComponent] = useState<Component | null>(null)
   const [componentParentDevice, setComponentParentDevice] = useState<Device | null>(null)
-  
+
   // Handle device selection
   const handleDeviceSelect = (deviceId: string | null) => {
     setSelectedDevice(deviceId)
@@ -124,7 +124,7 @@ export default function MapPage() {
       setSelectedDeviceIds([deviceId])
     }
   }
-  
+
   // Handle multi-device selection
   const handleDevicesSelect = (deviceIds: string[]) => {
     setSelectedDeviceIds(deviceIds)
@@ -145,87 +145,87 @@ export default function MapPage() {
       setSelectedDevice(null)
     }
   }
-  
+
   // Handle zone click - set selected zone and auto-arrange selected devices into it
   const handleZoneClick = (zoneId: string) => {
     // Set the selected zone
     setSelectedZoneId(zoneId)
-    
+
     // If devices are selected, auto-arrange them into this zone
     if (selectedDeviceIds.length > 0) {
       const zone = zones.find(z => z.id === zoneId)
       if (!zone) return
-      
+
       // Get zone bounds from polygon (polygon is in normalized 0-1 coordinates)
       const zonePoints = zone.polygon
       const minX = Math.min(...zonePoints.map(p => p.x))
       const maxX = Math.max(...zonePoints.map(p => p.x))
       const minY = Math.min(...zonePoints.map(p => p.y))
       const maxY = Math.max(...zonePoints.map(p => p.y))
-      
+
       // Calculate zone dimensions with padding to keep devices inside
       const padding = 0.02 // 2% padding from zone edges
       const zoneMinX = minX + padding
       const zoneMaxX = maxX - padding
       const zoneMinY = minY + padding
       const zoneMaxY = maxY - padding
-      
+
       const zoneWidth = zoneMaxX - zoneMinX
       const zoneHeight = zoneMaxY - zoneMinY
-      
+
       // Only proceed if zone has valid dimensions
       if (zoneWidth <= 0 || zoneHeight <= 0) {
         console.warn('Zone has invalid dimensions for auto-arrange')
         return
       }
-      
+
       // Calculate grid layout for selected devices within zone bounds
       const selectedDevices = devices.filter(d => selectedDeviceIds.includes(d.id))
       const cols = Math.ceil(Math.sqrt(selectedDevices.length))
       const rows = Math.ceil(selectedDevices.length / cols)
-      
+
       // Calculate spacing to fit devices within zone with margins
       const spacingX = zoneWidth / (cols + 1)
       const spacingY = zoneHeight / (rows + 1)
-      
+
       const updates = selectedDevices.map((device, idx) => {
         const col = idx % cols
         const row = Math.floor(idx / cols)
         // Position devices within zone bounds, starting from zoneMinX/zoneMinY
         const x = Math.max(zoneMinX, Math.min(zoneMaxX, zoneMinX + spacingX * (col + 1)))
         const y = Math.max(zoneMinY, Math.min(zoneMaxY, zoneMinY + spacingY * (row + 1)))
-        
+
         return {
           deviceId: device.id,
           updates: {
             x: x,
-              y: y,
-              zone: zone.name // Update device zone property
+            y: y,
+            zone: zone.name // Update device zone property
           }
         }
       })
-      
+
       updateMultipleDevices(updates)
-        
-        // Sync zones after arranging
-        setTimeout(() => {
-          syncZoneDeviceIds(devices.map(d => {
-            const update = updates.find(u => u.deviceId === d.id)
-            return update ? { ...d, ...update.updates } : d
-          }))
-        }, 0)
+
+      // Sync zones after arranging
+      setTimeout(() => {
+        syncZoneDeviceIds(devices.map(d => {
+          const update = updates.find(u => u.deviceId === d.id)
+          return update ? { ...d, ...update.updates } : d
+        }))
+      }, 0)
     }
   }
   // Current location data (derived from currentLocationId)
   const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
   const [vectorData, setVectorData] = useState<any>(null)
-  
+
   const currentLocation = useMemo(() => {
     return locations.find(loc => loc.id === currentLocationId) || null
   }, [locations, currentLocationId])
-  
+
   const mapUploaded = currentLocation !== null
-  
+
   // Load location data (image/vector) from storage when location changes
   useEffect(() => {
     const loadLocationData = async () => {
@@ -234,7 +234,7 @@ export default function MapPage() {
         setVectorData(null)
         return
       }
-      
+
       // If location has storageKey, load from IndexedDB
       if (currentLocation.storageKey && activeSiteId) {
         try {
@@ -259,7 +259,7 @@ export default function MapPage() {
         setMapImageUrl(currentLocation.imageUrl || null)
         setVectorData(currentLocation.vectorData || null)
       }
-      
+
       // For zoom views, inherit from parent if no data
       if (currentLocation.type === 'zoom' && currentLocation.parentLocationId) {
         const parentLocation = locations.find(loc => loc.id === currentLocation.parentLocationId)
@@ -290,13 +290,13 @@ export default function MapPage() {
         }
       }
     }
-    
+
     loadLocationData()
   }, [currentLocation, locations, activeSiteId])
   const [toolMode, setToolMode] = useState<MapToolMode>('select')
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
-  
+
   // Default filters panel open on desktop
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
@@ -321,7 +321,7 @@ export default function MapPage() {
     const loadLocationsData = async () => {
       const loadedLocations = await loadLocations(activeSiteId)
       setLocations(loadedLocations)
-      
+
       // Set current location to first one, or migrate old single map if exists
       if (loadedLocations.length > 0) {
         setCurrentLocationId(loadedLocations[0].id)
@@ -329,11 +329,11 @@ export default function MapPage() {
         // Try to migrate old single map format
         const imageKey = activeSiteId ? `fusion_map-image-url_${activeSiteId}` : 'map-image-url'
         const vectorKey = `${imageKey}_vector`
-        
+
         try {
           let imageUrl: string | null = null
           let vectorData: any = null
-          
+
           // Try IndexedDB first
           try {
             if (activeSiteId) {
@@ -347,13 +347,13 @@ export default function MapPage() {
               vectorData = JSON.parse(savedVectorData)
             }
           }
-          
+
           // Try image
           const savedImageUrl = localStorage.getItem(imageKey)
           if (savedImageUrl) {
             imageUrl = savedImageUrl
           }
-          
+
           // If we have old data, migrate it to location system
           if (imageUrl || vectorData) {
             const migratedLocation = await addLocation(activeSiteId, {
@@ -364,7 +364,7 @@ export default function MapPage() {
             })
             setLocations([migratedLocation])
             setCurrentLocationId(migratedLocation.id)
-            
+
             // Clean up old storage
             localStorage.removeItem(imageKey)
             localStorage.removeItem(vectorKey)
@@ -374,14 +374,14 @@ export default function MapPage() {
         }
       }
     }
-    
+
     loadLocationsData()
   }, [activeSiteId])
 
   const handleMapUpload = async (imageUrl: string) => {
     const locationName = prompt('Enter a name for this location:', 'Main Floor Plan')
     if (!locationName) return
-    
+
     // Store large images in IndexedDB if they're too big for localStorage
     let storageKey: string | undefined = undefined
     if (imageUrl.length > 100000 && activeSiteId) {
@@ -396,18 +396,18 @@ export default function MapPage() {
         console.warn('Failed to store large image in IndexedDB, using localStorage:', e)
       }
     }
-    
+
     const newLocation = await addLocation(activeSiteId, {
       name: locationName,
       type: 'base',
       imageUrl: imageUrl && imageUrl.length <= 100000 ? imageUrl : undefined,
       storageKey,
     })
-    
+
     setLocations(prev => [...prev, newLocation])
     setCurrentLocationId(newLocation.id)
     setShowUploadModal(false)
-    
+
     // Note: Map images are stored separately from site images
     // Site images should be uploaded separately via the dashboard/AddSiteModal
   }
@@ -415,7 +415,7 @@ export default function MapPage() {
   const handleVectorDataUpload = async (data: any) => {
     const locationName = prompt('Enter a name for this location:', 'Main Floor Plan')
     if (!locationName) return
-    
+
     // Always store vector data in IndexedDB (it's usually large)
     if (!activeSiteId) {
       alert('No store selected. Please select a store first.')
@@ -432,27 +432,27 @@ export default function MapPage() {
       alert('Failed to save location. Storage may be full. Please try clearing browser storage.')
       return
     }
-    
+
     const newLocation = await addLocation(activeSiteId, {
       name: locationName,
       type: 'base',
       storageKey, // Store reference only
     })
-    
+
     setLocations(prev => [...prev, newLocation])
     setCurrentLocationId(newLocation.id)
     setShowUploadModal(false)
     // Refresh map cache so other pages see the new map
     await refreshMapData()
   }
-  
+
   const handleLocationSelect = (locationId: string) => {
     setCurrentLocationId(locationId)
   }
-  
+
   const handleCreateZoomView = async (name: string, bounds: { minX: number; minY: number; maxX: number; maxY: number }) => {
     if (!currentLocationId) return
-    
+
     const newZoomView = await addLocation(activeSiteId, {
       name,
       type: 'zoom',
@@ -461,16 +461,16 @@ export default function MapPage() {
       vectorData: currentLocation?.vectorData,
       zoomBounds: bounds,
     })
-    
+
     setLocations(prev => [...prev, newZoomView])
     setCurrentLocationId(newZoomView.id)
   }
-  
+
   const handleDeleteLocation = async (locationId: string) => {
     await deleteLocation(activeSiteId, locationId)
     const updatedLocations = await loadLocations(activeSiteId)
     setLocations(updatedLocations)
-    
+
     // If we deleted the current location, switch to first available
     if (locationId === currentLocationId) {
       if (updatedLocations.length > 0) {
@@ -484,20 +484,20 @@ export default function MapPage() {
   // Auto-detect lights from uploaded map
   const [isDetectingLights, setIsDetectingLights] = useState(false)
   const [detectedLightsCount, setDetectedLightsCount] = useState<number | null>(null)
-  
+
   const handleDetectLights = async () => {
     if (!mapImageUrl && !vectorData) {
       alert('Please upload a map first')
       return
     }
-    
+
     // First, analyze the PDF to see what we have
     const { analyzePDFForLights } = await import('@/lib/lightDetection')
     const analysis = analyzePDFForLights(vectorData)
-    
+
     console.log('PDF Analysis Report:')
     console.log(analysis.report)
-    
+
     // Show analysis to user
     if (!analysis.hasLights && vectorData && vectorData.paths.length === 0) {
       const proceed = confirm(
@@ -520,22 +520,22 @@ export default function MapPage() {
         return
       }
     }
-    
+
     setIsDetectingLights(true)
     setDetectedLightsCount(null)
-    
+
     try {
       // Get canvas dimensions (use a standard size for detection)
       const detectionWidth = 2000
       const detectionHeight = 2000
-      
+
       const lights = await detectAllLights(
         vectorData,
         mapImageUrl || null,
         detectionWidth,
         detectionHeight
       )
-      
+
       if (lights.length === 0) {
         alert(
           `No lights detected.\n\n` +
@@ -549,19 +549,19 @@ export default function MapPage() {
         setIsDetectingLights(false)
         return
       }
-      
+
       // Create devices from detected lights
-      const maxDeviceId = devices.length > 0 
+      const maxDeviceId = devices.length > 0
         ? Math.max(...devices.map(d => parseInt(d.deviceId) || 0))
         : 0
-      
+
       const newDevices = createDevicesFromLights(lights, maxDeviceId + 1)
-      
+
       // Add devices to the system
       newDevices.forEach(device => {
         addDevice(device)
       })
-      
+
       setDetectedLightsCount(lights.length)
       alert(`✅ Detected and placed ${lights.length} light fixtures on the map!\n\nCheck the console for detailed analysis.`)
     } catch (error) {
@@ -576,16 +576,16 @@ export default function MapPage() {
     if (!confirm('Are you sure you want to clear all locations and zoom views? This cannot be undone.')) {
       return
     }
-    
+
     // Clear all locations (this will also clear all zoom views since they're stored together)
     await saveLocations(activeSiteId, [])
-    
+
     // Reset state
     setLocations([])
     setCurrentLocationId(null)
     setSelectedDevice(null)
     setSelectedDeviceIds([])
-    
+
     // Reset file input if it exists
     if (uploadInputRef.current) {
       uploadInputRef.current.value = ''
@@ -600,7 +600,7 @@ export default function MapPage() {
   const handleDeviceMoveEnd = (deviceId: string, x: number, y: number) => {
     // Only allow moving in 'move' mode
     if (toolMode !== 'move') return
-    
+
     // If we're in a zoom view, convert coordinates back to parent location
     let finalX = x
     let finalY = y
@@ -609,13 +609,13 @@ export default function MapPage() {
       finalX = parentCoords.x
       finalY = parentCoords.y
     }
-    
+
     // Save final position to history when drag ends
     updateMultipleDevices([{
       deviceId,
       updates: { x: finalX, y: finalY }
     }])
-    
+
     // Sync device zone assignment after move
     // Use setTimeout to ensure device state is updated first
     setTimeout(() => {
@@ -630,7 +630,7 @@ export default function MapPage() {
             break
           }
         }
-        
+
         // Update device zone property if it changed
         if (movedDevice.zone !== newZoneName) {
           updateMultipleDevices([{
@@ -638,7 +638,7 @@ export default function MapPage() {
             updates: { zone: newZoneName }
           }])
         }
-        
+
         // Sync all zone deviceIds arrays
         syncZoneDeviceIds(devices.map(d => d.id === deviceId ? { ...d, x: finalX, y: finalY } : d))
       }
@@ -648,14 +648,14 @@ export default function MapPage() {
   const handleDeviceRotate = (deviceId: string) => {
     // Only allow rotating in 'rotate' mode
     if (toolMode !== 'rotate') return
-    
+
     const device = devices.find(d => d.id === deviceId)
     if (!device || !isFixtureType(device.type)) return // Only fixtures can be rotated
-    
+
     // Rotate by 90 degrees
     const currentOrientation = device.orientation || 0
     const newOrientation = (currentOrientation + 90) % 360
-    
+
     updateMultipleDevices([{
       deviceId,
       updates: { orientation: newOrientation }
@@ -668,7 +668,7 @@ export default function MapPage() {
       alert('Please select a zone first. Click on a zone to select it, then use the toolbar actions to arrange devices within it.')
       return
     }
-    
+
     const zone = zones.find(z => z.id === selectedZoneId)
     if (!zone) {
       alert('Selected zone not found. Please select a zone again.')
@@ -676,12 +676,12 @@ export default function MapPage() {
     }
 
     // Actions that require selected devices
-    const devicesToProcess = selectedDeviceIds.length > 0 
+    const devicesToProcess = selectedDeviceIds.length > 0
       ? devices.filter(d => selectedDeviceIds.includes(d.id))
-      : selectedDevice 
+      : selectedDevice
         ? [devices.find(d => d.id === selectedDevice)].filter(Boolean) as Device[]
         : []
-    
+
     if (devicesToProcess.length === 0) {
       alert('Please select one or more devices first. Click on devices on the map or use Shift+drag to select multiple.')
       return
@@ -693,13 +693,13 @@ export default function MapPage() {
     const maxX = Math.max(...zonePoints.map(p => p.x))
     const minY = Math.min(...zonePoints.map(p => p.y))
     const maxY = Math.max(...zonePoints.map(p => p.y))
-    
+
     const padding = 0.02 // 2% padding from zone edges
     const zoneMinX = minX + padding
     const zoneMaxX = maxX - padding
     const zoneMinY = minY + padding
     const zoneMaxY = maxY - padding
-    
+
     const zoneWidth = zoneMaxX - zoneMinX
     const zoneHeight = zoneMaxY - zoneMinY
 
@@ -716,21 +716,21 @@ export default function MapPage() {
             // Consider 0-45 and 315-360 as horizontal, 45-135 as vertical
             return normalized <= 45 || normalized >= 315 ? 0 : 90
           })
-        
+
         // Count horizontal vs vertical
         const horizontalCount = currentOrientations.filter(o => o === 0).length
         const verticalCount = currentOrientations.filter(o => o === 90).length
-        
+
         // If more horizontal, switch to vertical; otherwise switch to horizontal
         const targetOrientation = horizontalCount >= verticalCount ? 90 : 0
-        
+
         const updates = devicesToProcess
           .filter(d => isFixtureType(d.type)) // Only fixtures
           .map(d => ({
             deviceId: d.id,
             updates: { orientation: targetOrientation }
           }))
-        
+
         if (updates.length > 0) {
           updateMultipleDevices(updates)
         }
@@ -744,11 +744,11 @@ export default function MapPage() {
         }
         const cols = Math.ceil(Math.sqrt(devicesToProcess.length))
         const rows = Math.ceil(devicesToProcess.length / cols)
-        
+
         // Calculate spacing to fit devices within zone
         const spacingX = zoneWidth / (cols + 1)
         const spacingY = zoneHeight / (rows + 1)
-        
+
         const updates = devicesToProcess.map((d, idx) => {
           const col = idx % cols
           const row = Math.floor(idx / cols)
@@ -844,7 +844,7 @@ export default function MapPage() {
       // Convert device coordinates for zoom views
       let deviceX = d.x || 0
       let deviceY = d.y || 0
-      
+
       if (currentLocation?.type === 'zoom' && currentLocation.zoomBounds) {
         // Convert parent coordinates to zoom view coordinates
         const zoomCoords = convertParentToZoom(currentLocation, deviceX, deviceY)
@@ -856,7 +856,7 @@ export default function MapPage() {
           return null
         }
       }
-      
+
       return {
         id: d.id,
         x: deviceX,
@@ -899,8 +899,8 @@ export default function MapPage() {
     <div className="h-full flex flex-col min-h-0 overflow-hidden">
       {/* Top Search Island - In flow */}
       <div className="flex-shrink-0 page-padding-x pt-3 md:pt-4 pb-2 md:pb-3 relative">
-        <SearchIsland 
-          position="top" 
+        <SearchIsland
+          position="top"
           fullWidth={true}
           showActions={mapUploaded}
           title="Locations & Devices"
@@ -942,7 +942,7 @@ export default function MapPage() {
               />
             </div>
           )}
-          
+
           {/* Action buttons - Top right (hidden for Manager and Technician) */}
           {mapUploaded && role !== 'Manager' && role !== 'Technician' && (
             <div className="absolute top-0 right-4 z-30 pointer-events-none flex gap-2" style={{ transform: 'translateY(-50%)' }}>
@@ -984,8 +984,8 @@ export default function MapPage() {
           {!mapUploaded ? (
             <div className="w-full h-full">
               {showUploadModal ? (
-                <MapUpload 
-                  onMapUpload={handleMapUpload} 
+                <MapUpload
+                  onMapUpload={handleMapUpload}
                   onVectorDataUpload={handleVectorDataUpload}
                 />
               ) : (
@@ -1011,7 +1011,7 @@ export default function MapPage() {
                 onDeleteLocation={handleDeleteLocation}
               />
               <div className="w-full h-full rounded-2xl overflow-hidden">
-                <MapCanvas 
+                <MapCanvas
                   onDeviceSelect={handleDeviceSelect}
                   onDevicesSelect={handleDevicesSelect}
                   selectedDeviceId={selectedDevice}

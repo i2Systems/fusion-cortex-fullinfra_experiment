@@ -91,14 +91,14 @@ interface MapCanvasProps {
 }
 
 
-export function MapCanvas({ 
-  onDeviceSelect, 
+export function MapCanvas({
+  onDeviceSelect,
   onDevicesSelect,
-  selectedDeviceId, 
+  selectedDeviceId,
   selectedDeviceIds = [],
-  mapImageUrl, 
+  mapImageUrl,
   vectorData,
-  devices = [], 
+  devices = [],
   zones = [],
   highlightDeviceId,
   mode = 'select',
@@ -125,47 +125,47 @@ export function MapCanvas({
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
   const [stagePosition, setStagePositionInternal] = useState({ x: 0, y: 0 })
   const [scale, setScaleInternal] = useState(1)
-  
+
   // Use external state if provided, otherwise use internal state
   const effectiveScale = externalScale ?? scale
   const effectiveStagePosition = externalStagePosition ?? stagePosition
-  
+
   // Wrapper functions that update both internal and notify parent
   const setScale = useCallback((newScale: number) => {
     setScaleInternal(newScale)
     onScaleChange?.(newScale)
   }, [onScaleChange])
-  
+
   const setStagePosition = useCallback((newPosition: { x: number; y: number }) => {
     setStagePositionInternal(newPosition)
     onStagePositionChange?.(newPosition)
   }, [onStagePositionChange])
   const [imageBounds, setImageBounds] = useState<ImageBounds | null>(null)
   const imageBoundsRef = useRef<ImageBounds | null>(null)
-  
+
   // Keep ref in sync with state to avoid re-renders
   useEffect(() => {
     imageBoundsRef.current = imageBounds
   }, [imageBounds])
-  
+
   // Stable callback for image bounds change - only update if bounds actually changed
   const handleImageBoundsChange = useCallback((bounds: ImageBounds) => {
     setImageBounds(prev => {
       // Only update if bounds actually changed (prevent unnecessary re-renders)
-      if (!prev || 
-          prev.x !== bounds.x || 
-          prev.y !== bounds.y || 
-          prev.width !== bounds.width || 
-          prev.height !== bounds.height ||
-          prev.naturalWidth !== bounds.naturalWidth ||
-          prev.naturalHeight !== bounds.naturalHeight) {
+      if (!prev ||
+        prev.x !== bounds.x ||
+        prev.y !== bounds.y ||
+        prev.width !== bounds.width ||
+        prev.height !== bounds.height ||
+        prev.naturalWidth !== bounds.naturalWidth ||
+        prev.naturalHeight !== bounds.naturalHeight) {
         return bounds
       }
       return prev
     })
     onImageBoundsChange?.(bounds)
   }, [onImageBoundsChange])
-  
+
   // Convert normalized coordinates (0-1) to canvas coordinates using actual image bounds
   const toCanvasCoords = useCallback((point: { x: number; y: number }) => {
     const bounds = imageBoundsRef.current || imageBounds
@@ -183,7 +183,7 @@ export function MapCanvas({
       }
     }
   }, [imageBounds, dimensions])
-  
+
   // Convert canvas coordinates back to normalized coordinates (0-1) using actual image bounds
   const fromCanvasCoords = useCallback((point: { x: number; y: number }) => {
     const bounds = imageBoundsRef.current || imageBounds
@@ -206,7 +206,7 @@ export function MapCanvas({
   const tooltipPositionRef = useRef({ x: 0, y: 0 })
   const tooltipUpdateFrameRef = useRef<number | null>(null)
   const [draggedDevice, setDraggedDevice] = useState<{ id: string; startX: number; startY: number; dragX?: number; dragY?: number; dragStartX?: number; dragStartY?: number } | null>(null)
-  
+
   // Throttled tooltip position update to prevent excessive re-renders
   const updateTooltipPosition = useCallback((x: number, y: number) => {
     tooltipPositionRef.current = { x, y }
@@ -217,7 +217,7 @@ export function MapCanvas({
       })
     }
   }, [])
-  
+
   // Lasso selection state
   const [isSelecting, setIsSelecting] = useState(false)
   const [selectionStart, setSelectionStart] = useState<{ x: number; y: number } | null>(null)
@@ -228,7 +228,7 @@ export function MapCanvas({
   const [showZoomHint, setShowZoomHint] = useState(false)
   const zoomHintTimeoutRef = useRef<number | null>(null)
   const stageRef = useRef<any>(null)
-  
+
   // Track Shift key state - more robust detection
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -244,7 +244,7 @@ export function MapCanvas({
         }
       }
     }
-    
+
     const handleKeyUp = (e: KeyboardEvent) => {
       // Only clear if shift is actually released (not just another key)
       if (e.key === 'Shift' || (!e.shiftKey && isShiftHeld)) {
@@ -259,7 +259,7 @@ export function MapCanvas({
         // Don't cancel selection on keyup - let mouseup handle it
       }
     }
-    
+
     // Also check on mouse events to catch cases where shift is pressed outside window
     const handleMouseMove = (e: MouseEvent) => {
       if (e.shiftKey !== isShiftHeld) {
@@ -272,18 +272,18 @@ export function MapCanvas({
         }
       }
     }
-    
+
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
     window.addEventListener('mousemove', handleMouseMove)
-    
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
       window.removeEventListener('mousemove', handleMouseMove)
     }
   }, [isSelecting, isShiftHeld])
-  
+
   // Get full device data for hovered device
   const hoveredDeviceData = useMemo(() => {
     if (!hoveredDevice || !devicesData) return null
@@ -292,10 +292,12 @@ export function MapCanvas({
   const animationFrameRef = useRef<number | null>(null)
   const [colors, setColors] = useState({
     primary: '#4c7dff',
+    fixture: '#3b5998', // Darker blue for fixtures
     accent: '#f97316',
     success: '#22c55e',
     warning: '#ffcc00',
     muted: '#9ca3af',
+    border: 'rgba(0,0,0,0.4)', // Dark border for contrast
     text: '#ffffff',
     tooltipBg: 'rgba(17, 24, 39, 0.95)',
     tooltipBorder: '#4c7dff',
@@ -315,12 +317,12 @@ export function MapCanvas({
   // Use refs to avoid recreating on every pan/zoom update
   const stagePositionRef = useRef(effectiveStagePosition)
   const scaleRef = useRef(effectiveScale)
-  
+
   useEffect(() => {
     stagePositionRef.current = effectiveStagePosition
     scaleRef.current = effectiveScale
   }, [effectiveStagePosition, effectiveScale])
-  
+
   const visibleDevices = useMemo(() => {
     // Calculate viewport bounds for culling
     const viewportPadding = 200 // Render devices slightly outside viewport for smooth scrolling
@@ -328,14 +330,14 @@ export function MapCanvas({
     const viewportMaxX = (-stagePositionRef.current.x + dimensions.width) / scaleRef.current + viewportPadding
     const viewportMinY = -stagePositionRef.current.y / scaleRef.current - viewportPadding
     const viewportMaxY = (-stagePositionRef.current.y + dimensions.height) / scaleRef.current + viewportPadding
-    
+
     // Filter devices to only those in viewport
     return devices.filter(device => {
       const deviceCoords = toCanvasCoords({ x: device.x, y: device.y })
-      return deviceCoords.x >= viewportMinX && 
-             deviceCoords.x <= viewportMaxX && 
-             deviceCoords.y >= viewportMinY && 
-             deviceCoords.y <= viewportMaxY
+      return deviceCoords.x >= viewportMinX &&
+        deviceCoords.x <= viewportMaxX &&
+        deviceCoords.y >= viewportMinY &&
+        deviceCoords.y <= viewportMaxY
     })
   }, [devices, dimensions, toCanvasCoords])
 
@@ -390,10 +392,12 @@ export function MapCanvas({
       const computedStyle = getComputedStyle(root)
       setColors({
         primary: computedStyle.getPropertyValue('--color-primary').trim() || '#4c7dff',
+        fixture: computedStyle.getPropertyValue('--color-fixture').trim() || '#3b5998',
         accent: computedStyle.getPropertyValue('--color-accent').trim() || '#f97316',
         success: computedStyle.getPropertyValue('--color-success').trim() || '#22c55e',
         warning: computedStyle.getPropertyValue('--color-warning').trim() || '#ffcc00',
         muted: computedStyle.getPropertyValue('--color-text-muted').trim() || '#9ca3af',
+        border: 'rgba(0,0,0,0.4)',
         text: computedStyle.getPropertyValue('--color-text').trim() || '#ffffff',
         tooltipBg: computedStyle.getPropertyValue('--color-tooltip-bg').trim() || 'rgba(17, 24, 39, 0.95)',
         tooltipBorder: computedStyle.getPropertyValue('--color-tooltip-border').trim() || computedStyle.getPropertyValue('--color-primary').trim() || '#4c7dff',
@@ -404,26 +408,26 @@ export function MapCanvas({
 
     updateDimensions()
     updateColors()
-    
+
     // Use ResizeObserver to respond to container size changes (e.g., when panel is resized)
     const resizeObserver = new ResizeObserver(() => {
       updateDimensions()
     })
-    
+
     if (containerRef.current) {
       resizeObserver.observe(containerRef.current)
     }
-    
+
     // Also listen for window resize as fallback
     window.addEventListener('resize', updateDimensions)
-    
+
     // Watch for theme changes
     const mutationObserver = new MutationObserver(updateColors)
     mutationObserver.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ['data-theme'],
     })
-    
+
     return () => {
       resizeObserver.disconnect()
       window.removeEventListener('resize', updateDimensions)
@@ -498,7 +502,7 @@ export function MapCanvas({
       }
     }
   }, [mode, onDeviceSelect, onDevicesSelect, effectiveScale, setScale, isSpaceHeld, isShiftHeld])
-  
+
   // Cleanup animation frame on unmount
   useEffect(() => {
     return () => {
@@ -511,9 +515,13 @@ export function MapCanvas({
   // Devices come from props now, no need for local device array
 
   const getDeviceColor = (type: string) => {
+    // Use darker fixture color for all fixture types
+    if (type.startsWith('fixture-')) {
+      return colors.fixture
+    }
     switch (type) {
       case 'fixture':
-        return colors.primary
+        return colors.fixture
       case 'motion':
         return colors.accent
       case 'light-sensor':
@@ -526,41 +534,41 @@ export function MapCanvas({
   // Ensure Stage container doesn't interfere with navigation clicks
   useEffect(() => {
     if (!stageRef.current) return
-    
+
     const container = stageRef.current.container()
     if (!container) return
-    
+
     // Ensure container only captures events within its bounds
     container.style.pointerEvents = 'auto'
     container.style.touchAction = 'none'
-    
+
     // Prevent the container from capturing clicks outside its visual bounds
     const handleClick = (e: MouseEvent) => {
       const rect = container.getBoundingClientRect()
       const x = e.clientX - rect.left
       const y = e.clientY - rect.top
-      
+
       // If click is outside container bounds, allow it to propagate to navigation
       if (x < 0 || x > rect.width || y < 0 || y > rect.height) {
         e.stopImmediatePropagation()
       }
     }
-    
+
     // Use capture phase to intercept before Konva handles it
     container.addEventListener('click', handleClick, true)
     container.addEventListener('mousedown', handleClick, true)
-    
+
     return () => {
       container.removeEventListener('click', handleClick, true)
       container.removeEventListener('mousedown', handleClick, true)
     }
   }, [dimensions])
-  
+
   return (
     <div ref={containerRef} className="w-full h-full overflow-hidden">
-      <Stage 
+      <Stage
         ref={stageRef}
-        width={dimensions.width} 
+        width={dimensions.width}
         height={dimensions.height}
         x={effectiveStagePosition.x}
         y={effectiveStagePosition.y}
@@ -572,19 +580,19 @@ export function MapCanvas({
           // Double-click on background, map image, or zones to deselect all devices
           const stage = e.target.getStage()
           if (!stage) return
-          
+
           const target = e.target
           const targetType = target.getType?.() || ''
-          
+
           // Check if clicked on empty stage, layer, map image (Image), or zone (Line/Group)
           // But NOT on a device (Circle or Group containing device elements)
           const isDevice = targetType === 'Circle' || targetType === 'Rect'
-          const clickedOnMap = target === stage || 
-                              target === stage.findOne('Layer') ||
-                              targetType === 'Image' || // Map image
-                              targetType === 'Line' || // Zone boundaries
-                              (targetType === 'Group' && !isDevice) // Zone groups or map image group
-          
+          const clickedOnMap = target === stage ||
+            target === stage.findOne('Layer') ||
+            targetType === 'Image' || // Map image
+            targetType === 'Line' || // Zone boundaries
+            (targetType === 'Group' && !isDevice) // Zone groups or map image group
+
           if (clickedOnMap && mode === 'select') {
             onDevicesSelect?.([])
             onDeviceSelect?.(null)
@@ -598,18 +606,18 @@ export function MapCanvas({
           // Only handle clicks within the stage bounds
           const stage = e.target.getStage()
           if (!stage) return
-          
+
           // Check if click is outside stage bounds - if so, don't handle it
           const pointerPos = stage.getPointerPosition()
           if (pointerPos) {
             const stageBox = stage.container().getBoundingClientRect()
-            if (pointerPos.x < 0 || pointerPos.x > dimensions.width || 
-                pointerPos.y < 0 || pointerPos.y > dimensions.height) {
+            if (pointerPos.x < 0 || pointerPos.x > dimensions.width ||
+              pointerPos.y < 0 || pointerPos.y > dimensions.height) {
               // Click outside stage bounds - let it propagate
               return
             }
           }
-          
+
           // Check Space key state from event (more reliable than checking code)
           // Note: MouseEvent doesn't have code/key, so we rely on isSpaceHeld state
           const spaceHeld = isSpaceHeld
@@ -621,19 +629,19 @@ export function MapCanvas({
             }
             // Don't return - allow normal drag behavior
           }
-          
+
           if (mode === 'select' && e.evt.button === 0 && !draggedDevice && !spaceHeld) {
             // Check if shift is actually held (use both state and event)
             const shiftHeld = isShiftHeld || e.evt.shiftKey
             const clickedOnEmpty = e.target === stage || e.target === stage.findOne('Layer')
-            
+
             // Start lasso selection if Shift is held
             if (shiftHeld) {
               if (pointerPos) {
                 // Convert pointer position to content coordinates
                 const transform = stage.getAbsoluteTransform().copy().invert()
                 const pos = transform.point(pointerPos)
-                
+
                 console.log('Starting selection at:', pos)
                 setIsSelecting(true)
                 setSelectionStart({ x: pos.x, y: pos.y })
@@ -654,7 +662,7 @@ export function MapCanvas({
         onMouseMove={(e) => {
           const stage = e.target.getStage()
           if (!stage) return
-          
+
           // Update selection box if selecting
           if (isSelecting && selectionStart) {
             const pointerPos = stage.getPointerPosition()
@@ -670,7 +678,7 @@ export function MapCanvas({
             if (shiftHeld !== isShiftHeld) {
               setIsShiftHeld(shiftHeld)
             }
-            
+
             // Show crosshair cursor when Shift is held
             if (shiftHeld && mode === 'select' && !draggedDevice) {
               const container = stage.container()
@@ -694,18 +702,18 @@ export function MapCanvas({
               container.style.cursor = isShiftHeld ? 'crosshair' : 'default'
             }
           }
-          
+
           if (isSelecting && selectionStart && selectionEnd) {
             // Find devices within selection box
             const minX = Math.min(selectionStart.x, selectionEnd.x)
             const maxX = Math.max(selectionStart.x, selectionEnd.x)
             const minY = Math.min(selectionStart.y, selectionEnd.y)
             const maxY = Math.max(selectionStart.y, selectionEnd.y)
-            
+
             // Only process if selection box has meaningful size
             const width = Math.abs(selectionEnd.x - selectionStart.x)
             const height = Math.abs(selectionEnd.y - selectionStart.y)
-            
+
             if (width > 5 || height > 5) {
               const selectedIds: string[] = []
               // Only check visible devices for selection (performance optimization)
@@ -714,20 +722,20 @@ export function MapCanvas({
                 const deviceCoords = toCanvasCoords({ x: device.x, y: device.y })
                 const deviceX = deviceCoords.x
                 const deviceY = deviceCoords.y
-                
+
                 // Check if device is within selection box bounds
                 const tolerance = 5
-                if (deviceX >= minX - tolerance && 
-                    deviceX <= maxX + tolerance && 
-                    deviceY >= minY - tolerance && 
-                    deviceY <= maxY + tolerance) {
+                if (deviceX >= minX - tolerance &&
+                  deviceX <= maxX + tolerance &&
+                  deviceY >= minY - tolerance &&
+                  deviceY <= maxY + tolerance) {
                   selectedIds.push(device.id)
                 }
               })
-              
+
               console.log(`Selection box: (${minX.toFixed(0)}, ${minY.toFixed(0)}) to (${maxX.toFixed(0)}, ${maxY.toFixed(0)})`)
               console.log(`Found ${selectedIds.length} devices in selection`)
-              
+
               if (selectedIds.length > 0) {
                 if (e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey) {
                   // Add to selection
@@ -753,7 +761,7 @@ export function MapCanvas({
                 }
               }
             }
-            
+
             setIsSelecting(false)
             setSelectionStart(null)
             setSelectionEnd(null)
@@ -762,19 +770,19 @@ export function MapCanvas({
         onDragEnd={(e) => {
           // Use requestAnimationFrame to batch position updates and prevent flickering
           requestAnimationFrame(() => {
-          setStagePosition({ x: e.target.x(), y: e.target.y() })
+            setStagePosition({ x: e.target.x(), y: e.target.y() })
           })
         }}
         onWheel={(e) => {
           // Handle trackpad/mouse wheel zoom
           e.evt.preventDefault()
-          
+
           const stage = e.target.getStage()
           if (!stage) return
-          
+
           const pointerPos = stage.getPointerPosition()
           if (!pointerPos) return
-          
+
           // Show zoom hint briefly (debounced to prevent flickering)
           if (zoomHintTimeoutRef.current) {
             clearTimeout(zoomHintTimeoutRef.current)
@@ -784,27 +792,27 @@ export function MapCanvas({
             setShowZoomHint(false)
             zoomHintTimeoutRef.current = null
           }, 2000)
-          
+
           // Get wheel delta (positive = zoom in, negative = zoom out)
           const deltaY = e.evt.deltaY
-          
+
           // Determine zoom direction (trackpad: negative deltaY = zoom in, positive = zoom out)
           // Mouse wheel: positive deltaY = scroll down = zoom out
           const zoomFactor = deltaY > 0 ? 0.9 : 1.1
           const newScale = Math.max(0.1, Math.min(10, effectiveScale * zoomFactor))
-          
+
           // Calculate mouse position relative to stage
           const mouseX = (pointerPos.x - effectiveStagePosition.x) / effectiveScale
           const mouseY = (pointerPos.y - effectiveStagePosition.y) / effectiveScale
-          
+
           // Calculate new position to zoom towards mouse point
           const newX = pointerPos.x - mouseX * newScale
           const newY = pointerPos.y - mouseY * newScale
-          
+
           // Batch scale and position updates to prevent flickering
           requestAnimationFrame(() => {
-          setScale(newScale)
-          setStagePosition({ x: newX, y: newY })
+            setScale(newScale)
+            setStagePosition({ x: newX, y: newY })
           })
         }}
       >
@@ -848,23 +856,23 @@ export function MapCanvas({
                 }
               }}
             >
-              <FloorPlanImage 
-                url={mapImageUrl} 
-                width={dimensions.width} 
+              <FloorPlanImage
+                url={mapImageUrl}
+                width={dimensions.width}
                 height={dimensions.height}
                 onImageBoundsChange={handleImageBoundsChange}
                 zoomBounds={currentLocation?.type === 'zoom' ? currentLocation.zoomBounds : null}
               />
             </Group>
           ) : null}
-          
+
           {/* Zones Background - rendered before devices so they appear behind */}
           {showZones && zones.map((zone) => {
             const points = zone.polygon.map(toCanvasCoords).flatMap(p => [p.x, p.y])
-            
+
             const hasSelectedDevices = selectedDeviceIds.length > 0
             const isHovered = hoveredZoneId === zone.id
-            
+
             return (
               <Group
                 key={zone.id}
@@ -934,22 +942,22 @@ export function MapCanvas({
               </Group>
             )
           })}
-          
+
           {/* Device points - with viewport culling for performance */}
           {visibleDevices.map((device) => {
             // Scale device positions to canvas coordinates (respects image bounds)
             const deviceCoords = toCanvasCoords({ x: device.x, y: device.y })
             const isSelected = selectedDeviceId === device.id || selectedDeviceIds.includes(device.id)
             const isHovered = hoveredDevice?.id === device.id
-            
+
             // Use drag position if device is being dragged, otherwise use device coordinates
             // This prevents jumping during drag
             const isDragging = draggedDevice?.id === device.id
             const groupX = isDragging && draggedDevice.dragX !== undefined ? draggedDevice.dragX : deviceCoords.x
             const groupY = isDragging && draggedDevice.dragY !== undefined ? draggedDevice.dragY : deviceCoords.y
-            
+
             return (
-              <Group 
+              <Group
                 key={device.id}
                 x={groupX}
                 y={groupY}
@@ -966,14 +974,14 @@ export function MapCanvas({
                 }}
                 onDragStart={(e) => {
                   // Prevent stage dragging when dragging devices
-                    e.cancelBubble = true
+                  e.cancelBubble = true
                   setIsSelecting(false)
                   setSelectionStart(null)
                   setSelectionEnd(null)
                   // Store the initial device coordinates
-                  setDraggedDevice({ 
-                    id: device.id, 
-                    startX: device.x || 0, 
+                  setDraggedDevice({
+                    id: device.id,
+                    startX: device.x || 0,
                     startY: device.y || 0
                   })
                   // Clear hover state when starting to drag to hide tooltip
@@ -985,7 +993,7 @@ export function MapCanvas({
                     } else {
                       // Replace selection
                       onDevicesSelect?.([device.id])
-                  onDeviceSelect?.(device.id)
+                      onDeviceSelect?.(device.id)
                     }
                   }
                 }}
@@ -995,10 +1003,10 @@ export function MapCanvas({
                   // Update drag position in state to prevent jumping
                   // Use Group position directly - it accounts for rotation automatically
                   const pos = e.target.position()
-                  setDraggedDevice(prev => prev ? { 
-                    ...prev, 
-                    dragX: pos.x, 
-                    dragY: pos.y 
+                  setDraggedDevice(prev => prev ? {
+                    ...prev,
+                    dragX: pos.x,
+                    dragY: pos.y
                   } : null)
                   // Don't update device position during drag - only update on drag end
                   // This prevents feedback loops where position updates cause re-renders
@@ -1007,7 +1015,7 @@ export function MapCanvas({
                 onDragEnd={(e) => {
                   // Prevent stage dragging
                   e.cancelBubble = true
-                  
+
                   if (mode === 'move' && onDeviceMoveEnd) {
                     // Use Group position directly - it's already in canvas coordinates
                     // and accounts for rotation properly
@@ -1026,19 +1034,19 @@ export function MapCanvas({
                 {isFixtureType(device.type) && (() => {
                   // Get size multiplier based on fixture type (8ft, 12ft, 16ft)
                   const sizeMultiplier = getFixtureSizeMultiplier(device.type)
-                  
+
                   // Base size for 8ft fixture: small rectangle matching the blueprint
                   // Base rectangle: width ~12px, height ~3px (4:1 ratio for a small rectangle)
                   const baseWidth = 12
                   const baseHeight = 3
-                  
+
                   // Apply size multiplier
                   const barLength = baseWidth * sizeMultiplier
                   const barWidth = baseHeight * sizeMultiplier
-                  
+
                   // Larger invisible hit area for easier clicking
                   const hitAreaRadius = Math.max(20, barLength / 2 + 10) // At least 20px, or bar length/2 + 10px
-                  
+
                   return (
                     <Group rotation={device.orientation || 0}>
                       {/* Large invisible hit area for easier clicking */}
@@ -1070,13 +1078,13 @@ export function MapCanvas({
                                 const newSelection = [...selectedDeviceIds, device.id]
                                 onDevicesSelect?.(newSelection)
                                 if (newSelection.length === 1) {
-                            onDeviceSelect?.(device.id)
+                                  onDeviceSelect?.(device.id)
                                 }
                               }
                             } else {
                               // Single select
                               onDevicesSelect?.([device.id])
-                            onDeviceSelect?.(device.id)
+                              onDeviceSelect?.(device.id)
                             }
                           }
                         }}
@@ -1125,52 +1133,65 @@ export function MapCanvas({
                           }
                         }}
                       />
-                      {/* Fixture rectangle - size varies by fixture type (8ft, 12ft, 16ft) */}
+                      {/* Dark outline for contrast */}
                       <Rect
-                        x={-barLength / 2} // Center the rectangle
-                        y={-barWidth / 2} // Center the rectangle
+                        x={-barLength / 2 - 0.5}
+                        y={-barWidth / 2 - 0.5}
+                        width={barLength + 1}
+                        height={barWidth + 1}
+                        fill="transparent"
+                        stroke={colors.border}
+                        strokeWidth={1}
+                        cornerRadius={2}
+                        listening={false}
+                      />
+                      {/* Fixture rectangle */}
+                      <Rect
+                        x={-barLength / 2}
+                        y={-barWidth / 2}
                         width={barLength}
                         height={barWidth}
                         fill={getDeviceColor(device.type)}
-                        opacity={device.locked ? 0.5 : (isSelected ? 0.9 : (isHovered ? 0.8 : 0.7))}
-                        stroke={device.locked ? colors.warning : (isSelected ? colors.text : 'rgba(255,255,255,0.3)')}
-                        strokeWidth={device.locked ? 2 : (isSelected ? 2 : 1)}
-                        shadowBlur={isSelected ? 10 : (isHovered ? 6 : 2)}
-                        shadowColor={isSelected ? colors.primary : 'black'}
+                        opacity={device.locked ? 0.6 : (isSelected ? 1 : (isHovered ? 0.95 : 0.9))}
+                        stroke={colors.border}
+                        strokeWidth={0.5}
+                        shadowBlur={isSelected ? 4 : (isHovered ? 2 : 1)}
+                        shadowColor={isSelected ? colors.fixture : colors.muted}
+                        shadowOpacity={0.3}
                         cornerRadius={1}
                         dash={device.locked ? [4, 4] : undefined}
                         listening={false}
                       />
-                      {/* Center dot - visual only, smaller to match rectangle size */}
+                      {/* Center dot */}
                       <Circle
                         x={0}
                         y={0}
-                        radius={isSelected ? (3 * sizeMultiplier) : (isHovered ? (2.5 * sizeMultiplier) : (2 * sizeMultiplier))}
-                        fill={getDeviceColor(device.type)}
-                        stroke={device.locked ? colors.warning : (isSelected ? colors.text : 'rgba(255,255,255,0.4)')}
-                        strokeWidth={device.locked ? 2 : (isSelected ? 2.5 : 1.5)}
-                        shadowBlur={isSelected ? 12 : (isHovered ? 8 : 4)}
-                        shadowColor={isSelected ? colors.primary : 'black'}
-                        opacity={device.locked ? 0.8 : (isSelected ? 1 : (isHovered ? 0.9 : 0.8))}
+                        radius={isSelected ? (2 * sizeMultiplier) : (isHovered ? (1.5 * sizeMultiplier) : (1 * sizeMultiplier))}
+                        fill={isSelected ? colors.fixture : colors.text}
+                        stroke={colors.border}
+                        strokeWidth={0.5}
+                        shadowBlur={isSelected ? 3 : 1}
+                        shadowColor={colors.muted}
+                        opacity={device.locked ? 0.7 : (isSelected ? 1 : 0.85)}
                         listening={false}
                       />
                     </Group>
                   )
                 })()}
-                
+
                 {/* Regular dot for non-fixture devices */}
                 {!isFixtureType(device.type) && (
                   <>
                     {/* Large invisible hit area for easier clicking */}
-                  <Circle
-                    x={0}
-                    y={0}
+                    <Circle
+                      x={0}
+                      y={0}
                       radius={isSelected ? 20 : (isHovered ? 18 : 16)} // Much larger than visual circle
                       fill="transparent"
                       opacity={0}
                       onClick={(e) => {
                         e.cancelBubble = true
-                      if (mode === 'select') {
+                        if (mode === 'select') {
                           if (e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey) {
                             // Toggle selection
                             if (selectedDeviceIds.includes(device.id)) {
@@ -1185,8 +1206,8 @@ export function MapCanvas({
                               const newSelection = [...selectedDeviceIds, device.id]
                               onDevicesSelect?.(newSelection)
                               if (newSelection.length === 1) {
-                        onDeviceSelect?.(device.id)
-                      }
+                                onDeviceSelect?.(device.id)
+                              }
                             }
                           } else {
                             // Single select
@@ -1194,61 +1215,84 @@ export function MapCanvas({
                             onDeviceSelect?.(device.id)
                           }
                         }
-                    }}
+                      }}
                       onTap={(e) => {
                         e.cancelBubble = true
-                      if (mode === 'select') {
+                        if (mode === 'select') {
                           // For tap events, we don't have modifier keys, so just single select
                           onDevicesSelect?.([device.id])
-                        onDeviceSelect?.(device.id)
-                      }
-                    }}
-                    onMouseEnter={(e) => {
-                      const container = e.target.getStage()?.container()
-                      if (container) {
-                        if (device.locked) {
-                          container.style.cursor = 'not-allowed'
-                        } else {
-                          container.style.cursor = mode === 'move' ? 'grab' : 'pointer'
+                          onDeviceSelect?.(device.id)
                         }
-                      }
-                      setHoveredDevice(device)
-                      // Get mouse position relative to stage
-                      const stage = e.target.getStage()
-                      if (stage) {
-                        const pointerPos = stage.getPointerPosition()
-                        if (pointerPos) {
-                          updateTooltipPosition(pointerPos.x, pointerPos.y)
+                      }}
+                      onMouseEnter={(e) => {
+                        const container = e.target.getStage()?.container()
+                        if (container) {
+                          if (device.locked) {
+                            container.style.cursor = 'not-allowed'
+                          } else {
+                            container.style.cursor = mode === 'move' ? 'grab' : 'pointer'
+                          }
                         }
-                      }
-                    }}
-                    onMouseLeave={() => {
-                      setHoveredDevice(null)
-                    }}
-                    onMouseMove={(e) => {
-                      const stage = e.target.getStage()
-                      if (stage) {
-                        const pointerPos = stage.getPointerPosition()
-                        if (pointerPos) {
-                          updateTooltipPosition(pointerPos.x, pointerPos.y)
+                        setHoveredDevice(device)
+                        // Get mouse position relative to stage
+                        const stage = e.target.getStage()
+                        if (stage) {
+                          const pointerPos = stage.getPointerPosition()
+                          if (pointerPos) {
+                            updateTooltipPosition(pointerPos.x, pointerPos.y)
+                          }
                         }
-                      }
-                    }}
-                  />
-                    {/* Visual circle - no interaction */}
+                      }}
+                      onMouseLeave={() => {
+                        setHoveredDevice(null)
+                      }}
+                      onMouseMove={(e) => {
+                        const stage = e.target.getStage()
+                        if (stage) {
+                          const pointerPos = stage.getPointerPosition()
+                          if (pointerPos) {
+                            updateTooltipPosition(pointerPos.x, pointerPos.y)
+                          }
+                        }
+                      }}
+                    />
+                    {/* Dark outer contrast ring for visibility */}
                     <Circle
                       x={0}
                       y={0}
-                      radius={isSelected ? 8 : (isHovered ? 6 : 4)}
+                      radius={isSelected ? 7 : (isHovered ? 6.5 : 6)}
+                      fill="transparent"
+                      stroke={colors.muted}
+                      strokeWidth={0.5}
+                      shadowBlur={isSelected ? 6 : (isHovered ? 4 : 2)}
+                      shadowColor={colors.muted}
+                      listening={false}
+                    />
+                    {/* Main visual circle */}
+                    <Circle
+                      x={0}
+                      y={0}
+                      radius={isSelected ? 5 : (isHovered ? 4.5 : 4)}
                       fill={getDeviceColor(device.type)}
-                      stroke={device.locked ? colors.warning : (isSelected ? colors.text : 'rgba(255,255,255,0.2)')}
-                      strokeWidth={device.locked ? 2 : (isSelected ? 3 : 1)}
-                      shadowBlur={isSelected ? 15 : (isHovered ? 8 : 3)}
-                      shadowColor={isSelected ? colors.primary : 'black'}
-                      opacity={device.locked ? 0.7 : (isSelected ? 1 : (isHovered ? 0.8 : 0.6))}
+                      stroke={device.locked ? colors.warning : (isSelected ? colors.primary : colors.muted)}
+                      strokeWidth={device.locked ? 1 : (isSelected ? 1 : 0.5)}
+                      shadowBlur={isSelected ? 8 : (isHovered ? 5 : 2)}
+                      shadowColor={isSelected ? colors.primary : colors.muted}
+                      opacity={device.locked ? 0.7 : (isSelected ? 1 : (isHovered ? 0.95 : 0.9))}
                       dash={device.locked ? [4, 4] : undefined}
                       listening={false}
                     />
+                    {/* Center highlight for selected */}
+                    {isSelected && (
+                      <Circle
+                        x={0}
+                        y={0}
+                        radius={2}
+                        fill={colors.text}
+                        opacity={0.8}
+                        listening={false}
+                      />
+                    )}
                   </>
                 )}
                 {/* Lock indicator */}
@@ -1266,8 +1310,8 @@ export function MapCanvas({
                 {/* Expand button for devices with components */}
                 {isSelected && device.components && device.components.length > 0 && (
                   <Group
-                    x={12}
-                    y={-12}
+                    x={8}
+                    y={-8}
                     onClick={(e) => {
                       e.cancelBubble = true
                       const isExpanded = expandedComponents.has(device.id)
@@ -1278,25 +1322,35 @@ export function MapCanvas({
                       const isExpanded = expandedComponents.has(device.id)
                       onComponentExpand?.(device.id, !isExpanded)
                     }}
+                    onMouseEnter={(e) => {
+                      const container = e.target.getStage()?.container()
+                      if (container) container.style.cursor = 'pointer'
+                    }}
+                    onMouseLeave={(e) => {
+                      const container = e.target.getStage()?.container()
+                      if (container) container.style.cursor = 'default'
+                    }}
                   >
                     <Circle
                       x={0}
                       y={0}
-                      radius={10}
+                      radius={3.5}
                       fill={colors.primary}
-                      stroke={colors.text}
-                      strokeWidth={2}
-                      shadowBlur={5}
-                      shadowColor={colors.primary}
+                      stroke="rgba(0,0,0,0.3)"
+                      strokeWidth={0.5}
+                      opacity={0.9}
                     />
                     <Text
-                      x={-4}
-                      y={-6}
+                      x={0}
+                      y={0}
+                      offsetX={3}
+                      offsetY={4}
                       text={expandedComponents.has(device.id) ? '−' : '+'}
-                      fontSize={16}
+                      fontSize={8}
                       fontFamily="system-ui, -apple-system, sans-serif"
                       fontStyle="bold"
                       fill={colors.text}
+                      width={6}
                       align="center"
                       listening={false}
                     />
@@ -1341,11 +1395,11 @@ export function MapCanvas({
                     />
                     {device.components.map((component, idx) => {
                       const yPos = 40 + idx * 70
-                      const warrantyColor = component.warrantyStatus === 'Active' 
-                        ? colors.success 
+                      const warrantyColor = component.warrantyStatus === 'Active'
+                        ? colors.success
                         : component.warrantyStatus === 'Expired'
-                        ? '#ef4444'
-                        : colors.muted
+                          ? '#ef4444'
+                          : colors.muted
                       const parentDevice = devicesData.find(d => d.id === device.id)
                       const handleComponentClick = (e: any) => {
                         e.cancelBubble = true
@@ -1354,8 +1408,8 @@ export function MapCanvas({
                         }
                       }
                       return (
-                        <Group 
-                          key={component.id} 
+                        <Group
+                          key={component.id}
                           y={yPos}
                           onClick={handleComponentClick}
                           onTap={handleComponentClick}
@@ -1440,7 +1494,7 @@ export function MapCanvas({
             )
           })}
         </Layer>
-        
+
         {/* Tooltip Layer - Always on top */}
         <Layer>
           {hoveredDevice && hoveredDeviceData && !draggedDevice && mode !== 'move' && (() => {
@@ -1451,7 +1505,7 @@ export function MapCanvas({
             const padding = 16
             const lineHeight = 18
             const sectionSpacing = 8
-            
+
             // Calculate base info height (accounting for text wrapping)
             const deviceInfoLines = [
               `Type: ${hoveredDevice.type}`,
@@ -1462,7 +1516,7 @@ export function MapCanvas({
               ...(hoveredDevice.location ? [`Location: ${hoveredDevice.location}`] : []),
               ...(hoveredDeviceData.zone ? [`Zone: ${hoveredDeviceData.zone}`] : []),
             ]
-            
+
             // Estimate text wrapping for long strings
             const maxTextWidth = tooltipWidth - (padding * 2)
             const estimateWrappedLines = (text: string, fontSize: number) => {
@@ -1470,29 +1524,29 @@ export function MapCanvas({
               const charsPerLine = Math.floor(maxTextWidth / (fontSize * 0.6))
               return Math.max(1, Math.ceil(text.length / charsPerLine))
             }
-            
+
             let deviceInfoHeight = 0
             deviceInfoLines.forEach(line => {
               const wrappedLines = estimateWrappedLines(line, 12)
               deviceInfoHeight += wrappedLines * lineHeight
             })
-            
+
             // Header + divider + spacing
             const headerHeight = 40
             const dividerHeight = 2
             const baseHeight = headerHeight + dividerHeight + sectionSpacing + deviceInfoHeight + sectionSpacing
-            
+
             // Components section height
             const componentsHeaderHeight = 20
-            const componentsListHeight = hasComponents 
+            const componentsListHeight = hasComponents
               ? Math.min(componentsCount, 5) * 20 + (componentsCount > 5 ? 20 : 0)
               : 0
-            const componentsHeight = hasComponents 
+            const componentsHeight = hasComponents
               ? componentsHeaderHeight + componentsListHeight + sectionSpacing
               : 0
-            
+
             const totalHeight = baseHeight + componentsHeight + (padding * 2)
-            
+
             // Calculate position to keep tooltip within viewport
             const tooltipX = Math.max(
               padding,
@@ -1508,35 +1562,35 @@ export function MapCanvas({
                 dimensions.height - totalHeight - padding
               )
             )
-            
+
             return (
               <Group x={tooltipX} y={tooltipY}>
-                    {/* Tooltip background - uses theme tokens */}
-                    <Rect
+                {/* Tooltip background - uses theme tokens */}
+                <Rect
                   width={tooltipWidth}
                   height={totalHeight}
-                      fill={colors.tooltipBg}
+                  fill={colors.tooltipBg}
                   cornerRadius={10}
-                      listening={false}
+                  listening={false}
                   shadowBlur={20}
-                      shadowColor={colors.tooltipShadow}
-                      shadowOffsetX={0}
+                  shadowColor={colors.tooltipShadow}
+                  shadowOffsetX={0}
                   shadowOffsetY={4}
                   opacity={0.98}
-                    />
-                    {/* Border for better visibility - uses theme primary color */}
-                    <Rect
+                />
+                {/* Border for better visibility - uses theme primary color */}
+                <Rect
                   width={tooltipWidth}
                   height={totalHeight}
-                      fill="transparent"
-                      stroke={colors.tooltipBorder}
-                      strokeWidth={2}
+                  fill="transparent"
+                  stroke={colors.tooltipBorder}
+                  strokeWidth={2}
                   cornerRadius={10}
-                      listening={false}
-                    />
-                
+                  listening={false}
+                />
+
                 {/* Header section */}
-                    <Text
+                <Text
                   x={padding}
                   y={padding}
                   text={hoveredDevice.deviceId}
@@ -1549,16 +1603,16 @@ export function MapCanvas({
                   width={tooltipWidth - (padding * 2)}
                   wrap="word"
                 />
-                
+
                 {/* Divider line */}
                 <Line
                   points={[padding, padding + 24, tooltipWidth - padding, padding + 24]}
                   stroke={colors.tooltipBorder}
                   strokeWidth={1}
                   opacity={0.3}
-                      listening={false}
-                    />
-                
+                  listening={false}
+                />
+
                 {/* Device info - render each line separately for proper wrapping */}
                 {deviceInfoLines.map((line, idx) => {
                   const yPos = padding + headerHeight + dividerHeight + sectionSpacing + (idx * lineHeight)
@@ -1580,7 +1634,7 @@ export function MapCanvas({
                     />
                   )
                 })}
-                
+
                 {/* Components section */}
                 {hasComponents && (
                   <>
@@ -1639,7 +1693,7 @@ export function MapCanvas({
             )
           })()}
         </Layer>
-        
+
         {/* Selection Box Layer - Always on top */}
         {isSelecting && selectionStart && selectionEnd && (
           <Layer>
@@ -1650,34 +1704,34 @@ export function MapCanvas({
               const maxY = Math.max(selectionStart.y, selectionEnd.y)
               const width = Math.abs(selectionEnd.x - selectionStart.x)
               const height = Math.abs(selectionEnd.y - selectionStart.y)
-              
+
               // Only render if selection has meaningful size
               if (width < 2 || height < 2) {
                 return null
               }
-              
+
               // Calculate safe corner radius (must be less than half the smallest dimension)
               const safeCornerRadius = Math.min(4, Math.min(width, height) / 2 - 1)
               const safeCornerRadiusInner = Math.max(0, Math.min(2, Math.min(width - 6, height - 6) / 2 - 1))
-              
+
               // Find devices within selection box (with tolerance to match selection logic)
               const tolerance = 5
               const devicesInSelection = devices.filter(device => {
                 const deviceCoords = toCanvasCoords({ x: device.x, y: device.y })
                 const deviceX = deviceCoords.x
                 const deviceY = deviceCoords.y
-                return deviceX >= minX - tolerance && 
-                       deviceX <= maxX + tolerance && 
-                       deviceY >= minY - tolerance && 
-                       deviceY <= maxY + tolerance
+                return deviceX >= minX - tolerance &&
+                  deviceX <= maxX + tolerance &&
+                  deviceY >= minY - tolerance &&
+                  deviceY <= maxY + tolerance
               })
-              
+
               // Count by type
               const fixtures = devicesInSelection.filter(d => isFixtureType(d.type)).length
               const motion = devicesInSelection.filter(d => d.type === 'motion').length
               const sensors = devicesInSelection.filter(d => d.type === 'light-sensor').length
               const totalCount = devicesInSelection.length
-              
+
               return (
                 <Group>
                   {/* Selection box with much stronger visual */}
@@ -1695,7 +1749,7 @@ export function MapCanvas({
                     shadowColor="rgba(76, 125, 255, 0.9)"
                     cornerRadius={Math.max(0, safeCornerRadius + 1)}
                   />
-                  
+
                   {/* Main selection box */}
                   <Rect
                     x={minX}
@@ -1711,7 +1765,7 @@ export function MapCanvas({
                     shadowColor="rgba(76, 125, 255, 1)"
                     cornerRadius={Math.max(0, safeCornerRadius)}
                   />
-                  
+
                   {/* Inner bright border for better definition - only if there's room */}
                   {width > 6 && height > 6 && (
                     <Rect
@@ -1727,7 +1781,7 @@ export function MapCanvas({
                       cornerRadius={Math.max(0, safeCornerRadiusInner)}
                     />
                   )}
-                  
+
                   {/* Corner indicators for better visibility */}
                   <Group>
                     {/* Top-left corner */}
@@ -1791,14 +1845,14 @@ export function MapCanvas({
                       listening={false}
                     />
                   </Group>
-                  
+
                   {/* Device indicators - show prominent highlights for each device in selection */}
                   {devicesInSelection.map((device) => {
                     const deviceCoords = toCanvasCoords({ x: device.x, y: device.y })
-                    const color = isFixtureType(device.type) ? '#4c7dff' : 
-                                 device.type === 'motion' ? '#f97316' : 
-                                 '#22c55e'
-                    
+                    const color = isFixtureType(device.type) ? '#4c7dff' :
+                      device.type === 'motion' ? '#f97316' :
+                        '#22c55e'
+
                     return (
                       <Group key={device.id}>
                         {/* Outer glow ring */}
@@ -1841,10 +1895,10 @@ export function MapCanvas({
                           fill={color}
                           listening={false}
                         />
-              </Group>
-            )
-          })}
-                  
+                      </Group>
+                    )
+                  })}
+
                   {/* Count indicator with breakdown - always show, even when 0 */}
                   <Group
                     x={minX + 10}
@@ -1875,7 +1929,7 @@ export function MapCanvas({
                     <Text
                       x={10}
                       y={8}
-                      text={totalCount > 0 
+                      text={totalCount > 0
                         ? `${totalCount} device${totalCount !== 1 ? 's' : ''} selected`
                         : 'Drag to select devices'}
                       fontSize={13}
@@ -1885,53 +1939,53 @@ export function MapCanvas({
                       align="left"
                       listening={false}
                     />
-                      {totalCount > 0 && (
-                        <Group x={8} y={22}>
-                          {fixtures > 0 && (
-                            <Text
-                              x={0}
-                              y={0}
-                              text={`• ${fixtures} fixture${fixtures !== 1 ? 's' : ''}`}
-                              fontSize={10}
-                              fontFamily="system-ui, -apple-system, sans-serif"
-                              fill="#4c7dff"
-                              align="left"
-                              listening={false}
-                            />
-                          )}
-                          {motion > 0 && (
-                            <Text
-                              x={0}
-                              y={fixtures > 0 ? 14 : 0}
-                              text={`• ${motion} motion sensor${motion !== 1 ? 's' : ''}`}
-                              fontSize={10}
-                              fontFamily="system-ui, -apple-system, sans-serif"
-                              fill="#f97316"
-                              align="left"
-                              listening={false}
-                            />
-                          )}
-                          {sensors > 0 && (
-                            <Text
-                              x={0}
-                              y={(fixtures > 0 ? 14 : 0) + (motion > 0 ? 14 : 0)}
-                              text={`• ${sensors} light sensor${sensors !== 1 ? 's' : ''}`}
-                              fontSize={10}
-                              fontFamily="system-ui, -apple-system, sans-serif"
-                              fill="#22c55e"
-                              align="left"
-                              listening={false}
-                            />
-                          )}
-                        </Group>
-                      )}
-                    </Group>
+                    {totalCount > 0 && (
+                      <Group x={8} y={22}>
+                        {fixtures > 0 && (
+                          <Text
+                            x={0}
+                            y={0}
+                            text={`• ${fixtures} fixture${fixtures !== 1 ? 's' : ''}`}
+                            fontSize={10}
+                            fontFamily="system-ui, -apple-system, sans-serif"
+                            fill="#4c7dff"
+                            align="left"
+                            listening={false}
+                          />
+                        )}
+                        {motion > 0 && (
+                          <Text
+                            x={0}
+                            y={fixtures > 0 ? 14 : 0}
+                            text={`• ${motion} motion sensor${motion !== 1 ? 's' : ''}`}
+                            fontSize={10}
+                            fontFamily="system-ui, -apple-system, sans-serif"
+                            fill="#f97316"
+                            align="left"
+                            listening={false}
+                          />
+                        )}
+                        {sensors > 0 && (
+                          <Text
+                            x={0}
+                            y={(fixtures > 0 ? 14 : 0) + (motion > 0 ? 14 : 0)}
+                            text={`• ${sensors} light sensor${sensors !== 1 ? 's' : ''}`}
+                            fontSize={10}
+                            fontFamily="system-ui, -apple-system, sans-serif"
+                            fill="#22c55e"
+                            align="left"
+                            listening={false}
+                          />
+                        )}
+                      </Group>
+                    )}
+                  </Group>
                 </Group>
               )
             })()}
-        </Layer>
+          </Layer>
         )}
-        
+
         {/* Keyboard shortcuts hint overlay */}
         {(isShiftHeld || isSpaceHeld || showZoomHint) && mode === 'select' && !isSelecting && (
           <Layer>
@@ -1972,17 +2026,17 @@ export function MapCanvas({
                 dash={[8, 4]}
               />
               {isShiftHeld && (
-              <Text
-                x={dimensions.width / 2}
-                y={47}
-                text="Hold Shift + Drag to select devices"
-                fontSize={14}
-                fontFamily="system-ui, -apple-system, sans-serif"
-                fontStyle="bold"
-                fill="#ffffff"
-                align="center"
-                listening={false}
-              />
+                <Text
+                  x={dimensions.width / 2}
+                  y={47}
+                  text="Hold Shift + Drag to select devices"
+                  fontSize={14}
+                  fontFamily="system-ui, -apple-system, sans-serif"
+                  fontStyle="bold"
+                  fill="#ffffff"
+                  align="center"
+                  listening={false}
+                />
               )}
               {isSpaceHeld && (
                 <>

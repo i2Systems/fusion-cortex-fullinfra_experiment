@@ -91,6 +91,31 @@ All design values are defined as CSS custom properties in `app/globals.css`. Thi
 
 **AI Note**: Always use design tokens (`var(--color-primary)`) instead of hard-coded values. To change the theme, modify tokens in `globals.css`.
 
+### Component Library & Storybook
+
+The project includes a Storybook instance for component inspection and design token documentation.
+
+**To run Storybook:**
+```bash
+npm run storybook
+```
+
+Then open `http://localhost:6006` or click "Open Storybook" in Settings → About.
+
+**Storybook includes:**
+- **Design tokens reference** - Complete documentation of all CSS custom properties
+- **Theme system** - Switch between all 9 themes (dark, light, high-contrast, warm-night, warm-day, glass-neumorphism, business-fluent, on-brand, on-brand-glass) using the toolbar selector
+- **Atomic component stories** - Button, Card, DataChip, and more
+- **Visual regression testing** - Test components across different themes
+- **Component interaction testing** - Interactive component playground
+
+**Theme Switching:**
+Use the **Theme** selector in the Storybook toolbar (top right) to preview components in all available themes. All components automatically adapt using design tokens.
+
+**Access from the app:**
+- Settings → About → "Open Storybook" button
+- Or navigate to `/storybook` (development only)
+
 ### Layout System
 
 The app uses a **main + panel** system:

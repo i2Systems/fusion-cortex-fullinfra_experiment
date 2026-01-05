@@ -1,0 +1,63 @@
+import { Meta } from '@storybook/blocks'
+
+<Meta title="Design System/Themes" />
+
+# Theme System
+
+Fusion/Cortex supports 9 different themes, each with unique visual characteristics. All themes use the same design tokens, ensuring components adapt automatically.
+
+## Available Themes
+
+### 1. Dark (Default)
+The default dark theme with neon cyan accents and glass morphism effects.
+
+### 2. Light
+A light theme with high contrast and clean aesthetics.
+
+### 3. High Contrast
+Maximum contrast theme for accessibility, with stark black/white contrast.
+
+### 4. Warm Night
+A warmer dark theme with cozy, ambient lighting.
+
+### 5. Warm Day
+A warm, sunny light theme with soft colors.
+
+### 6. Glass Neumorphism
+Soft, tactile design with subtle depth and shadows.
+
+### 7. Business Fluent
+Professional theme inspired by Microsoft Fluent Design.
+
+### 8. On Brand
+Brand-focused theme with consistent color application.
+
+### 9. On Brand Glass
+Glass morphism variant of the on-brand theme.
+
+## Theme Switching
+
+Use the **Theme** selector in the Storybook toolbar (top right) to switch between themes and see how components adapt.
+
+## How It Works
+
+Themes are applied via the `data-theme` attribute on the document root. All components use CSS custom properties (design tokens) that automatically update when the theme changes.
+
+```css
+/* Example: Primary color changes per theme */
+[data-theme="dark"] {
+  --color-primary: #00d9ff; /* Neon cyan */
+}
+
+[data-theme="light"] {
+  --color-primary: #0066cc; /* Deep blue */
+}
+```
+
+## Best Practices
+
+- Always use design tokens (`var(--color-primary)`) instead of hard-coded colors
+- Test components in multiple themes to ensure proper contrast
+- Use semantic color names (primary, danger, success) rather than specific colors
+- Ensure text remains readable in all themes
+

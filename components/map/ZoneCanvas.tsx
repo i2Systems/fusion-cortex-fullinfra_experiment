@@ -25,6 +25,7 @@ interface DevicePoint {
   status: string
   signal: number
   location?: string
+  orientation?: number
 }
 
 interface Zone {
@@ -120,9 +121,11 @@ export function ZoneCanvas({
   const [selectedHandleIndex, setSelectedHandleIndex] = useState<number | null>(null)
   const [colors, setColors] = useState({
     primary: '#4c7dff',
+    fixture: '#3b5998', // Darker blue for fixtures
     accent: '#f97316',
     success: '#22c55e',
     muted: '#9ca3af',
+    border: 'rgba(0,0,0,0.4)', // Dark border for contrast
     text: '#ffffff',
     tooltipBg: 'rgba(17, 24, 39, 0.95)',
     tooltipBorder: '#4c7dff',
@@ -146,9 +149,11 @@ export function ZoneCanvas({
       const computedStyle = getComputedStyle(root)
       setColors({
         primary: computedStyle.getPropertyValue('--color-primary').trim() || '#4c7dff',
+        fixture: computedStyle.getPropertyValue('--color-fixture').trim() || '#3b5998',
         accent: computedStyle.getPropertyValue('--color-accent').trim() || '#f97316',
         success: computedStyle.getPropertyValue('--color-success').trim() || '#22c55e',
         muted: computedStyle.getPropertyValue('--color-text-muted').trim() || '#9ca3af',
+        border: 'rgba(0,0,0,0.4)',
         text: computedStyle.getPropertyValue('--color-text').trim() || '#ffffff',
         tooltipBg: computedStyle.getPropertyValue('--color-tooltip-bg').trim() || 'rgba(17, 24, 39, 0.95)',
         tooltipBorder: computedStyle.getPropertyValue('--color-tooltip-border').trim() || computedStyle.getPropertyValue('--color-primary').trim() || '#4c7dff',
@@ -212,7 +217,7 @@ export function ZoneCanvas({
 
   const getDeviceColor = (type: DeviceType) => {
     if (type.startsWith('fixture-')) {
-      return colors.primary
+      return colors.fixture
     }
     switch (type) {
       case 'motion':
@@ -222,6 +227,19 @@ export function ZoneCanvas({
       default:
         return colors.muted
     }
+  }
+
+  // Helper to check if device is a fixture type
+  const isFixtureType = (type: DeviceType) => {
+    return type.startsWith('fixture-')
+  }
+
+  // Helper to get fixture size multiplier based on type
+  const getFixtureSizeMultiplier = (type: DeviceType) => {
+    const typeStr = type as string
+    if (typeStr.includes('16ft')) return 1.5
+    if (typeStr.includes('12ft')) return 1.25
+    return 1 // Default for 8ft and other fixtures
   }
 
   const handleStageClick = (e: any) => {
@@ -716,45 +734,134 @@ export function ZoneCanvas({
             const isSelected = selectedDeviceId === device.id
             const isHovered = hoveredDevice?.id === device.id
 
+            // Common event handlers
+            const handleClick = () => onDeviceSelect?.(device.id)
+            const handleMouseEnter = (e: any) => {
+              const container = e.target.getStage()?.container()
+              if (container) container.style.cursor = 'pointer'
+              setHoveredDevice(device)
+              const stage = e.target.getStage()
+              if (stage) {
+                const pointerPos = stage.getPointerPosition()
+                if (pointerPos) {
+                  setTooltipPosition({ x: pointerPos.x, y: pointerPos.y })
+                }
+              }
+            }
+            const handleMouseLeave = () => setHoveredDevice(null)
+            const handleMouseMove = (e: any) => {
+              const stage = e.target.getStage()
+              if (stage) {
+                const pointerPos = stage.getPointerPosition()
+                if (pointerPos) {
+                  setTooltipPosition({ x: pointerPos.x, y: pointerPos.y })
+                }
+              }
+            }
+
+            // Render fixtures as rectangles
+            if (isFixtureType(device.type)) {
+              const sizeMultiplier = getFixtureSizeMultiplier(device.type)
+              const barLength = 12 * sizeMultiplier
+              const barWidth = 3 * sizeMultiplier
+
+              return (
+                <Group key={device.id} x={deviceCoords.x} y={deviceCoords.y} rotation={device.orientation || 0}>
+                  {/* Dark outline for contrast */}
+                  <Rect
+                    x={-barLength / 2 - 0.5}
+                    y={-barWidth / 2 - 0.5}
+                    width={barLength + 1}
+                    height={barWidth + 1}
+                    fill="transparent"
+                    stroke={colors.border}
+                    strokeWidth={1}
+                    cornerRadius={2}
+                    listening={false}
+                  />
+                  {/* Fixture rectangle */}
+                  <Rect
+                    x={-barLength / 2}
+                    y={-barWidth / 2}
+                    width={barLength}
+                    height={barWidth}
+                    fill={getDeviceColor(device.type)}
+                    opacity={isSelected ? 1 : (isHovered ? 0.95 : 0.9)}
+                    stroke={colors.border}
+                    strokeWidth={0.5}
+                    shadowBlur={isSelected ? 4 : (isHovered ? 2 : 1)}
+                    shadowColor={isSelected ? colors.fixture : colors.muted}
+                    shadowOpacity={0.3}
+                    cornerRadius={1}
+                    onClick={handleClick}
+                    onTap={handleClick}
+                    onMouseEnter={handleMouseEnter}
+                    onMouseLeave={handleMouseLeave}
+                    onMouseMove={handleMouseMove}
+                  />
+                  {/* Center dot */}
+                  <Circle
+                    x={0}
+                    y={0}
+                    radius={isSelected ? (2 * sizeMultiplier) : (isHovered ? (1.5 * sizeMultiplier) : (1 * sizeMultiplier))}
+                    fill={isSelected ? colors.fixture : colors.text}
+                    stroke={colors.border}
+                    strokeWidth={0.5}
+                    shadowBlur={isSelected ? 3 : 1}
+                    shadowColor={colors.muted}
+                    opacity={isSelected ? 1 : 0.85}
+                    listening={false}
+                  />
+                </Group>
+              )
+            }
+
+            // Render sensors as circles
+            const radius = isSelected ? 5 : (isHovered ? 4.5 : 4)
+            const outerRingRadius = radius + 2
+
             return (
               <Group key={device.id}>
+                {/* Dark outer contrast ring for visibility */}
                 <Circle
                   x={deviceCoords.x}
                   y={deviceCoords.y}
-                  radius={isSelected ? 6 : (isHovered ? 5 : 3)}
-                  fill={getDeviceColor(device.type)}
-                  stroke={isSelected ? colors.text : 'rgba(255,255,255,0.2)'}
-                  strokeWidth={isSelected ? 2 : 1}
-                  shadowBlur={isSelected ? 10 : (isHovered ? 5 : 2)}
-                  shadowColor={isSelected ? colors.primary : 'black'}
-                  opacity={isSelected ? 0.9 : (isHovered ? 0.7 : 0.5)}
-                  onClick={() => onDeviceSelect?.(device.id)}
-                  onTap={() => onDeviceSelect?.(device.id)}
-                  onMouseEnter={(e) => {
-                    const container = e.target.getStage()?.container()
-                    if (container) container.style.cursor = 'pointer'
-                    setHoveredDevice(device)
-                    const stage = e.target.getStage()
-                    if (stage) {
-                      const pointerPos = stage.getPointerPosition()
-                      if (pointerPos) {
-                        setTooltipPosition({ x: pointerPos.x, y: pointerPos.y })
-                      }
-                    }
-                  }}
-                  onMouseLeave={() => {
-                    setHoveredDevice(null)
-                  }}
-                  onMouseMove={(e) => {
-                    const stage = e.target.getStage()
-                    if (stage) {
-                      const pointerPos = stage.getPointerPosition()
-                      if (pointerPos) {
-                        setTooltipPosition({ x: pointerPos.x, y: pointerPos.y })
-                      }
-                    }
-                  }}
+                  radius={outerRingRadius}
+                  fill="transparent"
+                  stroke={colors.muted}
+                  strokeWidth={0.5}
+                  shadowBlur={isSelected ? 4 : (isHovered ? 2 : 1)}
+                  shadowColor={colors.muted}
+                  listening={false}
                 />
+                {/* Main device marker */}
+                <Circle
+                  x={deviceCoords.x}
+                  y={deviceCoords.y}
+                  radius={radius}
+                  fill={getDeviceColor(device.type)}
+                  stroke={isSelected ? colors.primary : colors.muted}
+                  strokeWidth={isSelected ? 1 : 0.5}
+                  shadowBlur={isSelected ? 4 : (isHovered ? 2 : 1)}
+                  shadowColor={isSelected ? colors.primary : colors.muted}
+                  opacity={isSelected ? 1 : (isHovered ? 0.95 : 0.9)}
+                  onClick={handleClick}
+                  onTap={handleClick}
+                  onMouseEnter={handleMouseEnter}
+                  onMouseLeave={handleMouseLeave}
+                  onMouseMove={handleMouseMove}
+                />
+                {/* Center highlight for selected devices */}
+                {isSelected && (
+                  <Circle
+                    x={deviceCoords.x}
+                    y={deviceCoords.y}
+                    radius={2}
+                    fill={colors.text}
+                    opacity={0.8}
+                    listening={false}
+                  />
+                )}
               </Group>
             )
           })}
