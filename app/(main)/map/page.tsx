@@ -150,6 +150,7 @@ export default function MapPage() {
   const [currentLocationId, setCurrentLocationId] = useState<string | null>(null)
   const [showZoomCreator, setShowZoomCreator] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
+  const [isUploadingMap, setIsUploadingMap] = useState(false)
   const [imageBounds, setImageBounds] = useState<{ x: number; y: number; width: number; height: number; naturalWidth: number; naturalHeight: number } | null>(null)
 
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null)
@@ -368,46 +369,69 @@ export default function MapPage() {
     const locationName = prompt('Enter a name for this location:', 'Main Floor Plan')
     if (!locationName) return
 
+    setIsUploadingMap(true)
     let finalImageUrl = imageUrl
 
-    // If it's a base64 string, upload it to Supabase
-    if (imageUrl.startsWith('data:')) {
-      try {
-        // Convert base64 to Blob
-        const fetchRes = await fetch(imageUrl)
-        const blob = await fetchRes.blob()
-        const file = new File([blob], `map-${Date.now()}.jpg`, { type: 'image/jpeg' })
+    try {
+      // If it's a base64 string, upload it to Supabase
+      if (imageUrl.startsWith('data:')) {
+        try {
+          // Show upload progress
+          console.log('📤 Uploading map image to Supabase...')
+          
+          // Convert base64 to Blob
+          const fetchRes = await fetch(imageUrl)
+          const blob = await fetchRes.blob()
+          const file = new File([blob], `map-${Date.now()}.jpg`, { type: 'image/jpeg' })
 
-        // Upload
-        const formData = new FormData()
-        formData.append('file', file)
-        formData.append('bucket', 'map-data') // Use map-data bucket
-        formData.append('fileName', `${activeSiteId}/${Date.now()}-map.jpg`)
+          // Upload
+          const formData = new FormData()
+          formData.append('file', file)
+          formData.append('bucket', 'map-data') // Use map-data bucket
+          formData.append('fileName', `${activeSiteId}/${Date.now()}-map.jpg`)
 
-        const uploadRes = await fetch('/api/upload-image', {
-          method: 'POST',
-          body: formData,
-        })
+          const uploadRes = await fetch('/api/upload-image', {
+            method: 'POST',
+            body: formData,
+          })
 
-        if (!uploadRes.ok) throw new Error('Upload failed')
+          if (!uploadRes.ok) throw new Error('Upload failed')
 
-        const { url } = await uploadRes.json()
-        finalImageUrl = url
-      } catch (e) {
-        console.error('Failed to upload map image:', e)
-        alert('Failed to upload map image. Using unstable local copy.')
-        // Fallback to base64 if upload fails (not ideal for db, but keeps it working)
+          const { url } = await uploadRes.json()
+          finalImageUrl = url
+          console.log('✅ Map image uploaded to Supabase:', url)
+        } catch (e) {
+          console.error('Failed to upload map image:', e)
+          alert('Failed to upload map image. Using unstable local copy.')
+          // Fallback to base64 if upload fails (not ideal for db, but keeps it working)
+        }
       }
+
+      console.log('💾 Creating location in database...')
+      // Use mutateAsync to wait for completion
+      const newLocation = await createLocationMutation.mutateAsync({
+        siteId: activeSiteId,
+        name: locationName,
+        type: 'base',
+        imageUrl: finalImageUrl,
+      })
+
+      console.log('✅ Location created:', newLocation.id)
+      
+      // Immediately set the current location ID so UI updates
+      setCurrentLocationId(newLocation.id)
+      
+      // Close upload modal
+      setShowUploadModal(false)
+      
+      // Refetch locations to ensure everything is in sync
+      await utils.location.list.refetch({ siteId: activeSiteId })
+    } catch (error) {
+      console.error('Failed to create location:', error)
+      alert('Failed to save location. Please try again.')
+    } finally {
+      setIsUploadingMap(false)
     }
-
-    createLocationMutation.mutate({
-      siteId: activeSiteId,
-      name: locationName,
-      type: 'base',
-      imageUrl: finalImageUrl,
-    })
-
-    setShowUploadModal(false)
   }
 
   const handleVectorDataUpload = async (data: any) => {
@@ -1041,7 +1065,15 @@ export default function MapPage() {
             </div>
           )}
           {/* Upload modal or map view */}
-          {!mapUploaded ? (
+          {isUploadingMap ? (
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="text-center">
+                <Loader2 size={48} className="text-[var(--color-primary)] animate-spin mx-auto mb-4" />
+                <p className="text-[var(--color-text)] font-medium mb-2">Uploading map...</p>
+                <p className="text-sm text-[var(--color-text-muted)]">This may take a moment for large files</p>
+              </div>
+            </div>
+          ) : !mapUploaded ? (
             <div className="w-full h-full">
               {showUploadModal ? (
                 <MapUpload
