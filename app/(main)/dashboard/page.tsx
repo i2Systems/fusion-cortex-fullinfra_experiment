@@ -877,66 +877,66 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* KPIs - Compact Grid */}
-              <div className="fusion-card-tile-kpis">
-                <div className="fusion-card-tile-kpi">
-                  <div className="fusion-card-tile-kpi-label">Health</div>
-                  <div className="fusion-card-tile-kpi-value" style={{ color: getHealthColor(summary.healthPercentage) }}>
+              {/* KPIs - More Compact Grid */}
+              <div className="grid grid-cols-4 gap-2 py-2 border-t border-[var(--color-border-subtle)]">
+                <div className="text-center">
+                  <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Health</div>
+                  <div className="text-sm font-semibold" style={{ color: getHealthColor(summary.healthPercentage) }}>
                     {summary.healthPercentage}%
-                        </div>
-                    </div>
-                <div className="fusion-card-tile-kpi">
-                  <div className="fusion-card-tile-kpi-label">Devices</div>
-                  <div className="fusion-card-tile-kpi-value">{summary.totalDevices}</div>
+                  </div>
                 </div>
-                <div className="fusion-card-tile-kpi">
-                  <div className="fusion-card-tile-kpi-label">Online</div>
-                  <div className="fusion-card-tile-kpi-value" style={{ color: 'var(--color-success)' }}>
+                <div className="text-center">
+                  <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Devices</div>
+                  <div className="text-sm font-semibold text-[var(--color-text)]">{summary.totalDevices}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Online</div>
+                  <div className="text-sm font-semibold" style={{ color: 'var(--color-success)' }}>
                     {summary.onlineDevices}
                   </div>
                 </div>
-                <div className="fusion-card-tile-kpi">
-                  <div className="fusion-card-tile-kpi-label">Zones</div>
-                  <div className="fusion-card-tile-kpi-value">{summary.totalZones}</div>
-                  </div>
+                <div className="text-center">
+                  <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Zones</div>
+                  <div className="text-sm font-semibold text-[var(--color-text)]">{summary.totalZones}</div>
                 </div>
+              </div>
 
-              {/* Status Indicators - Compact */}
-              <div className="flex flex-wrap items-center gap-2">
-                  {/* Critical Issues */}
-                  {summary.criticalFaults.length > 0 && (
-                    <div 
-                    className="token token-status-error cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleSiteClick(summary.siteId, '/faults')
-                      }}
-                    >
-                    <AlertTriangle size={12} />
+              {/* Status Indicators - More Compact */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                {/* Critical Issues */}
+                {summary.criticalFaults.length > 0 && (
+                  <div 
+                    className="token token-status-error cursor-pointer text-xs py-1 px-2"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleSiteClick(summary.siteId, '/faults')
+                    }}
+                  >
+                    <AlertTriangle size={11} />
                     <span>{summary.criticalFaults.length} Critical</span>
-                    </div>
-                  )}
+                  </div>
+                )}
 
-                  {/* Warranties */}
-                  {(summary.warrantiesExpiring > 0 || summary.warrantiesExpired > 0) && (
-                  <div className="token token-status-warning">
-                    <Shield size={12} />
+                {/* Warranties */}
+                {(summary.warrantiesExpiring > 0 || summary.warrantiesExpired > 0) && (
+                  <div className="token token-status-warning text-xs py-1 px-2">
+                    <Shield size={11} />
                     <span>
-                        {summary.warrantiesExpiring > 0 && `${summary.warrantiesExpiring} expiring`}
-                        {summary.warrantiesExpiring > 0 && summary.warrantiesExpired > 0 && ' • '}
-                        {summary.warrantiesExpired > 0 && `${summary.warrantiesExpired} expired`}
-                      </span>
-                    </div>
-                  )}
+                      {summary.warrantiesExpiring > 0 && `${summary.warrantiesExpiring} expiring`}
+                      {summary.warrantiesExpiring > 0 && summary.warrantiesExpired > 0 && ' • '}
+                      {summary.warrantiesExpired > 0 && `${summary.warrantiesExpired} expired`}
+                    </span>
+                  </div>
+                )}
 
-                  {/* Map Status */}
-                  {!summary.mapUploaded && (
-                  <div className="token token-status-warning">
-                    <Map size={12} />
+                {/* Map Status */}
+                {!summary.mapUploaded && (
+                  <div className="token token-status-warning text-xs py-1 px-2">
+                    <Map size={11} />
                     <span>No map</span>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
+              </div>
             </div>
             )
           })}
