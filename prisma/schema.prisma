@@ -30,7 +30,7 @@ model Site {
   manager       String?
   squareFootage Int?
   openedDate    DateTime?
-  imageUrl      String?   // URL to site/store image
+  imageUrl      String? // URL to site/store image
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -211,7 +211,7 @@ model Fault {
 model LibraryImage {
   id        String   @id @default(cuid())
   libraryId String   @unique // Library object ID (e.g., "lcm", "fixture-16ft-power-entry")
-  imageUrl  String?  // URL to image in Supabase Storage (or base64 fallback)
+  imageUrl  String? // URL to image in Supabase Storage (or base64 fallback)
   mimeType  String   @default("image/jpeg") // MIME type (image/jpeg, image/png)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -240,25 +240,25 @@ model LibraryImage {
 
 // Map Location Model
 model Location {
-  id        String   @id @default(cuid())
-  name      String
-  type      String   // 'base' or 'zoom'
-  
+  id   String @id @default(cuid())
+  name String
+  type String // 'base' or 'zoom'
+
   // Storage references (Supabase Key/URL)
-  imageUrl      String?  
-  vectorDataUrl String? 
+  imageUrl      String?
+  vectorDataUrl String?
 
   // Zoom view properties
-  zoomBounds    Json?    // { minX, minY, maxX, maxY }
-  
+  zoomBounds Json? // { minX, minY, maxX, maxY }
+
   // Hierarchy
-  parentId      String?
-  parent        Location? @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children      Location[] @relation("LocationHierarchy")
-  
+  parentId String?
+  parent   Location?  @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children Location[] @relation("LocationHierarchy")
+
   // Site context
-  siteId    String
-  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteId String
+  site   Site   @relation(fields: [siteId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
