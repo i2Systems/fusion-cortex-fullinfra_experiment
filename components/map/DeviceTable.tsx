@@ -280,9 +280,10 @@ interface DeviceTableProps {
   onDeviceSelect?: (deviceId: string | null) => void
   onComponentClick?: (component: Component, parentDevice: Device) => void
   onDevicesDelete?: (deviceIds: string[]) => void
+  onEdit?: (device: Device) => void
 }
 
-export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect, onComponentClick, onDevicesDelete }: DeviceTableProps) {
+export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect, onComponentClick, onDevicesDelete, onEdit }: DeviceTableProps) {
   const [sortField, setSortField] = useState<keyof Device>('deviceId')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [expandedDevices, setExpandedDevices] = useState<Set<string>>(new Set())
@@ -481,7 +482,7 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect, onCompo
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      // Handle edit - could open device profile or edit modal
+                      onEdit?.(selectedDevice)
                     }}
                     className="p-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors"
                     title="Edit device"

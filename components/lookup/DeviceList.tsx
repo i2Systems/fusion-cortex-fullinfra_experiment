@@ -28,6 +28,7 @@ interface DeviceListProps {
   selectedDeviceId?: string | null
   onDeviceSelect?: (deviceId: string | null) => void
   searchQuery?: string
+  onEdit?: (device: Device) => void
 }
 
 type SortableField = keyof Device | 'warrantyStatus'
@@ -48,13 +49,15 @@ interface DeviceListRowProps {
   isSelected: boolean
   onSelect: () => void
   selectedRowRef?: React.RefObject<HTMLTableRowElement>
+  onEdit?: (device: Device) => void
 }
 
 const DeviceListRow = memo(function DeviceListRow({
   device,
   isSelected,
   onSelect,
-  selectedRowRef
+  selectedRowRef,
+  onEdit
 }: DeviceListRowProps) {
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -74,6 +77,7 @@ const DeviceListRow = memo(function DeviceListRow({
           ? 'bg-[var(--color-primary-soft)] hover:bg-[var(--color-primary-soft)]'
           : 'hover:bg-[var(--color-surface-subtle)]'
         }
+        group
       `}
     >
       <td className="py-3 px-4 text-sm text-[var(--color-text)] font-medium">
@@ -137,11 +141,28 @@ const DeviceListRow = memo(function DeviceListRow({
       <td className="py-3 px-4 text-sm text-[var(--color-text-muted)]">
         {device.location}
       </td>
-    </tr>
+      <td className="py-3 px-4 text-right">
+        {onEdit && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit(device)
+            }}
+            className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-surface)] transition-colors opacity-0 group-hover:opacity-100"
+            title="Edit Device"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+              <path d="m15 5 4 4" />
+            </svg>
+          </button>
+        )}
+      </td>
+    </tr >
   )
 })
 
-export function DeviceList({ devices, selectedDeviceId, onDeviceSelect, searchQuery = '' }: DeviceListProps) {
+export function DeviceList({ devices, selectedDeviceId, onDeviceSelect, searchQuery = '', onEdit }: DeviceListProps) {
   const [sortField, setSortField] = useState<SortableField>('deviceId')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const tableRef = useRef<HTMLDivElement>(null)
@@ -375,6 +396,7 @@ export function DeviceList({ devices, selectedDeviceId, onDeviceSelect, searchQu
                     isSelected={isSelected}
                     onSelect={() => onDeviceSelect?.(isSelected ? null : device.id)}
                     selectedRowRef={selectedRowRef as React.RefObject<HTMLTableRowElement>}
+                    onEdit={onEdit}
                   />
                 )
               })}

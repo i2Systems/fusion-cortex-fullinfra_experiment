@@ -33,6 +33,7 @@ interface DeviceProfilePanelProps {
   onImport?: () => void
   onExport?: () => void
   onDelete?: (deviceId: string) => void
+  onEdit?: (device: Device) => void
 }
 
 // Device Icon Component with image support

@@ -26,6 +26,7 @@ import { MapFiltersPanel, type MapFilters } from '@/components/map/MapFiltersPan
 import { ComponentModal } from '@/components/shared/ComponentModal'
 import type { Component, Device } from '@/lib/mockData'
 import { fuzzySearch } from '@/lib/fuzzySearch'
+import { EditDeviceModal } from '@/components/lookup/EditDeviceModal'
 
 // Dynamically import MapCanvas to avoid SSR issues with Konva
 const MapCanvas = dynamic(() => import('@/components/map/MapCanvas').then(mod => ({ default: mod.MapCanvas })), {
@@ -146,6 +147,7 @@ export default function MapPage() {
   const [expandedComponents, setExpandedComponents] = useState<Set<string>>(new Set())
   const [selectedComponent, setSelectedComponent] = useState<Component | null>(null)
   const [componentParentDevice, setComponentParentDevice] = useState<Device | null>(null)
+  const [editingDevice, setEditingDevice] = useState<Device | null>(null)
 
   // Handle device selection
   const handleDeviceSelect = (deviceId: string | null) => {
@@ -1093,6 +1095,7 @@ export default function MapPage() {
               onDeviceSelect={handleDeviceSelect}
               onComponentClick={handleComponentClick}
               onDevicesDelete={handleDevicesDelete}
+              onEdit={setEditingDevice}
             />
           </ResizablePanel>
         )}
@@ -1111,12 +1114,25 @@ export default function MapPage() {
         />
       )}
 
-      {/* Component Modal */}
       <ComponentModal
         component={selectedComponent}
         parentDevice={componentParentDevice}
         isOpen={selectedComponent !== null}
         onClose={handleCloseComponentModal}
+      />
+
+      {/* Edit Device Modal */}
+      <EditDeviceModal
+        isOpen={!!editingDevice}
+        onClose={() => setEditingDevice(null)}
+        device={editingDevice}
+        onSave={(deviceId, updates) => {
+          updateMultipleDevices([{
+            deviceId,
+            updates
+          }])
+          setEditingDevice(null)
+        }}
       />
     </div>
   )

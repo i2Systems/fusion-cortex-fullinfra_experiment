@@ -24,6 +24,7 @@ import { useZones } from '@/lib/ZoneContext'
 import { useSite } from '@/lib/SiteContext'
 import { ComponentModal } from '@/components/shared/ComponentModal'
 import { ManualDeviceEntry } from '@/components/discovery/ManualDeviceEntry'
+import { EditDeviceModal } from '@/components/lookup/EditDeviceModal'
 import { Component, Device, DeviceType } from '@/lib/mockData'
 import { fuzzySearch } from '@/lib/fuzzySearch'
 import { useMap } from '@/lib/MapContext'
@@ -50,7 +51,7 @@ const ZoneCanvas = dynamic(() => import('@/components/map/ZoneCanvas').then(mod 
 })
 
 export default function LookupPage() {
-  const { devices, addDevice, removeDevice } = useDevices()
+  const { devices, addDevice, removeDevice, updateDevice } = useDevices()
   const { zones } = useZones()
   const { activeSiteId } = useSite()
 
@@ -80,6 +81,7 @@ export default function LookupPage() {
 
   const [viewMode, setViewMode] = useState<ViewMode>('table')
   const [showManualEntry, setShowManualEntry] = useState(false)
+  const [editingDevice, setEditingDevice] = useState<Device | null>(null)
   const listContainerRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<ResizablePanelRef>(null)
 
@@ -366,6 +368,7 @@ export default function LookupPage() {
             selectedDeviceId={selectedDeviceId}
             onDeviceSelect={setSelectedDeviceId}
             searchQuery={searchQuery}
+            onEdit={setEditingDevice}
           />
         </div>
       )
@@ -522,6 +525,7 @@ export default function LookupPage() {
               removeDevice(deviceId)
               setSelectedDeviceId(null)
             }}
+            onEdit={setEditingDevice}
           />
         </ResizablePanel>
       </div>
@@ -539,6 +543,17 @@ export default function LookupPage() {
         isOpen={showManualEntry}
         onClose={() => setShowManualEntry(false)}
         onAdd={handleAddDevice}
+      />
+
+      {/* Edit Device Modal */}
+      <EditDeviceModal
+        isOpen={!!editingDevice}
+        onClose={() => setEditingDevice(null)}
+        device={editingDevice}
+        onSave={(deviceId, updates) => {
+          updateDevice(deviceId, updates)
+          setEditingDevice(null)
+        }}
       />
     </div>
   )
