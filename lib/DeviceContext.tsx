@@ -46,12 +46,12 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
   // Ensure site exists in database
   const ensureSiteMutation = trpc.site.ensureExists.useMutation()
   const ensuredSiteIdRef = useRef<string | null>(null)
-  
+
   // Fetch devices from database
   const { data: devicesData, refetch: refetchDevices, isLoading, error } = trpc.device.list.useQuery(
     { siteId: activeSiteId || '', includeComponents: true },
-    { 
-      enabled: !!activeSiteId, 
+    {
+      enabled: !!activeSiteId,
       refetchOnWindowFocus: false,
       refetchOnMount: false,
       staleTime: 5 * 60 * 1000, // 5 minutes - data is fresh for 5 minutes
@@ -60,7 +60,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       retryDelay: 1000, // Wait 1 second between retries
     }
   )
-  
+
   // If there's an error, log it but don't block the UI
   useEffect(() => {
     if (error) {
@@ -69,41 +69,37 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
   }, [error])
 
   // Mutations - use optimistic updates instead of refetching immediately
+  // Mutations - use optimistic updates and standard invalidation
+  const utils = trpc.useContext() // Access to query client
+
   const createDeviceMutation = trpc.device.create.useMutation({
     onSuccess: () => {
-      // Debounce refetch to avoid excessive calls
-      setTimeout(() => {
-        refetchDevices()
-      }, 500)
+      utils.device.list.invalidate({ siteId: activeSiteId || '' })
     },
   })
 
   const updateDeviceMutation = trpc.device.update.useMutation({
-    onSuccess: () => {
-      // Only refetch if not a position update (positions are handled optimistically)
-      // Position updates are debounced separately
+    onSuccess: (data) => {
+      // We could use setData here to update the specific item in the list if we wanted to be super granular
+      // but invalidation with the updated data flowing back is also fine and safer.
+      // Since we already optimistically updated the UI, invalidation makes sure we are eventually consistent.
+      // But to avoid "snap back" if the invalidation is slow, we rely on the local state until the query refreshes.
+
+      // We can also silence the refetch if we are super confident, but invalidation is best practice.
+      // The key is NOT to have a timeout.
+      utils.device.list.invalidate({ siteId: activeSiteId || '' })
     },
   })
 
   const deleteDeviceMutation = trpc.device.delete.useMutation({
     onSuccess: () => {
-      // Refetch after a short delay
-      setTimeout(() => {
-        refetchDevices()
-      }, 300)
+      utils.device.list.invalidate({ siteId: activeSiteId || '' })
     },
   })
-  
-  // Debounced refetch for position updates
+
+  // Debounced save for position updates is still useful to avoid spamming the server, 
+  // but the UI update should be immediate. 
   const positionUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const debouncedRefetch = useCallback(() => {
-    if (positionUpdateTimeoutRef.current) {
-      clearTimeout(positionUpdateTimeoutRef.current)
-    }
-    positionUpdateTimeoutRef.current = setTimeout(() => {
-      refetchDevices()
-    }, 2000) // Wait 2 seconds after last position update
-  }, [refetchDevices])
 
   // Ensure site exists when store changes (only once per store)
   useEffect(() => {
@@ -137,7 +133,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
   // Use a ref to prevent updates during user interactions
   const isUpdatingRef = useRef(false)
   const previousSiteIdRef = useRef<string | null>(null)
-  
+
   // Clear devices when site changes (before new data loads)
   useEffect(() => {
     if (activeSiteId !== previousSiteIdRef.current && previousSiteIdRef.current !== null) {
@@ -179,7 +175,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
         console.error('Device type is missing:', device)
         throw new Error('Device type is required')
       }
-      
+
       await createDeviceMutation.mutateAsync({
         siteId: activeSiteId,
         deviceId: device.deviceId,
@@ -211,10 +207,10 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
   const updateDevice = useCallback(async (deviceId: string, updates: Partial<Device>) => {
     // Mark as updating to prevent refetch from overwriting
     isUpdatingRef.current = true
-    
+
     // Optimistically update UI
     setDevices(prev => {
-      const updated = prev.map(device => 
+      const updated = prev.map(device =>
         device.id === deviceId ? { ...device, ...updates } : device
       )
       saveToHistory(updated)
@@ -243,19 +239,17 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Failed to update device:', error)
       // Revert by refetching
-      refetchDevices()
+      utils.device.list.invalidate({ siteId: activeSiteId || '' })
     } finally {
-      // Allow refetches after a delay
-      setTimeout(() => {
-        isUpdatingRef.current = false
-      }, 1000)
+      // Remove the strict timeout
+      isUpdatingRef.current = false
     }
-  }, [updateDeviceMutation, refetchDevices])
+  }, [updateDeviceMutation, utils, activeSiteId])
 
   const updateDevicePosition = useCallback(async (deviceId: string, x: number, y: number) => {
     // Optimistically update UI (don't save to history for every position update)
-    setDevices(prev => 
-      prev.map(device => 
+    setDevices(prev =>
+      prev.map(device =>
         device.id === deviceId ? { ...device, x, y } : device
       )
     )
@@ -264,7 +258,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     if (positionUpdateTimeoutRef.current) {
       clearTimeout(positionUpdateTimeoutRef.current)
     }
-    
+
     positionUpdateTimeoutRef.current = setTimeout(async () => {
       try {
         await updateDeviceMutation.mutateAsync({
@@ -272,15 +266,15 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
           x,
           y,
         })
-        // Refetch after position update to sync with database
-        debouncedRefetch()
+        // No explicit refetch needed, the mutation onSuccess handles invalidation
+        // And we already updated local state optimistically.
       } catch (error) {
         console.error('Failed to update device position:', error)
         // Revert on error
-        refetchDevices()
+        utils.device.list.invalidate({ siteId: activeSiteId || '' })
       }
     }, 1000) // Wait 1 second after last position update before saving
-  }, [updateDeviceMutation, debouncedRefetch, refetchDevices])
+  }, [updateDeviceMutation, utils, activeSiteId])
 
   const updateMultipleDevices = useCallback(async (updates: Array<{ deviceId: string; updates: Partial<Device> }>) => {
     // Optimistically update UI
@@ -304,6 +298,12 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
           if (deviceUpdates.status !== undefined) dbUpdates.status = deviceUpdates.status
           if (deviceUpdates.signal !== undefined) dbUpdates.signal = deviceUpdates.signal
           if (deviceUpdates.battery !== undefined) dbUpdates.battery = deviceUpdates.battery
+          if (deviceUpdates.zone !== undefined) {
+            // We don't save 'zone' property to Device model directly anymore?
+            // It seems 'zone' property on Device is for frontend only or legacy.
+            // The actual relationship is via ZoneDevice table managed by ZoneContext.
+            // But let's keep this safe.
+          }
 
           return updateDeviceMutation.mutateAsync({
             id: deviceId,
@@ -313,9 +313,9 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       )
     } catch (error) {
       console.error('Failed to update multiple devices:', error)
-      refetchDevices()
+      utils.device.list.invalidate({ siteId: activeSiteId || '' })
     }
-  }, [updateDeviceMutation, refetchDevices])
+  }, [updateDeviceMutation, utils, activeSiteId])
 
   const saveToHistory = (newDevices: Device[]) => {
     setHistory(prev => {
@@ -360,9 +360,9 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Failed to delete device:', error)
       // Revert by refetching
-      refetchDevices()
+      utils.device.list.invalidate({ siteId: activeSiteId || '' })
     }
-  }, [deleteDeviceMutation, refetchDevices])
+  }, [deleteDeviceMutation, utils, activeSiteId])
 
   const refreshDevices = useCallback(() => {
     refetchDevices()

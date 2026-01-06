@@ -75,29 +75,24 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
     }
   )
 
-  // Mutations - debounce refetches to avoid excessive calls
+  // Mutations - use optimistic updates and direct invalidation
+  const utils = trpc.useContext()
+
   const createZoneMutation = trpc.zone.create.useMutation({
     onSuccess: () => {
-      setTimeout(() => {
-        refetchZones()
-      }, 500)
+      utils.zone.list.invalidate({ siteId: activeSiteId || '' })
     },
   })
 
   const updateZoneMutation = trpc.zone.update.useMutation({
     onSuccess: () => {
-      // Debounce refetch
-      setTimeout(() => {
-        refetchZones()
-      }, 500)
+      utils.zone.list.invalidate({ siteId: activeSiteId || '' })
     },
   })
 
   const deleteZoneMutation = trpc.zone.delete.useMutation({
     onSuccess: () => {
-      setTimeout(() => {
-        refetchZones()
-      }, 300)
+      utils.zone.list.invalidate({ siteId: activeSiteId || '' })
     },
   })
 
@@ -206,7 +201,6 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
       )
     )
 
-    // Update in database
     try {
       const dbUpdates: any = {}
       if (updates.name !== undefined) dbUpdates.name = updates.name
@@ -221,10 +215,10 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
       })
     } catch (error) {
       console.error('Failed to update zone:', error)
-      // Revert by refetching
-      refetchZones()
+      // Revert by invalidating
+      utils.zone.list.invalidate({ siteId: activeSiteId || '' })
     }
-  }, [updateZoneMutation, refetchZones])
+  }, [updateZoneMutation, utils, activeSiteId])
 
   const deleteZone = useCallback(async (zoneId: string) => {
     // Optimistically update UI
@@ -235,10 +229,10 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
       await deleteZoneMutation.mutateAsync({ id: zoneId })
     } catch (error) {
       console.error('Failed to delete zone:', error)
-      // Revert by refetching
-      refetchZones()
+      // Revert by invalidating
+      utils.zone.list.invalidate({ siteId: activeSiteId || '' })
     }
-  }, [deleteZoneMutation, refetchZones])
+  }, [deleteZoneMutation, utils, activeSiteId])
 
   const getDevicesInZone = useCallback((zoneId: string, allDevices: Device[]): Device[] => {
     const zone = zones.find(z => z.id === zoneId)

@@ -1,0 +1,75 @@
+@tailwind utilities;
+
+@layer utilities {
+
+    /* ============================================
+     RESPONSIVE UTILITIES
+     ============================================ */
+    /* Responsive page padding - consistent across pages */
+    .page-padding-x {
+        padding-left: 1rem;
+        /* 16px on mobile */
+        padding-right: 1rem;
+    }
+
+    @media (min-width: 640px) {
+        .page-padding-x {
+            padding-left: 1.25rem;
+            /* 20px on tablet */
+            padding-right: 1.25rem;
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .page-padding-x {
+            padding-left: 1.5rem;
+            /* 24px on desktop */
+            padding-right: 1.5rem;
+        }
+    }
+
+    /* ============================================
+     TOUCH OPTIMIZATION
+     ============================================ */
+    /* Touch manipulation - prevents double-tap zoom and improves touch responsiveness */
+    .touch-manipulation {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Larger touch targets on mobile */
+    @media (max-width: 768px) {
+
+        button,
+        a {
+            min-height: 44px;
+            /* Apple's recommended minimum touch target */
+            min-width: 44px;
+        }
+    }
+
+    /* Hide scrollbar but keep functionality */
+    .scrollbar-hide {
+        -ms-overflow-style: none;
+        /* IE and Edge */
+        scrollbar-width: none;
+        /* Firefox */
+    }
+
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+        /* Chrome, Safari and Opera */
+    }
+
+    /* Main content area padding utilities */
+    /* Refers to the main content area when search island is collapsed */
+    [data-search-collapsed="true"] .main-content-area {
+        padding-bottom: 7rem !important;
+        /* 112px - enough for collapsed island + drawer + buffer */
+    }
+
+    /* Smooth transition for padding changes */
+    .main-content-area {
+        transition: padding-bottom 300ms ease;
+    }
+}

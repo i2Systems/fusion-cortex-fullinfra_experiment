@@ -256,24 +256,16 @@ export function ZoneCanvas({
     const pointerPos = stage.getPointerPosition()
     if (!pointerPos) return
 
-    // Account for stage position and scale
+    // Account for stage position and scale first
+    // This gives us canvas coordinates (relative to stage origin, but in canvas units)
+    // Actually, stage transforms handle zoom/pan. We want local coordinates relative to the stage container?
+    // The previous logic did this manually:
     const stageX = (pointerPos.x - effectiveStagePosition.x) / effectiveScale
     const stageY = (pointerPos.y - effectiveStagePosition.y) / effectiveScale
 
-    // Convert to normalized coordinates (0-1) using actual image bounds
-    let normalizedX: number
-    let normalizedY: number
-    if (imageBounds) {
-      // Convert from canvas coordinates to normalized coordinates within image bounds
-      const imageX = stageX - imageBounds.x
-      const imageY = stageY - imageBounds.y
-      normalizedX = Math.max(0, Math.min(1, imageX / imageBounds.width))
-      normalizedY = Math.max(0, Math.min(1, imageY / imageBounds.height))
-    } else {
-      // Fallback to canvas dimensions
-      normalizedX = Math.max(0, Math.min(1, stageX / dimensions.width))
-      normalizedY = Math.max(0, Math.min(1, stageY / dimensions.height))
-    }
+    // Now convert these canvas coordinates to normalized coordinates (0-1)
+    // This helper handles image boundsOffset and scaling correctly
+    const { x: normalizedX, y: normalizedY } = toNormalizedCoords({ x: stageX, y: stageY })
 
     if (mode === 'draw-rectangle') {
       if (!drawStart) {
@@ -312,9 +304,8 @@ export function ZoneCanvas({
       const stageX = (pointerPos.x - effectiveStagePosition.x) / effectiveScale
       const stageY = (pointerPos.y - effectiveStagePosition.y) / effectiveScale
 
-      // Convert to normalized coordinates (0-1)
-      const normalizedX = Math.max(0, Math.min(1, stageX / dimensions.width))
-      const normalizedY = Math.max(0, Math.min(1, stageY / dimensions.height))
+      // Convert to normalized coordinates (0-1) using consistent helper
+      const { x: normalizedX, y: normalizedY } = toNormalizedCoords({ x: stageX, y: stageY })
 
       setDrawingZone([
         drawStart,

@@ -395,7 +395,7 @@ export default function BACnetPage() {
     try {
       await uploadMap(imageUrl)
       // Refresh map data to show the new upload
-      await refreshMapData()
+    await refreshMapData()
     } catch (error: any) {
       alert(error.message || 'Failed to upload map')
     }
@@ -405,7 +405,7 @@ export default function BACnetPage() {
     try {
       await uploadVectorData(data)
       // Refresh map data to show the new upload
-      await refreshMapData()
+    await refreshMapData()
     } catch (error: any) {
       alert(error.message || 'Failed to upload vector data')
     }

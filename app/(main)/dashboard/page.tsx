@@ -809,11 +809,11 @@ export default function DashboardPage() {
 
       {/* Main Content: Site Cards + Details Panel */}
       <div
-        className="main-content-area flex-1 flex min-h-0 gap-2 md:gap-4 page-padding-x pb-12 md:pb-14 overflow-hidden"
+        className="main-content-area flex-1 flex min-h-0 gap-2 md:gap-4 page-padding-x pb-12 md:pb-14"
         onClick={handleMainContentClick}
       >
         {/* Site Cards - Left Side */}
-        <div ref={cardsContainerRef} className="flex-1 min-w-0 flex flex-col overflow-y-auto">
+        <div ref={cardsContainerRef} className="flex-1 min-w-0 flex flex-col overflow-y-auto -m-4 p-4">
           {/* Site Cards Grid - Responsive */}
           <div className="flex-1 min-h-0">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-6">
@@ -827,9 +827,9 @@ export default function DashboardPage() {
                       handleSiteClick(summary.siteId)
                     }}
                     className={`fusion-card fusion-card-tile cursor-pointer transition-all hover:border-[var(--color-primary)]/50 hover:shadow-[var(--shadow-strong)] ${summary.siteId === selectedSiteId
-                      ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)] shadow-[var(--shadow-glow-primary)] ring-2 ring-[var(--color-primary)]/30'
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)] shadow-[var(--shadow-glow-primary)] ring-1 ring-[var(--color-primary)]/20'
                       : 'border-[var(--color-border-subtle)]'
-                      } ${summary.needsAttention && summary.siteId !== selectedSiteId ? 'ring-2 ring-[var(--color-warning)]/30' : ''}`}
+                      } ${summary.needsAttention && summary.siteId !== selectedSiteId ? 'ring-1 ring-[var(--color-warning)]/20' : ''}`}
                   >
                     {/* Card Header */}
                     <div className="fusion-card-tile-header">

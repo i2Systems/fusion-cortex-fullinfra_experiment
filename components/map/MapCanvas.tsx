@@ -167,8 +167,64 @@ export function MapCanvas({
   }, [onImageBoundsChange])
 
   // Convert normalized coordinates (0-1) to canvas coordinates using actual image bounds
+  // Calculate effective image bounds that account for zoom/crop
+  // This logic mirrors FloorPlanImage's zoom rendering to ensure devices align with the zoomed map
+  const getEffectiveImageBounds = useCallback(() => {
+    const rawBounds = imageBoundsRef.current || imageBounds
+
+    // If no raw bounds or no zoom bounds, just use the raw bounds (normal behavior)
+    if (!rawBounds) return null
+    if (!currentLocation?.zoomBounds || !currentLocation?.type || currentLocation.type !== 'zoom') return rawBounds
+
+    // Check if zoomBounds is valid object
+    const zoomBounds = currentLocation.zoomBounds as { minX: number; minY: number; maxX: number; maxY: number }
+    if (!zoomBounds || typeof zoomBounds.minX !== 'number') return rawBounds
+
+    // We have a Zoom View. We need to calculate where the "Full Image" would be
+    // if it were drawn such that the "Zoom Crop" fits perfectly in the canvas.
+
+    // 1. Calculate dimensions of the crop in the original image coordinate space
+    const cropWidth = (zoomBounds.maxX - zoomBounds.minX) * rawBounds.width
+    const cropHeight = (zoomBounds.maxY - zoomBounds.minY) * rawBounds.height
+
+    // 2. Calculate scale to fit the crop into the canvas
+    // Note: FloorPlanImage uses the same logic (aspect fit)
+    const scaleX = dimensions.width / cropWidth
+    const scaleY = dimensions.height / cropHeight
+    const scale = Math.min(scaleX, scaleY)
+
+    // 3. Calculate dimension of the *cropped area* as rendered on canvas
+    const scaledWidth = cropWidth * scale
+    const scaledHeight = cropHeight * scale
+
+    // 4. Calculate offset to center the cropped area in the canvas
+    const cropOffsetX = (dimensions.width - scaledWidth) / 2
+    const cropOffsetY = (dimensions.height - scaledHeight) / 2
+
+    // 5. Calculate the effective width/height of the FULL image if it were rendered at this scale
+    const effectiveFullWidth = scaledWidth / (zoomBounds.maxX - zoomBounds.minX)
+    const effectiveFullHeight = scaledHeight / (zoomBounds.maxY - zoomBounds.minY)
+
+    // 6. Calculate the effective X/Y origin of the FULL image
+    // The crop starts at `canvasX = cropOffsetX`
+    // The crop starts at `normalizedX = minX` in the image
+    // So `cropOffsetX = effectiveX + minX * effectiveFullWidth`
+    const effectiveX = cropOffsetX - (zoomBounds.minX * effectiveFullWidth)
+    const effectiveY = cropOffsetY - (zoomBounds.minY * effectiveFullHeight)
+
+    return {
+      x: effectiveX,
+      y: effectiveY,
+      width: effectiveFullWidth,
+      height: effectiveFullHeight,
+      naturalWidth: rawBounds.naturalWidth,
+      naturalHeight: rawBounds.naturalHeight
+    }
+  }, [imageBounds, dimensions, currentLocation])
+
+  // Convert normalized coordinates (0-1) to canvas coordinates using actual image bounds
   const toCanvasCoords = useCallback((point: { x: number; y: number }) => {
-    const bounds = imageBoundsRef.current || imageBounds
+    const bounds = getEffectiveImageBounds()
     if (bounds) {
       // Use actual image bounds for coordinate conversion
       return {
@@ -182,11 +238,11 @@ export function MapCanvas({
         y: point.y * dimensions.height,
       }
     }
-  }, [imageBounds, dimensions])
+  }, [getEffectiveImageBounds, dimensions])
 
   // Convert canvas coordinates back to normalized coordinates (0-1) using actual image bounds
   const fromCanvasCoords = useCallback((point: { x: number; y: number }) => {
-    const bounds = imageBoundsRef.current || imageBounds
+    const bounds = getEffectiveImageBounds()
     if (bounds) {
       // Use actual image bounds for coordinate conversion
       return {
@@ -200,7 +256,7 @@ export function MapCanvas({
         y: point.y / dimensions.height,
       }
     }
-  }, [imageBounds, dimensions])
+  }, [getEffectiveImageBounds, dimensions])
   const [hoveredDevice, setHoveredDevice] = useState<DevicePoint | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
   const tooltipPositionRef = useRef({ x: 0, y: 0 })
