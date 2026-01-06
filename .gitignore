@@ -36,7 +36,8 @@ yarn-error.log*
 next-env.d.ts
 
 # prisma
-/prisma/migrations
+# Keep migrations tracked for production deployments
+# /prisma/migrations
 
 # temporary files
 /tmp

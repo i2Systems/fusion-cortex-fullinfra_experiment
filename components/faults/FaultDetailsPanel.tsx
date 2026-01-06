@@ -14,53 +14,59 @@ import Link from 'next/link'
 import { AlertCircle, Droplets, Zap, Thermometer, Plug, Settings, Package, Wrench, Lightbulb, MapPin, Radio, RefreshCw, CheckCircle2, Clock, TrendingDown, XCircle, Battery, Shield, ExternalLink, Plus, X, ChevronDown, Info, Image } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Device, DeviceType } from '@/lib/mockData'
+import { PanelEmptyState } from '@/components/shared/PanelEmptyState'
 import { FaultCategory, faultCategories, generateFaultDescription } from '@/lib/faultDefinitions'
 import { calculateWarrantyStatus, getWarrantyStatusLabel, getWarrantyStatusTokenClass, formatWarrantyExpiry } from '@/lib/warranty'
 import { getDeviceLibraryUrl, getDeviceImage, getDeviceImageAsync } from '@/lib/libraryUtils'
 import { isFixtureType } from '@/lib/deviceUtils'
 
 interface Fault {
+  id?: string // Database fault ID (if from database)
   device: Device
   faultType: FaultCategory
   detectedAt: Date
   description: string
+  resolved?: boolean
 }
 
 interface FaultDetailsPanelProps {
   fault: Fault | null
   devices?: Device[]
   onAddNewFault?: (fault: { device: Device; faultType: FaultCategory; description: string }) => void
+  onDelete?: (faultId: string) => void
+  onResolve?: (faultId: string) => void
+  onUnresolve?: (faultId: string) => void
 }
 
-export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultDetailsPanelProps) {
+export function FaultDetailsPanel({ fault, devices = [], onAddNewFault, onDelete, onResolve, onUnresolve }: FaultDetailsPanelProps) {
   const router = useRouter()
   const [showAddForm, setShowAddForm] = useState(false)
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('')
   const [selectedCategory, setSelectedCategory] = useState<FaultCategory | ''>('')
   const [customDescription, setCustomDescription] = useState<string>('')
-  
+
   const handleSubmitNewFault = () => {
     const deviceIdToUse = selectedDeviceId || (fault ? fault.device.id : '')
     if (!deviceIdToUse || !selectedCategory) return
-    
+
     const device = devices.find(d => d.id === deviceIdToUse || d.deviceId === deviceIdToUse)
     if (!device) return
-    
+
     const description = customDescription.trim() || generateFaultDescription(selectedCategory, device.deviceId)
-    
+
     onAddNewFault?.({
       device,
       faultType: selectedCategory,
       description,
     })
-    
+
     // Reset form
     setSelectedDeviceId('')
     setSelectedCategory('')
     setCustomDescription('')
     setShowAddForm(false)
   }
-  
+
   if (!fault) {
     return (
       <div className="flex flex-col h-full">
@@ -68,17 +74,11 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
           {!showAddForm ? (
             <>
               {/* Empty State Content */}
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-                <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center">
-                  <AlertCircle size={40} className="text-[var(--color-text-muted)]" />
-                </div>
-                <h3 className="text-lg font-semibold text-[var(--color-text)] mb-2">
-                  No Fault Selected
-                </h3>
-                <p className="text-sm text-[var(--color-text-muted)] mb-8">
-                  Select a fault from the list to view detailed information and troubleshooting steps
-                </p>
-              </div>
+              <PanelEmptyState
+                icon={AlertCircle}
+                title="No Fault Selected"
+                description="Select a fault from the list to view detailed information and troubleshooting steps"
+              />
 
               {/* Add New Fault Button */}
               {onAddNewFault && (
@@ -145,7 +145,7 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
                     {(Object.keys(faultCategories) as FaultCategory[]).map((category) => {
                       const categoryInfo = faultCategories[category]
                       const isSelected = selectedCategory === category
-                      
+
                       const getIcon = () => {
                         switch (category) {
                           case 'environmental-ingress': return <Droplets size={16} />
@@ -159,23 +159,21 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
                           default: return null
                         }
                       }
-                      
+
                       return (
                         <button
                           key={category}
                           onClick={() => setSelectedCategory(category)}
-                          className={`w-full p-3 rounded-lg border text-left transition-all ${
-                            isSelected
-                              ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)]'
-                              : 'border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)] hover:border-[var(--color-primary)]/50'
-                          }`}
+                          className={`w-full p-3 rounded-lg border text-left transition-all ${isSelected
+                            ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)]'
+                            : 'border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)] hover:border-[var(--color-primary)]/50'
+                            }`}
                         >
                           <div className="flex items-start gap-3">
-                            <div className={`flex-shrink-0 p-1.5 rounded ${
-                              isSelected
-                                ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'
-                                : 'bg-[var(--color-surface)] text-[var(--color-text-muted)]'
-                            }`}>
+                            <div className={`flex-shrink-0 p-1.5 rounded ${isSelected
+                              ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'
+                              : 'bg-[var(--color-surface)] text-[var(--color-text-muted)]'
+                              }`}>
                               {getIcon()}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -254,13 +252,13 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
     if (!categoryInfo) {
       return 'bg-[var(--color-surface-subtle)] text-[var(--color-text-muted)] border-[var(--color-border-subtle)]'
     }
-    
+
     const colorMap = {
       danger: 'bg-[var(--color-danger)]/20 text-[var(--color-danger)] border-[var(--color-danger)]/30',
       warning: 'bg-[var(--color-warning)]/20 text-[var(--color-warning)] border-[var(--color-warning)]/30',
       info: 'bg-[var(--color-primary)]/20 text-[var(--color-primary)] border-[var(--color-primary)]/30',
     }
-    
+
     return colorMap[categoryInfo.color] || colorMap.info
   }
 
@@ -315,7 +313,7 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
     // Load device image (database first, then client storage, then default)
     useEffect(() => {
       let isMounted = true
-      
+
       const loadImage = async () => {
         // Try sync first (for localStorage images)
         const syncImage = getDeviceImage(deviceType as DeviceType)
@@ -327,7 +325,7 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
           }
           return
         }
-        
+
         // Try async (for database/IndexedDB images)
         try {
           const asyncImage = await getDeviceImageAsync(deviceType as DeviceType)
@@ -350,7 +348,7 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
         } catch (error) {
           console.error('Failed to load device image:', error)
         }
-        
+
         // Fallback to sync default
         const defaultImage = getDeviceImage(deviceType as DeviceType)
         if (isMounted && currentImageRef.current !== defaultImage) {
@@ -359,14 +357,14 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
           setImageError(false)
         }
       }
-      
+
       loadImage()
-      
+
       return () => {
         isMounted = false
       }
     }, [deviceType])
-    
+
     // Listen for library image updates - only reload if image actually changed
     useEffect(() => {
       const handleImageUpdate = async () => {
@@ -379,7 +377,7 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
           setImageKey(prev => prev + 1) // Only update key when image actually changes
           return
         }
-        
+
         try {
           const asyncImage = await getDeviceImageAsync(deviceType as DeviceType)
           if (asyncImage && asyncImage !== currentImageRef.current) {
@@ -480,7 +478,7 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
                 {(Object.keys(faultCategories) as FaultCategory[]).map((category) => {
                   const categoryInfo = faultCategories[category]
                   const isSelected = selectedCategory === category
-                  
+
                   const getIcon = () => {
                     switch (category) {
                       case 'environmental-ingress': return <Droplets size={16} />
@@ -494,23 +492,21 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
                       default: return null
                     }
                   }
-                  
+
                   return (
                     <button
                       key={category}
                       onClick={() => setSelectedCategory(category)}
-                      className={`w-full p-3 rounded-lg border text-left transition-all ${
-                        isSelected
-                          ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)]'
-                          : 'border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)] hover:border-[var(--color-primary)]/50'
-                      }`}
+                      className={`w-full p-3 rounded-lg border text-left transition-all ${isSelected
+                        ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)]'
+                        : 'border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)] hover:border-[var(--color-primary)]/50'
+                        }`}
                     >
                       <div className="flex items-start gap-3">
-                        <div className={`flex-shrink-0 p-1.5 rounded ${
-                          isSelected
-                            ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'
-                            : 'bg-[var(--color-surface)] text-[var(--color-text-muted)]'
-                        }`}>
+                        <div className={`flex-shrink-0 p-1.5 rounded ${isSelected
+                          ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'
+                          : 'bg-[var(--color-surface)] text-[var(--color-text-muted)]'
+                          }`}>
                           {getIcon()}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -700,11 +696,10 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
               {calculateWarrantyStatus(fault.device.warrantyExpiry).daysRemaining !== null && (
                 <div className="flex justify-between items-center p-2 rounded-lg bg-[var(--color-surface-subtle)]">
                   <span className="text-sm text-[var(--color-text-muted)]">Days Remaining</span>
-                  <span className={`text-sm font-medium ${
-                    calculateWarrantyStatus(fault.device.warrantyExpiry).isNearEnd
-                      ? 'text-[var(--color-warning)]'
-                      : 'text-[var(--color-text)]'
-                  }`}>
+                  <span className={`text-sm font-medium ${calculateWarrantyStatus(fault.device.warrantyExpiry).isNearEnd
+                    ? 'text-[var(--color-warning)]'
+                    : 'text-[var(--color-text)]'
+                    }`}>
                     {calculateWarrantyStatus(fault.device.warrantyExpiry).daysRemaining} days
                   </span>
                 </div>
@@ -753,11 +748,10 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
                 <Radio size={14} />
                 Signal Strength
               </span>
-              <span className={`text-sm font-medium ${
-                fault.device.signal >= 80 ? 'text-[var(--color-success)]' :
+              <span className={`text-sm font-medium ${fault.device.signal >= 80 ? 'text-[var(--color-success)]' :
                 fault.device.signal >= 50 ? 'text-[var(--color-warning)]' :
-                'text-[var(--color-danger)]'
-              }`}>
+                  'text-[var(--color-danger)]'
+                }`}>
                 {fault.device.signal}%
               </span>
             </div>
@@ -767,9 +761,8 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
                   <Battery size={14} className={fault.device.battery > 20 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'} />
                   Battery Level
                 </span>
-                <span className={`text-sm font-medium ${
-                  fault.device.battery > 20 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'
-                }`}>
+                <span className={`text-sm font-medium ${fault.device.battery > 20 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'
+                  }`}>
                   {fault.device.battery}%
                 </span>
               </div>
@@ -819,16 +812,54 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-[var(--color-text)]">Last online</p>
                 <p className="text-xs text-[var(--color-text-muted)]">
-                  {fault.device.status === 'missing' 
-                    ? 'Never' 
+                  {fault.device.status === 'missing'
+                    ? 'Never'
                     : fault.device.status === 'offline'
-                    ? `${Math.floor((Date.now() - fault.detectedAt.getTime()) / (1000 * 60 * 60)) + 1} hours ago`
-                    : 'Recently'}
+                      ? `${Math.floor((Date.now() - fault.detectedAt.getTime()) / (1000 * 60 * 60)) + 1} hours ago`
+                      : 'Recently'}
                 </p>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Resolve/Unresolve Toggle - Only for database faults, at bottom of scroll */}
+        {fault.id && (fault.resolved ? onUnresolve : onResolve) && (
+          <div className="pt-4 mt-4 border-t border-[var(--color-border-subtle)]">
+            <button
+              onClick={() => {
+                if (fault.resolved && onUnresolve) {
+                  onUnresolve(fault.id!)
+                } else if (!fault.resolved && onResolve) {
+                  onResolve(fault.id!)
+                }
+              }}
+              className="w-full fusion-button text-xs md:text-sm flex items-center justify-center gap-1.5 md:gap-2"
+              style={{ background: 'var(--color-surface-subtle)', color: 'var(--color-text-muted)' }}
+            >
+              <CheckCircle2 size={14} className="md:w-4 md:h-4" />
+              <span className="hidden sm:inline">{fault.resolved ? 'Mark Unresolved' : 'Mark as Resolved'}</span>
+              <span className="sm:hidden">{fault.resolved ? 'Unresolve' : 'Resolved'}</span>
+            </button>
+          </div>
+        )}
+
+        {/* Delete Button - Only for database faults, at bottom of scroll */}
+        {fault.id && onDelete && (
+          <div className={`pt-4 ${fault.id && (fault.resolved ? onUnresolve : onResolve) ? '' : 'mt-4 border-t border-[var(--color-border-subtle)]'}`}>
+            <button
+              onClick={() => {
+                if (confirm('Are you sure you want to permanently delete this fault? This cannot be undone.')) {
+                  onDelete(fault.id!)
+                }
+              }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20 rounded-lg text-sm font-medium text-[var(--color-danger)] hover:bg-[var(--color-danger)]/20 transition-colors"
+            >
+              <X size={14} />
+              Delete Fault
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Actions Footer */}
@@ -838,13 +869,7 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault }: FaultD
           <span className="hidden sm:inline">Retry Connection</span>
           <span className="sm:hidden">Retry</span>
         </button>
-        <button 
-          className="w-full fusion-button text-xs md:text-sm"
-          style={{ background: 'var(--color-surface-subtle)', color: 'var(--color-text-muted)' }}
-        >
-          <span className="hidden sm:inline">Mark as Resolved</span>
-          <span className="sm:hidden">Resolved</span>
-        </button>
+
         {onAddNewFault && (
           <button
             onClick={() => {

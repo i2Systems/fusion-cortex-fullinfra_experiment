@@ -10,17 +10,19 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Image, Calendar, Thermometer, Shield, Package, MapPin, Radio, Battery, Wifi, WifiOff, CheckCircle2, AlertCircle, XCircle, QrCode, AlertTriangle, ExternalLink, Plus, Upload, Download, Info } from 'lucide-react'
+import { Image, Calendar, Thermometer, Shield, Package, MapPin, Radio, Battery, Wifi, WifiOff, CheckCircle2, AlertCircle, XCircle, QrCode, AlertTriangle, ExternalLink, Plus, Upload, Download, Info, Trash2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Device, Component, DeviceType } from '@/lib/mockData'
 import { ComponentTree } from '@/components/shared/ComponentTree'
 import { calculateWarrantyStatus, getWarrantyStatusLabel, getWarrantyStatusTokenClass, formatWarrantyExpiry } from '@/lib/warranty'
+import { PanelEmptyState } from '@/components/shared/PanelEmptyState'
 import { assignFaultCategory, generateFaultDescription, faultCategories } from '@/lib/faultDefinitions'
 import { useDevices } from '@/lib/DeviceContext'
 import { isFixtureType } from '@/lib/deviceUtils'
 import { getDeviceLibraryUrl, getDeviceImage, getDeviceImageAsync } from '@/lib/libraryUtils'
 import { SelectSwitcher } from '@/components/shared/SelectSwitcher'
+import { getStatusTokenClass, getSignalTokenClass, getBatteryTokenClass } from '@/lib/styleUtils'
 
 interface DeviceProfilePanelProps {
   device: Device | null
@@ -30,6 +32,7 @@ interface DeviceProfilePanelProps {
   onQRScan?: () => void
   onImport?: () => void
   onExport?: () => void
+  onDelete?: (deviceId: string) => void
 }
 
 // Device Icon Component with image support
@@ -42,7 +45,7 @@ function DeviceIcon({ deviceType }: { deviceType: string }) {
   // Load device image (database first, then client storage, then default)
   useEffect(() => {
     let isMounted = true
-    
+
     const loadImage = async () => {
       // Try sync first (for localStorage images)
       const syncImage = getDeviceImage(deviceType as DeviceType)
@@ -54,7 +57,7 @@ function DeviceIcon({ deviceType }: { deviceType: string }) {
         }
         return
       }
-      
+
       // Try async (for database/IndexedDB images)
       try {
         const asyncImage = await getDeviceImageAsync(deviceType as DeviceType)
@@ -77,7 +80,7 @@ function DeviceIcon({ deviceType }: { deviceType: string }) {
       } catch (error) {
         console.error('Failed to load device image:', error)
       }
-      
+
       // Fallback to sync default
       const defaultImage = getDeviceImage(deviceType as DeviceType)
       if (isMounted && currentImageRef.current !== defaultImage) {
@@ -86,14 +89,14 @@ function DeviceIcon({ deviceType }: { deviceType: string }) {
         setImageError(false)
       }
     }
-    
+
     loadImage()
-    
+
     return () => {
       isMounted = false
     }
   }, [deviceType])
-  
+
   // Listen for library image updates - only reload if image actually changed
   useEffect(() => {
     const handleImageUpdate = async () => {
@@ -106,7 +109,7 @@ function DeviceIcon({ deviceType }: { deviceType: string }) {
         setImageKey(prev => prev + 1) // Only update key when image actually changes
         return
       }
-      
+
       try {
         const asyncImage = await getDeviceImageAsync(deviceType as DeviceType)
         if (asyncImage && asyncImage !== currentImageRef.current) {
@@ -159,26 +162,20 @@ function DeviceIcon({ deviceType }: { deviceType: string }) {
   )
 }
 
-export function DeviceProfilePanel({ device, onDeviceSelect, onComponentClick, onManualEntry, onQRScan, onImport, onExport }: DeviceProfilePanelProps) {
+export function DeviceProfilePanel({ device, onDeviceSelect, onComponentClick, onManualEntry, onQRScan, onImport, onExport, onDelete }: DeviceProfilePanelProps) {
   const router = useRouter()
   const { devices } = useDevices()
-  
+
   if (!device) {
     return (
       <div className="flex flex-col h-full">
         <div className="flex-1 flex flex-col">
           {/* Empty State Content */}
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-            <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center">
-              <QrCode size={40} className="text-[var(--color-text-muted)]" />
-            </div>
-            <h3 className="text-lg font-semibold text-[var(--color-text)] mb-2">
-              No Device Selected
-            </h3>
-            <p className="text-sm text-[var(--color-text-muted)] mb-8">
-              Select a device from the list to view detailed information
-            </p>
-          </div>
+          <PanelEmptyState
+            icon={QrCode}
+            title="No Device Selected"
+            description="Select a device from the list to view detailed information"
+          />
 
           {/* Action Buttons Bar */}
           <div className="p-3 md:p-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)]">
@@ -232,15 +229,6 @@ export function DeviceProfilePanel({ device, onDeviceSelect, onComponentClick, o
     }
   }
 
-  const getStatusTokenClass = (status: string) => {
-    switch (status) {
-      case 'online': return 'token token-status-online'
-      case 'offline': return 'token token-status-offline'
-      case 'missing': return 'token token-status-error'
-      default: return 'token token-status-offline'
-    }
-  }
-
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'online': return <CheckCircle2 size={14} />
@@ -250,36 +238,24 @@ export function DeviceProfilePanel({ device, onDeviceSelect, onComponentClick, o
     }
   }
 
-  const getSignalTokenClass = (signal: number) => {
-    if (signal >= 80) return 'token token-data token-data-signal-high'
-    if (signal >= 50) return 'token token-data token-data-signal-medium'
-    return 'token token-data token-data-signal-low'
-  }
-
-  const getBatteryTokenClass = (battery: number) => {
-    if (battery >= 80) return 'token token-data token-data-battery-high'
-    if (battery >= 20) return 'token token-data token-data-battery-medium'
-    return 'token token-data token-data-battery-low'
-  }
-
   // Get warranty info
   const warrantyInfo = calculateWarrantyStatus(device.warrantyExpiry)
-  
+
   // Generate fake I2QR data based on device (use actual data if available)
-  const buildDate = device.warrantyExpiry 
+  const buildDate = device.warrantyExpiry
     ? new Date(new Date(device.warrantyExpiry).getTime() - 5 * 365 * 24 * 60 * 60 * 1000) // Approximate 5 years before warranty expiry
     : new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1)
   const cct = isFixtureType(device.type) ? [2700, 3000, 3500, 4000, 5000][Math.floor(Math.random() * 5)] : undefined
-  const partsList = isFixtureType(device.type) 
+  const partsList = isFixtureType(device.type)
     ? ['LCM', 'Driver Board', 'Power Supply', 'LED Board', 'Metal Bracket', 'Cable Harness', 'Lower LED Housing with Optic', 'Sensor']
     : device.type === 'motion'
-    ? ['PIR Sensor', 'Lens', 'Mounting Bracket']
-    : ['Photodiode', 'Lens', 'Mounting Bracket']
+      ? ['PIR Sensor', 'Lens', 'Mounting Bracket']
+      : ['Photodiode', 'Lens', 'Mounting Bracket']
 
   // Generate faults for this device (similar to faults page logic)
   const deviceFaults = (() => {
     const faults: Array<{ faultType: string; description: string; detectedAt: Date }> = []
-    
+
     // Check if device has fault status
     if (device.status === 'missing' || device.status === 'offline') {
       const faultCategory = assignFaultCategory(device)
@@ -289,18 +265,18 @@ export function DeviceProfilePanel({ device, onDeviceSelect, onComponentClick, o
         detectedAt: new Date(Date.now() - 1000 * 60 * 60 * (Math.floor(Math.random() * 48) + 1)),
       })
     }
-    
+
     // Check for low battery
     if (device.battery !== undefined && device.battery < 20) {
       faults.push({
         faultType: 'electrical-driver',
-        description: device.battery < 10 
+        description: device.battery < 10
           ? `Critical battery level (${device.battery}%). Device may shut down. Power supply or charging system issue suspected.`
           : `Battery level is below 20% (${device.battery}%). Replacement recommended. May indicate charging system or power supply problem.`,
         detectedAt: new Date(Date.now() - 1000 * 60 * (Math.floor(Math.random() * 120) + 30)),
       })
     }
-    
+
     return faults
   })()
 
@@ -348,7 +324,7 @@ export function DeviceProfilePanel({ device, onDeviceSelect, onComponentClick, o
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <span className={getStatusTokenClass(device.status)}>
-                {getStatusIcon(device.status)}
+                  {getStatusIcon(device.status)}
                   {device.status}
                 </span>
               </div>
@@ -376,17 +352,17 @@ export function DeviceProfilePanel({ device, onDeviceSelect, onComponentClick, o
               )}
               <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
                 <div className="text-xs text-[var(--color-text-soft)] mb-0.5 whitespace-nowrap">Signal</div>
-                  {device.signal > 0 ? (
+                {device.signal > 0 ? (
                   <div className={getSignalTokenClass(device.signal)}>
                     <Wifi size={10} />
                     <span>{device.signal}%</span>
                   </div>
-                  ) : (
+                ) : (
                   <div className="token token-data">
                     <WifiOff size={10} />
                     <span>—</span>
                   </div>
-                  )}
+                )}
               </div>
               {device.battery !== undefined && (
                 <div className="px-2.5 py-1.5 rounded bg-[var(--color-surface)]/50 border border-[var(--color-border-subtle)] min-w-0">
@@ -545,11 +521,10 @@ export function DeviceProfilePanel({ device, onDeviceSelect, onComponentClick, o
                 {warrantyInfo.daysRemaining !== null && (
                   <div className="flex justify-between items-center p-2 rounded-lg bg-[var(--color-surface-subtle)]">
                     <span className="text-sm text-[var(--color-text-muted)]">Days Remaining</span>
-                    <span className={`text-sm font-medium ${
-                      warrantyInfo.isNearEnd
-                        ? 'text-[var(--color-warning)]'
-                        : 'text-[var(--color-text)]'
-                    }`}>
+                    <span className={`text-sm font-medium ${warrantyInfo.isNearEnd
+                      ? 'text-[var(--color-warning)]'
+                      : 'text-[var(--color-text)]'
+                      }`}>
                       {warrantyInfo.daysRemaining} days
                     </span>
                   </div>
@@ -624,8 +599,8 @@ export function DeviceProfilePanel({ device, onDeviceSelect, onComponentClick, o
               <Package size={14} className="md:w-4 md:h-4" />
               Components
             </h4>
-            <ComponentTree 
-              components={device.components} 
+            <ComponentTree
+              components={device.components}
               expanded={true}
               showHeader={false}
               parentDevice={device}
@@ -672,6 +647,23 @@ export function DeviceProfilePanel({ device, onDeviceSelect, onComponentClick, o
                 </span>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Delete Action - at bottom of scrollable content */}
+        {onDelete && (
+          <div className="pt-4 mt-4 border-t border-[var(--color-border-subtle)]">
+            <button
+              onClick={() => {
+                if (confirm(`Are you sure you want to delete device ${device.deviceId}? This cannot be undone.`)) {
+                  onDelete(device.id)
+                }
+              }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20 rounded-lg text-sm font-medium text-[var(--color-danger)] hover:bg-[var(--color-danger)]/20 transition-colors"
+            >
+              <Trash2 size={14} />
+              Delete Device
+            </button>
           </div>
         )}
       </div>

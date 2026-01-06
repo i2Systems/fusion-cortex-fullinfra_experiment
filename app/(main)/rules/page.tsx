@@ -28,6 +28,7 @@ import { useDevices } from '@/lib/DeviceContext'
 import { useSite } from '@/lib/SiteContext'
 import { Rule } from '@/lib/mockRules'
 import { useMap } from '@/lib/MapContext'
+import { useMapUpload } from '@/lib/useMapUpload'
 
 // Dynamically import RulesZoneCanvas to avoid SSR issues with Konva
 const RulesZoneCanvas = dynamic(() => import('@/components/rules/RulesZoneCanvas').then(mod => ({ default: mod.RulesZoneCanvas })), {
@@ -63,17 +64,26 @@ export default function RulesPage() {
 
   // Map data is now loaded from MapContext - no need to load it here
   const { refreshMapData } = useMap()
+  const { uploadMap, uploadVectorData } = useMapUpload()
   
   const handleMapUpload = async (imageUrl: string) => {
-    // Map upload is handled in the map page, which updates shared storage
-    // Just refresh the map data to pick up the new upload
-    await refreshMapData()
+    try {
+      await uploadMap(imageUrl)
+      // Refresh map data to show the new upload
+      await refreshMapData()
+    } catch (error: any) {
+      alert(error.message || 'Failed to upload map')
+    }
   }
   
   const handleVectorDataUpload = async (data: any) => {
-    // Vector data upload is handled in the map page
-    // Just refresh the map data to pick up the new upload
-    await refreshMapData()
+    try {
+      await uploadVectorData(data)
+      // Refresh map data to show the new upload
+      await refreshMapData()
+    } catch (error: any) {
+      alert(error.message || 'Failed to upload vector data')
+    }
   }
 
   const selectedRule = useMemo(() => {

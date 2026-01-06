@@ -13,6 +13,7 @@
 import { createContext, useContext, ReactNode, useState, useEffect, useCallback, useMemo } from 'react'
 import { useSite } from './SiteContext'
 import { loadLocations } from './locationStorage'
+import { trpc } from './trpc/client'
 import type { ExtractedVectorData } from './pdfVectorExtractor'
 
 interface MapData {
@@ -35,6 +36,12 @@ export function MapProvider({ children }: { children: ReactNode }) {
   const [mapCache, setMapCache] = useState<Record<string, MapData>>({})
   const [isLoading, setIsLoading] = useState(false)
 
+  // Load locations from database via tRPC
+  const { data: dbLocations = [], isLoading: dbLocationsLoading } = trpc.location.list.useQuery(
+    { siteId: activeSiteId || '' },
+    { enabled: !!activeSiteId }
+  )
+
   // Load map data for current site
   const loadMapData = useCallback(async (siteId: string | null, forceRefresh = false) => {
     if (!siteId || typeof window === 'undefined') {
@@ -54,8 +61,25 @@ export function MapProvider({ children }: { children: ReactNode }) {
     setIsLoading(true)
     
     try {
-      // Load locations from shared storage
-      const locations = await loadLocations(siteId)
+      // First try to load from database (preferred)
+      let locations: any[] = []
+      
+      // Use database locations if available
+      if (dbLocations.length > 0) {
+        locations = dbLocations.map(loc => ({
+          id: loc.id,
+          name: loc.name,
+          type: loc.type,
+          parentId: loc.parentId,
+          imageUrl: loc.imageUrl,
+          vectorDataUrl: loc.vectorDataUrl,
+          zoomBounds: loc.zoomBounds,
+          storageKey: undefined, // Database locations don't use storageKey
+        }))
+      } else {
+        // Fallback to localStorage (for backward compatibility)
+        locations = await loadLocations(siteId)
+      }
       if (locations.length === 0) {
         const emptyData: MapData = {
           mapImageUrl: null,
@@ -121,6 +145,7 @@ export function MapProvider({ children }: { children: ReactNode }) {
             // Continue to fallback
           }
         } else {
+          // Regular URL (from Supabase or other source)
           const mapData: MapData = {
             mapImageUrl: location.imageUrl,
             vectorData: null,
@@ -133,6 +158,30 @@ export function MapProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      // Check for vector data URL (from database)
+      if (location.vectorDataUrl) {
+        try {
+          // If it's a base64 data URL, parse it
+          if (location.vectorDataUrl.startsWith('data:application/json;base64,')) {
+            const base64Data = location.vectorDataUrl.replace('data:application/json;base64,', '')
+            const jsonString = atob(base64Data)
+            const vectorData = JSON.parse(jsonString)
+            const mapData: MapData = {
+              mapImageUrl: null,
+              vectorData,
+              mapUploaded: true,
+              isLoading: false,
+            }
+            setMapCache(prev => ({ ...prev, [siteId]: mapData }))
+            setIsLoading(false)
+            return mapData
+          }
+        } catch (e) {
+          console.error('Failed to parse vector data:', e)
+        }
+      }
+
+      // Check for vectorData (from localStorage/old format)
       if (location.vectorData) {
         const mapData: MapData = {
           mapImageUrl: null,
@@ -187,17 +236,15 @@ export function MapProvider({ children }: { children: ReactNode }) {
       setIsLoading(false)
       return errorData
     }
-  }, [])
+  }, [dbLocations])
 
-  // Load map data when site changes
+  // Load map data when site changes or database locations change
   useEffect(() => {
-    if (activeSiteId) {
-      // Only load if not already cached
-      if (!mapCache[activeSiteId]) {
-        loadMapData(activeSiteId, false)
-      }
+    if (activeSiteId && !dbLocationsLoading) {
+      // Force refresh when database locations change
+      loadMapData(activeSiteId, true)
     }
-  }, [activeSiteId, loadMapData])
+  }, [activeSiteId, dbLocations, dbLocationsLoading, loadMapData])
 
   // Get current map data
   const mapData = useMemo(() => {

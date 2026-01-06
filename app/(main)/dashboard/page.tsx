@@ -28,12 +28,12 @@ import { Zone } from '@/lib/ZoneContext'
 import { Rule } from '@/lib/mockRules'
 import { FaultCategory, assignFaultCategory, generateFaultDescription } from '@/lib/faultDefinitions'
 import { calculateWarrantyStatus } from '@/lib/warranty'
-import { 
-  AlertTriangle, 
-  Shield, 
-  Map, 
-  MapPin, 
-  ChevronRight, 
+import {
+  AlertTriangle,
+  Shield,
+  Map,
+  MapPin,
+  ChevronRight,
   Activity,
   Zap,
   Clock,
@@ -79,7 +79,7 @@ function SiteImageCard({ siteId }: { siteId: string }) {
 
   // Validate siteId before querying - use skipToken to completely skip query if invalid
   const isValidSiteId = !!(siteId && typeof siteId === 'string' && siteId.length > 0)
-  
+
   // Don't render if siteId is invalid
   if (!isValidSiteId) {
     return (
@@ -96,7 +96,7 @@ function SiteImageCard({ siteId }: { siteId: string }) {
   const queryInput = isValidSiteId && siteId ? { siteId: String(siteId).trim() } : skipToken
   const { data: dbImage, isLoading: isDbLoading, isError: isDbError, error: dbError, refetch: refetchSiteImage } = trpc.image.getSiteImage.useQuery(
     queryInput,
-    { 
+    {
       // Double protection: enabled flag prevents query execution
       enabled: isValidSiteId && !!siteId && siteId.trim().length > 0,
       // Skip if siteId is invalid to avoid validation errors
@@ -119,10 +119,10 @@ function SiteImageCard({ siteId }: { siteId: string }) {
         isError: isDbError,
       }
       // Only log if state changed
-      if (!prevStateRef.current || 
-          prevStateRef.current.isLoading !== currentState.isLoading ||
-          prevStateRef.current.hasData !== currentState.hasData ||
-          prevStateRef.current.isError !== currentState.isError) {
+      if (!prevStateRef.current ||
+        prevStateRef.current.isLoading !== currentState.isLoading ||
+        prevStateRef.current.hasData !== currentState.hasData ||
+        prevStateRef.current.isError !== currentState.isError) {
         console.log(`🔍 [CLIENT] Query state for ${siteId}:`, {
           enabled: isValidSiteId && !!siteId && siteId.trim().length > 0,
           isLoading: isDbLoading,
@@ -230,33 +230,33 @@ export default function DashboardPage() {
   const [showAddSiteModal, setShowAddSiteModal] = useState(false)
   const [editingSite, setEditingSite] = useState<Site | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  
+
   // Initialize selectedSiteId - ensure it's never null when sites exist
   const getInitialSelectedSiteId = (): string => {
     if (activeSiteId) return activeSiteId
     if (sites.length > 0) return sites[0].id
     return ''
   }
-  
+
   const [selectedSiteId, setSelectedSiteId] = useState<string>(() => getInitialSelectedSiteId())
-  
+
   // Ensure at least one site is always selected
   useEffect(() => {
     if (sites.length === 0) return
-    
+
     // If activeSiteId is set, sync selectedSiteId with it
     if (activeSiteId) {
       setSelectedSiteId(activeSiteId)
       return
     }
-    
+
     // If no activeSiteId but we have sites, select the first one
     // This ensures a site is always selected
     const firstSiteId = sites[0].id
     setActiveSite(firstSiteId)
     setSelectedSiteId(firstSiteId)
   }, [activeSiteId, sites, setActiveSite])
-  
+
   // Fallback: ensure selectedSiteId is never empty when sites exist
   useEffect(() => {
     if (sites.length > 0 && (!selectedSiteId || selectedSiteId === '')) {
@@ -279,11 +279,11 @@ export default function DashboardPage() {
     description: string
     location: string
   }>>>({})
-  
+
   // Refetch devices, zones, and faults when sites change or when we need to refresh
   useEffect(() => {
     if (sites.length === 0) return
-    
+
     // Fetch all data for all sites using tRPC utils
     const fetchAllSiteData = async () => {
       const devicesMap: Record<string, Device[]> = {}
@@ -295,7 +295,7 @@ export default function DashboardPage() {
         description: string
         location: string
       }>> = {}
-      
+
       await Promise.all(
         sites.map(async (site) => {
           try {
@@ -305,7 +305,7 @@ export default function DashboardPage() {
               includeComponents: true,
             })
             devicesMap[site.id] = devices || []
-            
+
             // Fetch zones
             const zones = await trpcUtils.zone.list.fetch({
               siteId: site.id,
@@ -315,13 +315,13 @@ export default function DashboardPage() {
               description: zone.description ?? undefined,
               polygon: zone.polygon ?? [],
             }))
-            
+
             // Fetch faults
             const faults = await trpcUtils.fault.list.fetch({
               siteId: site.id,
               includeResolved: false,
             })
-            
+
             // Convert database faults to critical faults format
             const criticalFaults = (faults || []).slice(0, 3).map(fault => {
               const device = devices?.find(d => d.id === fault.deviceId)
@@ -342,17 +342,17 @@ export default function DashboardPage() {
           }
         })
       )
-      
+
       setSiteDevicesMap(devicesMap)
       setSiteZonesMap(zonesMap)
       setSiteFaultsMap(faultsMap)
     }
-    
+
     fetchAllSiteData()
-    
+
     // Set up interval to refetch every 30 seconds
     const interval = setInterval(fetchAllSiteData, 30000)
-    
+
     return () => clearInterval(interval)
   }, [sites, trpcUtils])
 
@@ -365,7 +365,7 @@ export default function DashboardPage() {
       const devices: Device[] = siteDevicesMap[site.id] || []
       const zones: Zone[] = siteZonesMap[site.id] || []
       const criticalFaults = siteFaultsMap[site.id] || []
-      
+
       // Check map status from localStorage (for backward compatibility)
       // TODO: Could also check location storage, but for now we'll use localStorage
       const mapImageKey = `fusion_map-image-url_${site.id}`
@@ -374,14 +374,14 @@ export default function DashboardPage() {
       // Calculate stats
       const onlineDevices = devices.filter(d => d.status === 'online').length
       const offlineDevices = devices.filter(d => d.status === 'offline' || d.status === 'missing')
-      const healthPercentage = devices.length > 0 
+      const healthPercentage = devices.length > 0
         ? Math.round((onlineDevices / devices.length) * 100)
         : 100
 
       // Count warranties expiring/expired
       const now = new Date()
       const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-      
+
       let warrantiesExpiring = 0
       let warrantiesExpired = 0
 
@@ -408,10 +408,10 @@ export default function DashboardPage() {
       })
 
       // Determine if site needs attention
-      const needsAttention = 
-        criticalFaults.length > 0 || 
-        warrantiesExpiring > 0 || 
-        warrantiesExpired > 0 || 
+      const needsAttention =
+        criticalFaults.length > 0 ||
+        warrantiesExpiring > 0 ||
+        warrantiesExpired > 0 ||
         !mapUploaded ||
         healthPercentage < 90
 
@@ -442,13 +442,13 @@ export default function DashboardPage() {
       router.push(targetPage)
       return
     }
-    
+
     // Toggle selection: if clicking the same site, deselect it
     if (selectedSiteId === siteId) {
       setSelectedSiteId('')
       return
     }
-    
+
     setActiveSite(siteId)
     setSelectedSiteId(siteId)
   }
@@ -456,7 +456,7 @@ export default function DashboardPage() {
   // Handle clicking outside cards to deselect
   const cardsContainerRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
-  
+
   const handleMainContentClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement
     // Deselect if clicking outside both the cards container and panel
@@ -488,7 +488,7 @@ export default function DashboardPage() {
 
   const handleAddSiteSubmit = useCallback(async (siteData: Omit<Site, 'id'>) => {
     const newSite = addSite(siteData)
-    
+
     // If there's a temp image stored, move it to the new site ID
     // The AddSiteModal should have stored it with a temp ID in formData.imageUrl
     if (siteData.imageUrl && siteData.imageUrl.startsWith('temp-')) {
@@ -510,7 +510,7 @@ export default function DashboardPage() {
         console.error('Failed to move temp image to new site:', error)
       }
     }
-    
+
     setActiveSite(newSite.id)
     setSelectedSiteId(newSite.id)
     setShowAddSiteModal(false)
@@ -530,18 +530,18 @@ export default function DashboardPage() {
     input.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (!file) return
-      
+
       const reader = new FileReader()
       reader.onload = (event) => {
         try {
           const text = event.target?.result as string
           const importedSites = JSON.parse(text)
-          
+
           if (!Array.isArray(importedSites)) {
             alert('Invalid file format. Expected an array of sites.')
             return
           }
-          
+
           let count = 0
           importedSites.forEach((site: any) => {
             if (site.name && (site.siteNumber || site.storeNumber)) {
@@ -559,7 +559,7 @@ export default function DashboardPage() {
               count++
             }
           })
-          
+
           alert(`Successfully imported ${count} site(s)`)
         } catch (error) {
           alert('Error importing file. Please check the format.')
@@ -576,7 +576,7 @@ export default function DashboardPage() {
       alert('No sites to export')
       return
     }
-    
+
     // Export as JSON
     const exportData = sites.map(s => ({
       name: s.name,
@@ -589,7 +589,7 @@ export default function DashboardPage() {
       manager: s.manager,
       squareFootage: s.squareFootage,
     }))
-    
+
     const dataStr = JSON.stringify(exportData, null, 2)
     const dataBlob = new Blob([dataStr], { type: 'application/json' })
     const url = URL.createObjectURL(dataBlob)
@@ -603,12 +603,12 @@ export default function DashboardPage() {
   // Filter site summaries based on search query
   const filteredSiteSummaries = useMemo(() => {
     if (!searchQuery.trim()) return siteSummaries
-    
+
     const query = searchQuery.toLowerCase().trim()
     return siteSummaries.filter(summary => {
       const site = sites.find(s => s.id === summary.siteId)
       if (!site) return false
-      
+
       // Search in site name, site number, city, state, manager, device count, zone count
       const searchableText = [
         site.name,
@@ -620,7 +620,7 @@ export default function DashboardPage() {
         String(summary.totalZones),
         String(summary.healthPercentage),
       ].filter(Boolean).join(' ').toLowerCase()
-      
+
       return searchableText.includes(query)
     })
   }, [siteSummaries, searchQuery, sites])
@@ -643,7 +643,7 @@ export default function DashboardPage() {
     // Use data from state maps (fetched from database)
     const devices = siteDevicesMap[selectedSiteId] || []
     const zones = siteZonesMap[selectedSiteId] || []
-    
+
     // Fetch rules for the selected site
     const fetchRules = async () => {
       try {
@@ -672,7 +672,7 @@ export default function DashboardPage() {
         })
       }
     }
-    
+
     fetchRules()
   }, [selectedSiteId, siteDevicesMap, siteZonesMap, trpcUtils])
 
@@ -704,7 +704,7 @@ export default function DashboardPage() {
     // Mock: Calculate "improving" sites (health > 95% or recently improved)
     const improvingSites = siteSummaries.filter(s => s.healthPercentage >= 95).length
     const decliningSites = siteSummaries.filter(s => s.healthPercentage < 85).length
-    
+
     // Calculate health trend (simulate by comparing sites above/below thresholds)
     const healthTrend = improvingSites > decliningSites ? 'improving' : improvingSites < decliningSites ? 'declining' : 'stable'
     const healthDelta = improvingSites - decliningSites
@@ -722,11 +722,11 @@ export default function DashboardPage() {
         trend: healthTrend,
         delta: healthDelta,
         label: 'Health Trend',
-        description: healthTrend === 'improving' 
+        description: healthTrend === 'improving'
           ? `${improvingSites} sites improving`
           : healthTrend === 'declining'
-          ? `${decliningSites} sites declining`
-          : 'Health stable',
+            ? `${decliningSites} sites declining`
+            : 'Health stable',
       },
       onlineRate: {
         value: Math.round(onlineRate),
@@ -742,8 +742,8 @@ export default function DashboardPage() {
     <div className="h-full flex flex-col min-h-0 overflow-hidden">
       {/* Top Search Island */}
       <div className="flex-shrink-0 page-padding-x pt-3 md:pt-4 pb-2 md:pb-3">
-        <SearchIsland 
-          position="top" 
+        <SearchIsland
+          position="top"
           fullWidth={true}
           title="Dashboard"
           subtitle="Multi-site overview"
@@ -786,14 +786,14 @@ export default function DashboardPage() {
             ...(dashboardInsight ? [{
               label: dashboardInsight.healthTrend.label,
               value: `${dashboardInsight.healthTrend.value}%`,
-              color: dashboardInsight.healthTrend.trend === 'improving' 
-                ? 'var(--color-success)' 
+              color: dashboardInsight.healthTrend.trend === 'improving'
+                ? 'var(--color-success)'
                 : dashboardInsight.healthTrend.trend === 'declining'
-                ? 'var(--color-danger)'
-                : 'var(--color-text)',
-              trend: dashboardInsight.healthTrend.trend === 'improving' ? 'up' as const 
-                : dashboardInsight.healthTrend.trend === 'declining' ? 'down' as const 
-                : 'stable' as const,
+                  ? 'var(--color-danger)'
+                  : 'var(--color-text)',
+              trend: dashboardInsight.healthTrend.trend === 'improving' ? 'up' as const
+                : dashboardInsight.healthTrend.trend === 'declining' ? 'down' as const
+                  : 'stable' as const,
               delta: dashboardInsight.healthTrend.delta,
               icon: dashboardInsight.healthTrend.trend === 'improving' ? (
                 <TrendingUp size={14} className="text-[var(--color-success)]" />
@@ -808,7 +808,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Content: Site Cards + Details Panel */}
-      <div 
+      <div
         className="main-content-area flex-1 flex min-h-0 gap-2 md:gap-4 page-padding-x pb-12 md:pb-14 overflow-hidden"
         onClick={handleMainContentClick}
       >
@@ -817,164 +817,163 @@ export default function DashboardPage() {
           {/* Site Cards Grid - Responsive */}
           <div className="flex-1 min-h-0">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-6">
-          {filteredSiteSummaries.map((summary) => {
-            const site = sites.find(s => s.id === summary.siteId)
-            return (
-            <div
-              key={summary.siteId}
-              onClick={(e) => {
-                e.stopPropagation()
-                handleSiteClick(summary.siteId)
-              }}
-              className={`fusion-card fusion-card-tile cursor-pointer transition-all hover:border-[var(--color-primary)]/50 hover:shadow-[var(--shadow-strong)] ${
-                summary.siteId === selectedSiteId 
-                  ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)] shadow-[var(--shadow-glow-primary)] ring-2 ring-[var(--color-primary)]/30' 
-                  : 'border-[var(--color-border-subtle)]'
-              } ${summary.needsAttention && summary.siteId !== selectedSiteId ? 'ring-2 ring-[var(--color-warning)]/30' : ''}`}
-            >
-              {/* Card Header */}
-              <div className="fusion-card-tile-header">
-                <div className="flex items-start gap-3 flex-1 min-w-0">
-                  {/* Site Image - Larger */}
-                  <div className="flex-shrink-0">
-                    <SiteImageCard siteId={summary.siteId} />
-                  </div>
-
-                  {/* Title & Subtitle - More space */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-bold text-[var(--color-text)] truncate leading-tight mb-1">
-                      {summary.siteName}
-                    </h3>
-                    {site && (
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-1 text-sm text-[var(--color-text-muted)]">
-                          <MapPin size={12} />
-                          <span className="truncate">{site.city}, {site.state}</span>
+              {filteredSiteSummaries.map((summary) => {
+                const site = sites.find(s => s.id === summary.siteId)
+                return (
+                  <div
+                    key={summary.siteId}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleSiteClick(summary.siteId)
+                    }}
+                    className={`fusion-card fusion-card-tile cursor-pointer transition-all hover:border-[var(--color-primary)]/50 hover:shadow-[var(--shadow-strong)] ${summary.siteId === selectedSiteId
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)] shadow-[var(--shadow-glow-primary)] ring-2 ring-[var(--color-primary)]/30'
+                      : 'border-[var(--color-border-subtle)]'
+                      } ${summary.needsAttention && summary.siteId !== selectedSiteId ? 'ring-2 ring-[var(--color-warning)]/30' : ''}`}
+                  >
+                    {/* Card Header */}
+                    <div className="fusion-card-tile-header">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        {/* Site Image - Larger */}
+                        <div className="flex-shrink-0">
+                          <SiteImageCard siteId={summary.siteId} />
                         </div>
-                        {site.manager && (
-                          <div className="text-sm text-[var(--color-text-muted)] truncate">
-                            {site.manager}
-                          </div>
-                        )}
+
+                        {/* Title & Subtitle - More space */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-bold text-[var(--color-text)] truncate leading-tight mb-1">
+                            {summary.siteName}
+                          </h3>
+                          {site && (
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1 text-sm text-[var(--color-text-muted)]">
+                                <MapPin size={12} />
+                                <span className="truncate">{site.city}, {site.state}</span>
+                              </div>
+                              {site.manager && (
+                                <div className="text-sm text-[var(--color-text-muted)] truncate">
+                                  {site.manager}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Header Actions - Simplified, no menu */}
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  {getHealthIcon(summary.healthPercentage, 18)}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleSiteClick(summary.siteId, '/map')
-                    }}
-                    className="fusion-button-ghost p-1.5"
-                    title="Explore Site"
-                  >
-                    <Search size={14} />
-                  </button>
-                </div>
-              </div>
 
-              {/* KPIs - More Compact Grid */}
-              <div className="grid grid-cols-4 gap-2 py-2 border-t border-[var(--color-border-subtle)]">
-                <div className="text-center">
-                  <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Health</div>
-                  <div className="text-sm font-semibold" style={{ color: getHealthColor(summary.healthPercentage) }}>
-                    {summary.healthPercentage}%
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Devices</div>
-                  <div className="text-sm font-semibold text-[var(--color-text)]">{summary.totalDevices}</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Online</div>
-                  <div className="text-sm font-semibold" style={{ color: 'var(--color-success)' }}>
-                    {summary.onlineDevices}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Zones</div>
-                  <div className="text-sm font-semibold text-[var(--color-text)]">{summary.totalZones}</div>
-                </div>
-              </div>
+                      {/* Header Actions - Simplified, no menu */}
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {getHealthIcon(summary.healthPercentage, 18)}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleSiteClick(summary.siteId, '/map')
+                          }}
+                          className="fusion-button-ghost p-1.5"
+                          title="Explore Site"
+                        >
+                          <Search size={14} />
+                        </button>
+                      </div>
+                    </div>
 
-              {/* Status Indicators - More Compact */}
-              <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                {/* Critical Issues */}
-                {summary.criticalFaults.length > 0 && (
-                  <div 
-                    className="token token-status-error cursor-pointer text-xs py-1 px-2"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleSiteClick(summary.siteId, '/faults')
-                    }}
-                  >
-                    <AlertTriangle size={11} />
-                    <span>{summary.criticalFaults.length} Critical</span>
-                  </div>
-                )}
+                    {/* KPIs - More Compact Grid */}
+                    <div className="grid grid-cols-4 gap-2 py-2">
+                      <div className="text-center">
+                        <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Health</div>
+                        <div className="text-sm font-semibold" style={{ color: getHealthColor(summary.healthPercentage) }}>
+                          {summary.healthPercentage}%
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Devices</div>
+                        <div className="text-sm font-semibold text-[var(--color-text)]">{summary.totalDevices}</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Online</div>
+                        <div className="text-sm font-semibold" style={{ color: 'var(--color-success)' }}>
+                          {summary.onlineDevices}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Zones</div>
+                        <div className="text-sm font-semibold text-[var(--color-text)]">{summary.totalZones}</div>
+                      </div>
+                    </div>
 
-                {/* Warranties */}
-                {(summary.warrantiesExpiring > 0 || summary.warrantiesExpired > 0) && (
-                  <div className="token token-status-warning text-xs py-1 px-2">
-                    <Shield size={11} />
-                    <span>
-                      {summary.warrantiesExpiring > 0 && `${summary.warrantiesExpiring} expiring`}
-                      {summary.warrantiesExpiring > 0 && summary.warrantiesExpired > 0 && ' • '}
-                      {summary.warrantiesExpired > 0 && `${summary.warrantiesExpired} expired`}
-                    </span>
-                  </div>
-                )}
+                    {/* Status Indicators - Inline with KPIs */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {/* Critical Issues */}
+                      {summary.criticalFaults.length > 0 && (
+                        <div
+                          className="token token-status-error cursor-pointer text-xs py-1 px-2"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleSiteClick(summary.siteId, '/faults')
+                          }}
+                        >
+                          <AlertTriangle size={11} />
+                          <span>{summary.criticalFaults.length} Critical</span>
+                        </div>
+                      )}
 
-                {/* Map Status */}
-                {!summary.mapUploaded && (
-                  <div className="token token-status-warning text-xs py-1 px-2">
-                    <Map size={11} />
-                    <span>No map</span>
+                      {/* Warranties */}
+                      {(summary.warrantiesExpiring > 0 || summary.warrantiesExpired > 0) && (
+                        <div className="token token-status-warning text-xs py-1 px-2">
+                          <Shield size={11} />
+                          <span>
+                            {summary.warrantiesExpiring > 0 && `${summary.warrantiesExpiring} expiring`}
+                            {summary.warrantiesExpiring > 0 && summary.warrantiesExpired > 0 && ' • '}
+                            {summary.warrantiesExpired > 0 && `${summary.warrantiesExpired} expired`}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Map Status */}
+                      {!summary.mapUploaded && (
+                        <div className="token token-status-warning text-xs py-1 px-2">
+                          <Map size={11} />
+                          <span>No map</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-            </div>
-            )
-          })}
+                )
+              })}
             </div>
           </div>
 
-          </div>
+        </div>
 
         {/* Site Details Panel - Right Side */}
         {selectedSiteId && (
           <div ref={panelRef}>
-          <ResizablePanel
-            defaultWidth={384}
-            minWidth={320}
-            maxWidth={512}
-            collapseThreshold={200}
-            storageKey="dashboard_panel"
-          >
-            <SiteDetailsPanel
-              site={activeSite || (selectedSiteId ? sites.find(s => s.id === selectedSiteId) : sites[0]) || null}
-              devices={selectedSiteData.devices}
-              zones={selectedSiteData.zones}
-              rules={selectedSiteData.rules}
-              criticalFaults={selectedSiteSummary?.criticalFaults || []}
-              warrantiesExpiring={selectedSiteSummary?.warrantiesExpiring || 0}
-              warrantiesExpired={selectedSiteSummary?.warrantiesExpired || 0}
-              mapUploaded={selectedSiteSummary?.mapUploaded || false}
-              healthPercentage={selectedSiteSummary?.healthPercentage || 100}
-              onlineDevices={selectedSiteSummary?.onlineDevices || 0}
-              offlineDevices={selectedSiteSummary?.offlineDevices || 0}
-              missingDevices={(selectedSiteSummary?.totalDevices || 0) - (selectedSiteSummary?.onlineDevices || 0) - (selectedSiteSummary?.offlineDevices || 0)}
-              onAddSite={handleAddSite}
-              onEditSite={handleEditSite}
-              onRemoveSite={handleRemoveSite}
-              onImportSites={handleImportSites}
-              onExportSites={handleExportSites}
-            />
-          </ResizablePanel>
+            <ResizablePanel
+              defaultWidth={384}
+              minWidth={320}
+              maxWidth={512}
+              collapseThreshold={200}
+              storageKey="dashboard_panel"
+            >
+              <SiteDetailsPanel
+                site={activeSite || (selectedSiteId ? sites.find(s => s.id === selectedSiteId) : sites[0]) || null}
+                devices={selectedSiteData.devices}
+                zones={selectedSiteData.zones}
+                rules={selectedSiteData.rules}
+                criticalFaults={selectedSiteSummary?.criticalFaults || []}
+                warrantiesExpiring={selectedSiteSummary?.warrantiesExpiring || 0}
+                warrantiesExpired={selectedSiteSummary?.warrantiesExpired || 0}
+                mapUploaded={selectedSiteSummary?.mapUploaded || false}
+                healthPercentage={selectedSiteSummary?.healthPercentage || 100}
+                onlineDevices={selectedSiteSummary?.onlineDevices || 0}
+                offlineDevices={selectedSiteSummary?.offlineDevices || 0}
+                missingDevices={(selectedSiteSummary?.totalDevices || 0) - (selectedSiteSummary?.onlineDevices || 0) - (selectedSiteSummary?.offlineDevices || 0)}
+                onAddSite={handleAddSite}
+                onEditSite={handleEditSite}
+                onRemoveSite={handleRemoveSite}
+                onImportSites={handleImportSites}
+                onExportSites={handleExportSites}
+              />
+            </ResizablePanel>
           </div>
         )}
       </div>

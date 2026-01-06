@@ -23,6 +23,7 @@ import type { Component, Device, DeviceType } from '@/lib/mockData'
 import { ComponentTree } from '@/components/shared/ComponentTree'
 import { getDeviceLibraryUrl, getDeviceImage, getDeviceImageAsync } from '@/lib/libraryUtils'
 import { isFixtureType } from '@/lib/deviceUtils'
+import { getStatusTokenClass, getSignalTokenClass, getBatteryTokenClass } from '@/lib/styleUtils'
 
 // Helper functions moved outside component to prevent recreation
 const getTypeLabel = (type: string) => {
@@ -32,27 +33,6 @@ const getTypeLabel = (type: string) => {
     case 'light-sensor': return 'Light Sensor'
     default: return type
   }
-}
-
-const getStatusTokenClass = (status: string) => {
-  switch (status) {
-    case 'online': return 'token token-status-online'
-    case 'offline': return 'token token-status-offline'
-    case 'missing': return 'token token-status-error'
-    default: return 'token token-status-offline'
-  }
-}
-
-const getSignalTokenClass = (signal: number) => {
-  if (signal >= 80) return 'token token-data token-data-signal-high'
-  if (signal >= 50) return 'token token-data token-data-signal-medium'
-  return 'token token-data token-data-signal-low'
-}
-
-const getBatteryTokenClass = (battery: number) => {
-  if (battery >= 80) return 'token token-data token-data-battery-high'
-  if (battery >= 20) return 'token token-data token-data-battery-medium'
-  return 'token token-data token-data-battery-low'
 }
 
 // DeviceIcon component extracted outside and memoized for performance
@@ -187,16 +167,20 @@ const DeviceRow = memo(function DeviceRow({
         `}
       >
         <td className="py-3.5 px-3 text-center" onClick={(e) => e.stopPropagation()}>
-          <input
-            type="checkbox"
-            checked={isChecked}
-            onChange={(e) => {
+          <button
+            onClick={(e) => {
               e.stopPropagation()
               onToggleCheck()
             }}
-            onClick={(e) => e.stopPropagation()}
-            className="w-4 h-4 rounded border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-primary)] focus:ring-[var(--color-primary)] cursor-pointer"
-          />
+            className="p-0.5 rounded hover:bg-[var(--color-surface-subtle)] transition-colors flex-shrink-0"
+            title={isChecked ? "Deselect device" : "Select device"}
+          >
+            {isChecked ? (
+              <CheckSquare size={16} className="text-[var(--color-primary)]" />
+            ) : (
+              <Square size={16} className="text-[var(--color-text-muted)]" />
+            )}
+          </button>
         </td>
         <td className="py-3.5 px-5 text-sm text-[var(--color-text)] font-semibold">
           <div className="flex items-center gap-2">
@@ -427,45 +411,41 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect, onCompo
   return (
     <div className="h-full flex flex-col">
       {/* Panel Header - Always visible */}
-      <div className="p-4 border-b border-[var(--color-border-subtle)]">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-[var(--color-text)]">
+      <div className="p-3 md:p-4 border-b border-[var(--color-border-subtle)]">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-base md:text-lg font-semibold text-[var(--color-text)]">
             Devices
           </h3>
-          {selectedDeviceIds.size > 0 && (
-            <span className="text-sm text-[var(--color-text-muted)]">
-              {selectedDeviceIds.size} selected
-            </span>
+          {sortedDevices.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSelectAll}
+                className="p-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors"
+                title={allSelected ? "Deselect all" : "Select all"}
+              >
+                {allSelected ? (
+                  <CheckSquare size={16} className="text-[var(--color-primary)]" />
+                ) : (
+                  <Square size={16} className="text-[var(--color-text-muted)]" />
+                )}
+              </button>
+              {selectedDeviceIds.size > 0 && (
+                <button
+                  onClick={handleDeleteSelected}
+                  className="p-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors text-[var(--color-danger)]"
+                  title={`Delete ${selectedDeviceIds.size} selected device(s)`}
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
+            </div>
           )}
         </div>
-        {/* Selection controls */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleSelectAll}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-[var(--color-surface-subtle)] hover:bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors border border-[var(--color-border-subtle)]"
-            title={allSelected ? 'Deselect all' : 'Select all'}
-          >
-            {allSelected ? (
-              <CheckSquare size={16} />
-            ) : someSelected ? (
-              <Square size={16} className="border-2 border-current" />
-            ) : (
-              <Square size={16} />
-            )}
-            <span className="hidden md:inline">{allSelected ? 'Deselect All' : 'Select All'}</span>
-          </button>
-          {selectedDeviceIds.size > 0 && (
-            <button
-              onClick={handleDeleteSelected}
-              className="flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 text-sm rounded-lg bg-[var(--color-danger-soft)] hover:bg-[var(--color-danger)] text-[var(--color-danger)] hover:text-white transition-colors border border-[var(--color-danger)]"
-              title={`Delete ${selectedDeviceIds.size} selected device${selectedDeviceIds.size > 1 ? 's' : ''}`}
-            >
-              <Trash2 size={16} />
-              <span className="hidden md:inline">Delete ({selectedDeviceIds.size})</span>
-              <span className="md:hidden">{selectedDeviceIds.size}</span>
-            </button>
-          )}
-        </div>
+        {selectedDeviceIds.size > 0 && (
+          <div className="text-xs text-[var(--color-text-muted)] mt-1">
+            {selectedDeviceIds.size} device{selectedDeviceIds.size !== 1 ? 's' : ''} selected
+          </div>
+        )}
       </div>
 
       {/* Data-Dense Header for Selected Device */}
@@ -585,15 +565,19 @@ export function DeviceTable({ devices, selectedDeviceId, onDeviceSelect, onCompo
             <thead className="sticky top-0 bg-[var(--color-surface)] backdrop-blur-sm border-b border-[var(--color-border-subtle)] z-10">
               <tr>
                 <th className="w-12 py-3.5 px-3 text-center">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    ref={(el) => {
-                      if (el) el.indeterminate = someSelected
-                    }}
-                    onChange={handleSelectAll}
-                    className="w-4 h-4 rounded border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
-                  />
+                  <button
+                    onClick={handleSelectAll}
+                    className="p-0.5 rounded hover:bg-[var(--color-surface-subtle)] transition-colors"
+                    title={allSelected ? "Deselect all" : "Select all"}
+                  >
+                    {allSelected ? (
+                      <CheckSquare size={16} className="text-[var(--color-primary)]" />
+                    ) : someSelected ? (
+                      <CheckSquare size={16} className="text-[var(--color-primary)] opacity-50" />
+                    ) : (
+                      <Square size={16} className="text-[var(--color-text-muted)]" />
+                    )}
+                  </button>
                 </th>
                 <th
                   className="text-left py-3.5 px-5 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider cursor-pointer hover:text-[var(--color-text)] transition-colors"

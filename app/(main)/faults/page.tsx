@@ -26,6 +26,7 @@ import { Device } from '@/lib/mockData'
 import { FaultCategory, assignFaultCategory, generateFaultDescription, faultCategories } from '@/lib/faultDefinitions'
 import { trpc } from '@/lib/trpc/client'
 import { useMap } from '@/lib/MapContext'
+import { useMapUpload } from '@/lib/useMapUpload'
 import { Droplets, Zap, Thermometer, Plug, Settings, Package, Wrench, Lightbulb, TrendingUp, TrendingDown, AlertTriangle, Clock, ArrowUp, ArrowDown, Minus } from 'lucide-react'
 import { fuzzySearch } from '@/lib/fuzzySearch'
 
@@ -45,6 +46,7 @@ interface Fault {
   faultType: FaultCategory
   detectedAt: Date
   description: string
+  resolved?: boolean // Whether the fault is resolved (archived)
 }
 
 export default function FaultsPage() {
@@ -63,10 +65,11 @@ export default function FaultsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<MapViewMode>('list')
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
+  const [showResolved, setShowResolved] = useState(false) // Archive filter
 
   // Fetch faults from database
   const { data: dbFaults, refetch: refetchFaults } = trpc.fault.list.useQuery(
-    { siteId: activeSiteId || '', includeResolved: false },
+    { siteId: activeSiteId || '', includeResolved: showResolved },
     { enabled: !!activeSiteId, refetchOnWindowFocus: false }
   )
 
@@ -74,6 +77,22 @@ export default function FaultsPage() {
   const createFaultMutation = trpc.fault.create.useMutation({
     onSuccess: () => {
       refetchFaults()
+    },
+  })
+
+  // Update fault mutation (for resolve/unresolve)
+  const updateFaultMutation = trpc.fault.update.useMutation({
+    onSuccess: () => {
+      refetchFaults()
+    },
+  })
+
+  // Delete fault mutation
+  const deleteFaultMutation = trpc.fault.delete.useMutation({
+    onSuccess: () => {
+      refetchFaults()
+      setSelectedFaultId(null)
+      setSelectedDeviceId(null)
     },
   })
 
@@ -203,11 +222,11 @@ export default function FaultsPage() {
     return faultList.sort((a, b) => b.detectedAt.getTime() - a.detectedAt.getTime())
   }, [devices])
 
-  // Combine database faults with device-generated faults
+  // Only use database faults (which have resolve/delete capabilities)
   const faults = useMemo<Fault[]>(() => {
     const allFaults: Fault[] = []
 
-    // Add database faults (manually created)
+    // Add database faults only
     if (dbFaults) {
       dbFaults.forEach(dbFault => {
         // Find the device
@@ -219,24 +238,15 @@ export default function FaultsPage() {
             faultType: dbFault.faultType as FaultCategory,
             detectedAt: dbFault.detectedAt,
             description: dbFault.description,
+            resolved: dbFault.resolved, // Include resolved status
           })
         }
       })
     }
 
-    // Add device-generated faults (only if not already in database)
-    const dbFaultDeviceIds = new Set(dbFaults?.map(f => f.deviceId) || [])
-    deviceGeneratedFaults.forEach(deviceFault => {
-      // Only add if this device doesn't already have a database fault
-      // (to avoid duplicates)
-      if (!dbFaultDeviceIds.has(deviceFault.device.id)) {
-        allFaults.push(deviceFault)
-      }
-    })
-
     // Sort by detected time (most recent first)
     return allFaults.sort((a, b) => b.detectedAt.getTime() - a.detectedAt.getTime())
-  }, [dbFaults, deviceGeneratedFaults, devices])
+  }, [dbFaults, devices])
 
   // Sync database faults to notifications
   // Use a ref to track which faults we've already created notifications for
@@ -316,19 +326,27 @@ export default function FaultsPage() {
   const panelRef = useRef<ResizablePanelRef>(null)
 
   // Map data is now loaded from MapContext - no need to load it here
-
   const { refreshMapData } = useMap()
+  const { uploadMap, uploadVectorData } = useMapUpload()
 
   const handleMapUpload = async (imageUrl: string) => {
-    // Map upload is handled in the map page, which updates shared storage
-    // Just refresh the map data to pick up the new upload
-    await refreshMapData()
+    try {
+      await uploadMap(imageUrl)
+      // Refresh map data to show the new upload
+      await refreshMapData()
+    } catch (error: any) {
+      alert(error.message || 'Failed to upload map')
+    }
   }
 
   const handleVectorDataUpload = async (data: any) => {
-    // Vector data upload is handled in the map page
-    // Just refresh the map data to pick up the new upload
-    await refreshMapData()
+    try {
+      await uploadVectorData(data)
+      // Refresh map data to show the new upload
+      await refreshMapData()
+    } catch (error: any) {
+      alert(error.message || 'Failed to upload vector data')
+    }
   }
 
   const handleAddNewFault = async (faultData: { device: Device; faultType: FaultCategory; description: string }) => {
@@ -408,10 +426,12 @@ export default function FaultsPage() {
       const device = devices.find(d => d.id === dbFault.deviceId)
       if (device) {
         return {
+          id: dbFault.id, // Include database fault ID
           device,
           faultType: dbFault.faultType as FaultCategory,
           detectedAt: dbFault.detectedAt,
           description: dbFault.description,
+          resolved: dbFault.resolved, // Include resolved status
         }
       }
     }
@@ -676,6 +696,17 @@ export default function FaultsPage() {
 
             {/* Right side: Category Filter Toggles */}
             <div className="flex items-center gap-3">
+              {/* Show Resolved Toggle */}
+              <button
+                onClick={() => setShowResolved(prev => !prev)}
+                className={`text-sm px-3 py-1.5 rounded-lg border transition-all ${showResolved
+                  ? 'bg-[var(--color-primary-soft)] border-[var(--color-primary)] text-[var(--color-primary)]'
+                  : 'bg-transparent border-[var(--color-border-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-border)]'
+                  }`}
+              >
+                {showResolved ? 'Hide Resolved' : 'Show Resolved'}
+              </button>
+
               {selectedDeviceId && viewMode === 'map' && (
                 <button
                   onClick={() => {
@@ -805,7 +836,14 @@ export default function FaultsPage() {
           collapseThreshold={200}
           storageKey="faults_panel"
         >
-          <FaultDetailsPanel fault={selectedFault} devices={devices} onAddNewFault={handleAddNewFault} />
+          <FaultDetailsPanel
+            fault={selectedFault}
+            devices={devices}
+            onAddNewFault={handleAddNewFault}
+            onDelete={(faultId) => deleteFaultMutation.mutate({ id: faultId })}
+            onResolve={(faultId) => updateFaultMutation.mutate({ id: faultId, resolved: true })}
+            onUnresolve={(faultId) => updateFaultMutation.mutate({ id: faultId, resolved: false })}
+          />
         </ResizablePanel>
       </div>
     </div>

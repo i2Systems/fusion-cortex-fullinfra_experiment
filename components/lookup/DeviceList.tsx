@@ -21,6 +21,7 @@ import { Signal, Battery, Wifi, WifiOff, Shield, Plus, QrCode, Upload, Download,
 import { Device } from '@/lib/mockData'
 import { calculateWarrantyStatus, getWarrantyStatusLabel, getWarrantyStatusTokenClass } from '@/lib/warranty'
 import { getDeviceLibraryUrl } from '@/lib/libraryUtils'
+import { getStatusTokenClass, getSignalTokenClass, getBatteryTokenClass } from '@/lib/styleUtils'
 
 interface DeviceListProps {
   devices: Device[]
@@ -39,27 +40,6 @@ const getTypeLabel = (type: string) => {
     case 'light-sensor': return 'Light Sensor'
     default: return type
   }
-}
-
-const getStatusTokenClass = (status: string) => {
-  switch (status) {
-    case 'online': return 'token token-status-online'
-    case 'offline': return 'token token-status-offline'
-    case 'missing': return 'token token-status-error'
-    default: return 'token token-status-offline'
-  }
-}
-
-const getSignalTokenClass = (signal: number) => {
-  if (signal >= 80) return 'token token-data token-data-signal-high'
-  if (signal >= 50) return 'token token-data token-data-signal-medium'
-  return 'token token-data token-data-signal-low'
-}
-
-const getBatteryTokenClass = (battery: number) => {
-  if (battery >= 80) return 'token token-data token-data-battery-high'
-  if (battery >= 20) return 'token token-data token-data-battery-medium'
-  return 'token token-data token-data-battery-low'
 }
 
 // Memoized table row component

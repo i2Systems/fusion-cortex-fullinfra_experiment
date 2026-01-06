@@ -23,6 +23,7 @@ import { initialBACnetMappings, type ControlCapability } from '@/lib/initialBACn
 import { ResizablePanel } from '@/components/layout/ResizablePanel'
 import { Power, Sun, Clock, Radio, CheckCircle2, AlertCircle, XCircle, Plus } from 'lucide-react'
 import { useMap } from '@/lib/MapContext'
+import { useMapUpload } from '@/lib/useMapUpload'
 
 // Dynamically import BACnetZoneCanvas to avoid SSR issues with Konva
 const BACnetZoneCanvas = dynamic(() => import('@/components/bacnet/BACnetZoneCanvas').then(mod => ({ default: mod.BACnetZoneCanvas })), {
@@ -388,17 +389,26 @@ export default function BACnetPage() {
 
   // Map data is now loaded from MapContext - no need to load it here
   const { refreshMapData } = useMap()
+  const { uploadMap, uploadVectorData } = useMapUpload()
   
   const handleMapUpload = async (imageUrl: string) => {
-    // Map upload is handled in the map page, which updates shared storage
-    // Just refresh the map data to pick up the new upload
-    await refreshMapData()
+    try {
+      await uploadMap(imageUrl)
+      // Refresh map data to show the new upload
+      await refreshMapData()
+    } catch (error: any) {
+      alert(error.message || 'Failed to upload map')
+    }
   }
   
   const handleVectorDataUpload = async (data: any) => {
-    // Vector data upload is handled in the map page
-    // Just refresh the map data to pick up the new upload
-    await refreshMapData()
+    try {
+      await uploadVectorData(data)
+      // Refresh map data to show the new upload
+      await refreshMapData()
+    } catch (error: any) {
+      alert(error.message || 'Failed to upload vector data')
+    }
   }
 
   // Handle zone selection from map

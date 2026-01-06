@@ -96,7 +96,7 @@ export function SiteDetailsPanel({
   const [isSiteDropdownOpen, setIsSiteDropdownOpen] = useState(false)
   const [siteImageUrl, setSiteImageUrl] = useState<string | null>(null)
   const [imageKey, setImageKey] = useState(0) // Force re-render on update
-  
+
   // Close dropdown when activeSiteId changes (synced from top-right selector)
   useEffect(() => {
     setIsSiteDropdownOpen(false)
@@ -113,7 +113,7 @@ export function SiteDetailsPanel({
   const queryInput = isValidSiteId && site?.id ? { siteId: String(site.id).trim() } : skipToken
   const { data: dbImage, isLoading: isDbLoading, refetch: refetchSiteImage } = trpc.image.getSiteImage.useQuery(
     queryInput,
-    { 
+    {
       // Double protection: enabled flag prevents query execution
       enabled: isValidSiteId && !!site?.id && site.id.trim().length > 0,
       // Skip if siteId is invalid to avoid validation errors
@@ -275,353 +275,357 @@ export function SiteDetailsPanel({
   return (
     <div className="w-full h-full bg-[var(--color-surface)] backdrop-blur-xl rounded-2xl border border-[var(--color-border-subtle)] flex flex-col shadow-[var(--shadow-strong)] overflow-hidden">
       <div className="flex-1 overflow-auto p-4 md:p-6 space-y-4 md:space-y-6">
-      {/* Site Header */}
-      <div>
-        {/* Site Image */}
-        {siteImageUrl && (
-          <div className="mb-4 rounded-lg overflow-hidden aspect-video bg-[var(--color-surface-subtle)]">
-            <img
-              src={siteImageUrl}
-              alt={site.name}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                // Hide image on error
-                e.currentTarget.style.display = 'none'
-              }}
-            />
-          </div>
-        )}
-        <div className="flex items-start justify-between mb-2 gap-3">
-          {/* Site Dropdown */}
-          <div className="flex-1 relative">
-            <button
-              onClick={() => setIsSiteDropdownOpen(!isSiteDropdownOpen)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[var(--color-border-subtle)] bg-transparent hover:bg-[var(--color-surface-subtle)] transition-all duration-200 group"
-              style={{ 
-                borderColor: 'var(--color-border-subtle)',
-                opacity: 0.6,
-              }}
-            >
-              <Building2 size={14} className="md:w-4 md:h-4 text-[var(--color-text-soft)] flex-shrink-0" />
-              <span className="text-lg md:text-xl font-bold text-[var(--color-text)] truncate">
-                {activeSiteId ? sites.find(s => s.id === activeSiteId)?.name || site?.name : site?.name || 'Select a site'}
-              </span>
-              <ChevronDown 
-                size={14}
-                className={`md:w-4 md:h-4 text-[var(--color-text-soft)] transition-transform duration-200 flex-shrink-0 ${
-                  isSiteDropdownOpen ? 'rotate-180' : ''
-                }`}
-              />
-            </button>
-            
-            {/* Dropdown Menu */}
-            {isSiteDropdownOpen && (
-              <>
-                <div 
-                  className="fixed inset-0 z-10" 
-                  onClick={() => setIsSiteDropdownOpen(false)}
-                />
-                <div className="absolute top-full left-0 mt-1 w-64 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-lg shadow-[var(--shadow-strong)] z-20 max-h-80 overflow-auto">
-                  {sites.map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => {
-                        setActiveSite(s.id)
-                        setIsSiteDropdownOpen(false)
-                      }}
-                      className={`w-full text-left px-4 py-2.5 hover:bg-[var(--color-surface-subtle)] transition-colors flex items-center gap-2 ${
-                        activeSiteId === s.id 
-                          ? 'bg-[var(--color-primary)]/10 border-l-2 border-l-[var(--color-primary)]' 
-                          : ''
-                      }`}
-                    >
-                      <Building2 
-                        size={14} 
-                        className={`flex-shrink-0 ${
-                          activeSiteId === s.id 
-                            ? 'text-[var(--color-primary)]' 
-                            : 'text-[var(--color-text-muted)]'
-                        }`}
-                      />
-                      <span className={`font-medium ${
-                        activeSiteId === s.id 
-                          ? 'text-[var(--color-text)]' 
-                          : 'text-[var(--color-text-muted)]'
-                      }`}>
-                        {s.name}
-                      </span>
-                      {activeSiteId === s.id && (
-                        <div className="ml-auto w-2 h-2 rounded-full bg-[var(--color-primary)]" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-          
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <button
-              onClick={() => onEditSite?.(site)}
-              className="p-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors"
-              title="Edit site"
-            >
-              <Edit2 size={14} className="text-[var(--color-text-muted)]" />
-            </button>
-            {sites.length > 1 && (
-              <button
-                onClick={() => {
-                  if (confirm(`Are you sure you want to remove "${site.name}"? This will delete all associated data.`)) {
-                    onRemoveSite?.(site.id)
-                  }
+        {/* Site Header */}
+        <div>
+          {/* Site Image */}
+          {siteImageUrl && (
+            <div className="mb-4 rounded-lg overflow-hidden aspect-video bg-[var(--color-surface-subtle)]">
+              <img
+                src={siteImageUrl}
+                alt={site.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  // Hide image on error
+                  e.currentTarget.style.display = 'none'
                 }}
-                className="p-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors"
-                title="Remove site"
+              />
+            </div>
+          )}
+          <div className="flex items-start justify-between mb-2 gap-3">
+            {/* Site Dropdown */}
+            <div className="flex-1 relative">
+              <button
+                onClick={() => setIsSiteDropdownOpen(!isSiteDropdownOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[var(--color-border-subtle)] bg-transparent hover:bg-[var(--color-surface-subtle)] transition-all duration-200 group"
+                style={{
+                  borderColor: 'var(--color-border-subtle)',
+                  opacity: 0.6,
+                }}
               >
-                <Trash2 size={14} className="text-[var(--color-text-muted)]" />
+                <Building2 size={14} className="md:w-4 md:h-4 text-[var(--color-text-soft)] flex-shrink-0" />
+                <span className="text-lg md:text-xl font-bold text-[var(--color-text)] truncate">
+                  {activeSiteId ? sites.find(s => s.id === activeSiteId)?.name || site?.name : site?.name || 'Select a site'}
+                </span>
+                <ChevronDown
+                  size={14}
+                  className={`md:w-4 md:h-4 text-[var(--color-text-soft)] transition-transform duration-200 flex-shrink-0 ${isSiteDropdownOpen ? 'rotate-180' : ''
+                    }`}
+                />
               </button>
-            )}
-          </div>
-        </div>
-        <div className="space-y-1.5 md:space-y-2 text-xs md:text-sm text-[var(--color-text-muted)]">
-          {site.address && (
-            <div className="flex items-center gap-1.5 md:gap-2">
-              <MapPin size={12} className="md:w-3.5 md:h-3.5 flex-shrink-0" />
-              <span className="break-words">{site.address}, {site.city}, {site.state} {site.zipCode}</span>
-            </div>
-          )}
-          {site.phone && (
-            <div className="flex items-center gap-1.5 md:gap-2">
-              <Phone size={12} className="md:w-3.5 md:h-3.5 flex-shrink-0" />
-              <span>{site.phone}</span>
-            </div>
-          )}
-          {site.manager && (
-            <div className="flex items-center gap-1.5 md:gap-2">
-              <User size={12} className="md:w-3.5 md:h-3.5 flex-shrink-0" />
-              <span>Manager: {site.manager}</span>
-            </div>
-          )}
-          {site.squareFootage && (
-            <div className="flex items-center gap-1.5 md:gap-2">
-              <Map size={12} className="md:w-3.5 md:h-3.5 flex-shrink-0" />
-              <span>{site.squareFootage.toLocaleString()} sq ft</span>
-            </div>
-          )}
-        </div>
-      </div>
 
-      {/* Health Status */}
-      <div className="p-3 md:p-4 rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)]">
-        <div className="flex items-center justify-between mb-2 md:mb-3">
-          <div className="flex items-center gap-1.5 md:gap-2">
-            <Activity size={16} className="md:w-[18px] md:h-[18px] flex-shrink-0" />
-            <span className="text-sm md:text-base font-semibold text-[var(--color-text)]">System Health</span>
-          </div>
-          {getHealthIcon(healthPercentage)}
-        </div>
-        <div className="text-2xl md:text-3xl font-bold mb-2" style={{ color: getHealthColor(healthPercentage) }}>
-          {healthPercentage}%
-        </div>
-        <div className="grid grid-cols-3 gap-1.5 md:gap-2 text-xs">
-          <div>
-            <div className="text-[var(--color-text-muted)]">Online</div>
-            <div className="font-semibold text-[var(--color-success)]">{onlineDevices}</div>
-          </div>
-          <div>
-            <div className="text-[var(--color-text-muted)]">Offline</div>
-            <div className="font-semibold text-[var(--color-warning)]">{offlineDevices}</div>
-          </div>
-          <div>
-            <div className="text-[var(--color-text-muted)]">Missing</div>
-            <div className="font-semibold text-[var(--color-danger)]">{missingDevices}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Key Metrics */}
-      <div className="grid grid-cols-2 gap-1.5 sm:gap-2 md:gap-3">
-        <div className="p-2 sm:p-2.5 md:p-3 rounded-lg bg-[var(--color-surface-subtle)]">
-          <div className="text-[10px] sm:text-xs text-[var(--color-text-muted)] mb-0.5 md:mb-1">Total Devices</div>
-          <div className="text-base sm:text-lg md:text-xl font-bold text-[var(--color-text)]">{devices.length}</div>
-        </div>
-        <div className="p-2 sm:p-2.5 md:p-3 rounded-lg bg-[var(--color-surface-subtle)]">
-          <div className="text-[10px] sm:text-xs text-[var(--color-text-muted)] mb-0.5 md:mb-1">Zones</div>
-          <div className="text-base sm:text-lg md:text-xl font-bold text-[var(--color-text)]">{zones.length}</div>
-        </div>
-        <div className="p-2 sm:p-2.5 md:p-3 rounded-lg bg-[var(--color-surface-subtle)]">
-          <div className="text-[10px] sm:text-xs text-[var(--color-text-muted)] mb-0.5 md:mb-1">Rules</div>
-          <div className="text-base sm:text-lg md:text-xl font-bold text-[var(--color-text)]">{rules.length}</div>
-        </div>
-        <div className="p-2 sm:p-2.5 md:p-3 rounded-lg bg-[var(--color-surface-subtle)]">
-          <div className="text-[10px] sm:text-xs text-[var(--color-text-muted)] mb-0.5 md:mb-1">Map Status</div>
-          <div className="text-[10px] sm:text-xs md:text-sm font-semibold flex items-center gap-0.5 sm:gap-1">
-            {mapUploaded ? (
-              <>
-                <CheckCircle2 size={12} className="sm:w-3.5 sm:h-3.5 text-[var(--color-success)] flex-shrink-0" />
-                <span className="text-[var(--color-success)] truncate">Uploaded</span>
-              </>
-            ) : (
-              <>
-                <AlertCircle size={12} className="sm:w-3.5 sm:h-3.5 text-[var(--color-warning)] flex-shrink-0" />
-                <span className="text-[var(--color-warning)] truncate">Not uploaded</span>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Critical Faults */}
-      {criticalFaults.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={16} className="text-[var(--color-danger)]" />
-              <span className="font-semibold text-[var(--color-text)]">Critical Faults</span>
+              {/* Dropdown Menu */}
+              {isSiteDropdownOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setIsSiteDropdownOpen(false)}
+                  />
+                  <div className="absolute top-full left-0 mt-1 w-64 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-lg shadow-[var(--shadow-strong)] z-20 max-h-80 overflow-auto">
+                    {sites.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => {
+                          setActiveSite(s.id)
+                          setIsSiteDropdownOpen(false)
+                        }}
+                        className={`w-full text-left px-4 py-2.5 hover:bg-[var(--color-surface-subtle)] transition-colors flex items-center gap-2 ${activeSiteId === s.id
+                          ? 'bg-[var(--color-primary)]/10 border-l-2 border-l-[var(--color-primary)]'
+                          : ''
+                          }`}
+                      >
+                        <Building2
+                          size={14}
+                          className={`flex-shrink-0 ${activeSiteId === s.id
+                            ? 'text-[var(--color-primary)]'
+                            : 'text-[var(--color-text-muted)]'
+                            }`}
+                        />
+                        <span className={`font-medium ${activeSiteId === s.id
+                          ? 'text-[var(--color-text)]'
+                          : 'text-[var(--color-text-muted)]'
+                          }`}>
+                          {s.name}
+                        </span>
+                        {activeSiteId === s.id && (
+                          <div className="ml-auto w-2 h-2 rounded-full bg-[var(--color-primary)]" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
-            <button
-              onClick={() => handleNavigate('/faults')}
-              className="text-xs text-[var(--color-primary)] hover:underline flex items-center gap-1"
-            >
-              View all
-              <ArrowRight size={12} />
-            </button>
-          </div>
-          <div className="space-y-2">
-            {criticalFaults.slice(0, 3).map((fault, idx) => (
-              <div
-                key={idx}
-                className="p-3 rounded-lg bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20 cursor-pointer hover:bg-[var(--color-danger)]/15 transition-colors"
-                onClick={() => handleNavigate('/faults')}
+
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                onClick={() => onEditSite?.(site)}
+                className="p-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors"
+                title="Edit site"
               >
-                <div className="font-medium text-sm text-[var(--color-text)] mb-1">
-                  {fault.deviceName}
-                </div>
-                <div className="text-xs text-[var(--color-text-muted)] mb-1 line-clamp-2">
-                  {fault.description}
-                </div>
-                <div className="text-xs text-[var(--color-text-soft)] flex items-center gap-1">
-                  <MapPin size={10} />
-                  {fault.location}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Warranty Alerts */}
-      {(warrantiesExpiring > 0 || warrantiesExpired > 0) && (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Shield size={16} className="text-[var(--color-warning)]" />
-              <span className="font-semibold text-[var(--color-text)]">Warranty Alerts</span>
+                <Edit2 size={14} className="text-[var(--color-text-muted)]" />
+              </button>
+              {sites.length > 1 && (
+                <></>
+              )}
             </div>
-            <button
-              onClick={() => handleNavigate('/lookup')}
-              className="text-xs text-[var(--color-primary)] hover:underline flex items-center gap-1"
-            >
-              View devices
-              <ArrowRight size={12} />
-            </button>
           </div>
-          <div className="space-y-2">
-            {warrantiesExpiring > 0 && (
-              <div className="p-3 rounded-lg bg-[var(--color-warning)]/10 border border-[var(--color-warning)]/20">
-                <div className="text-sm font-medium text-[var(--color-warning)] mb-1">
-                  {warrantiesExpiring} warranty{warrantiesExpiring !== 1 ? 'ies' : ''} expiring soon
-                </div>
-                <div className="text-xs text-[var(--color-text-muted)]">
-                  Expiring within 30 days
-                </div>
+          <div className="space-y-1.5 md:space-y-2 text-xs md:text-sm text-[var(--color-text-muted)]">
+            {site.address && (
+              <div className="flex items-center gap-1.5 md:gap-2">
+                <MapPin size={12} className="md:w-3.5 md:h-3.5 flex-shrink-0" />
+                <span className="break-words">{site.address}, {site.city}, {site.state} {site.zipCode}</span>
               </div>
             )}
-            {warrantiesExpired > 0 && (
-              <div className="p-3 rounded-lg bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20">
-                <div className="text-sm font-medium text-[var(--color-danger)] mb-1">
-                  {warrantiesExpired} expired warranty{warrantiesExpired !== 1 ? 'ies' : ''}
-                </div>
-                <div className="text-xs text-[var(--color-text-muted)]">
-                  Requires attention
-                </div>
+            {site.phone && (
+              <div className="flex items-center gap-1.5 md:gap-2">
+                <Phone size={12} className="md:w-3.5 md:h-3.5 flex-shrink-0" />
+                <span>{site.phone}</span>
+              </div>
+            )}
+            {site.manager && (
+              <div className="flex items-center gap-1.5 md:gap-2">
+                <User size={12} className="md:w-3.5 md:h-3.5 flex-shrink-0" />
+                <span>Manager: {site.manager}</span>
+              </div>
+            )}
+            {site.squareFootage && (
+              <div className="flex items-center gap-1.5 md:gap-2">
+                <Map size={12} className="md:w-3.5 md:h-3.5 flex-shrink-0" />
+                <span>{site.squareFootage.toLocaleString()} sq ft</span>
               </div>
             )}
           </div>
         </div>
-      )}
 
-      {/* Recent Activity */}
-      {recentActivity.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Clock size={16} className="text-[var(--color-text-muted)]" />
-            <span className="font-semibold text-[var(--color-text)]">Recent Activity</span>
+        {/* Health Status */}
+        <div className="p-3 md:p-4 rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)]">
+          <div className="flex items-center justify-between mb-2 md:mb-3">
+            <div className="flex items-center gap-1.5 md:gap-2">
+              <Activity size={16} className="md:w-[18px] md:h-[18px] flex-shrink-0" />
+              <span className="text-sm md:text-base font-semibold text-[var(--color-text)]">System Health</span>
+            </div>
+            {getHealthIcon(healthPercentage)}
           </div>
-          <div className="space-y-2">
-            {recentActivity.map((activity, idx) => {
-              const Icon = activity.icon
-              return (
+          <div className="text-2xl md:text-3xl font-bold mb-2" style={{ color: getHealthColor(healthPercentage) }}>
+            {healthPercentage}%
+          </div>
+          <div className="grid grid-cols-3 gap-1.5 md:gap-2 text-xs">
+            <div>
+              <div className="text-[var(--color-text-muted)]">Online</div>
+              <div className="font-semibold text-[var(--color-success)]">{onlineDevices}</div>
+            </div>
+            <div>
+              <div className="text-[var(--color-text-muted)]">Offline</div>
+              <div className="font-semibold text-[var(--color-warning)]">{offlineDevices}</div>
+            </div>
+            <div>
+              <div className="text-[var(--color-text-muted)]">Missing</div>
+              <div className="font-semibold text-[var(--color-danger)]">{missingDevices}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Key Metrics */}
+        <div className="grid grid-cols-2 gap-1.5 sm:gap-2 md:gap-3">
+          <div className="p-2 sm:p-2.5 md:p-3 rounded-lg bg-[var(--color-surface-subtle)]">
+            <div className="text-[10px] sm:text-xs text-[var(--color-text-muted)] mb-0.5 md:mb-1">Total Devices</div>
+            <div className="text-base sm:text-lg md:text-xl font-bold text-[var(--color-text)]">{devices.length}</div>
+          </div>
+          <div className="p-2 sm:p-2.5 md:p-3 rounded-lg bg-[var(--color-surface-subtle)]">
+            <div className="text-[10px] sm:text-xs text-[var(--color-text-muted)] mb-0.5 md:mb-1">Zones</div>
+            <div className="text-base sm:text-lg md:text-xl font-bold text-[var(--color-text)]">{zones.length}</div>
+          </div>
+          <div className="p-2 sm:p-2.5 md:p-3 rounded-lg bg-[var(--color-surface-subtle)]">
+            <div className="text-[10px] sm:text-xs text-[var(--color-text-muted)] mb-0.5 md:mb-1">Rules</div>
+            <div className="text-base sm:text-lg md:text-xl font-bold text-[var(--color-text)]">{rules.length}</div>
+          </div>
+          <div className="p-2 sm:p-2.5 md:p-3 rounded-lg bg-[var(--color-surface-subtle)]">
+            <div className="text-[10px] sm:text-xs text-[var(--color-text-muted)] mb-0.5 md:mb-1">Map Status</div>
+            <div className="text-[10px] sm:text-xs md:text-sm font-semibold flex items-center gap-0.5 sm:gap-1">
+              {mapUploaded ? (
+                <>
+                  <CheckCircle2 size={12} className="sm:w-3.5 sm:h-3.5 text-[var(--color-success)] flex-shrink-0" />
+                  <span className="text-[var(--color-success)] truncate">Uploaded</span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle size={12} className="sm:w-3.5 sm:h-3.5 text-[var(--color-warning)] flex-shrink-0" />
+                  <span className="text-[var(--color-warning)] truncate">Not uploaded</span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Critical Faults */}
+        {criticalFaults.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={16} className="text-[var(--color-danger)]" />
+                <span className="font-semibold text-[var(--color-text)]">Critical Faults</span>
+              </div>
+              <button
+                onClick={() => handleNavigate('/faults')}
+                className="text-xs text-[var(--color-primary)] hover:underline flex items-center gap-1"
+              >
+                View all
+                <ArrowRight size={12} />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {criticalFaults.slice(0, 3).map((fault, idx) => (
                 <div
                   key={idx}
-                  className="p-3 rounded-lg bg-[var(--color-surface-subtle)] cursor-pointer hover:bg-[var(--color-surface)] transition-colors"
-                  onClick={activity.onClick}
+                  className="p-3 rounded-lg bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20 cursor-pointer hover:bg-[var(--color-danger)]/15 transition-colors"
+                  onClick={() => handleNavigate('/faults')}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="p-1.5 rounded bg-[var(--color-surface)] flex-shrink-0">
-                      <Icon size={14} style={{ color: activity.color }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-[var(--color-text)] mb-0.5">
-                        {activity.title}
+                  <div className="font-medium text-sm text-[var(--color-text)] mb-1">
+                    {fault.deviceName}
+                  </div>
+                  <div className="text-xs text-[var(--color-text-muted)] mb-1 line-clamp-2">
+                    {fault.description}
+                  </div>
+                  <div className="text-xs text-[var(--color-text-soft)] flex items-center gap-1">
+                    <MapPin size={10} />
+                    {fault.location}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Warranty Alerts */}
+        {(warrantiesExpiring > 0 || warrantiesExpired > 0) && (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Shield size={16} className="text-[var(--color-warning)]" />
+                <span className="font-semibold text-[var(--color-text)]">Warranty Alerts</span>
+              </div>
+              <button
+                onClick={() => handleNavigate('/lookup')}
+                className="text-xs text-[var(--color-primary)] hover:underline flex items-center gap-1"
+              >
+                View devices
+                <ArrowRight size={12} />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {warrantiesExpiring > 0 && (
+                <div className="p-3 rounded-lg bg-[var(--color-warning)]/10 border border-[var(--color-warning)]/20">
+                  <div className="text-sm font-medium text-[var(--color-warning)] mb-1">
+                    {warrantiesExpiring} warranty{warrantiesExpiring !== 1 ? 'ies' : ''} expiring soon
+                  </div>
+                  <div className="text-xs text-[var(--color-text-muted)]">
+                    Expiring within 30 days
+                  </div>
+                </div>
+              )}
+              {warrantiesExpired > 0 && (
+                <div className="p-3 rounded-lg bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20">
+                  <div className="text-sm font-medium text-[var(--color-danger)] mb-1">
+                    {warrantiesExpired} expired warranty{warrantiesExpired !== 1 ? 'ies' : ''}
+                  </div>
+                  <div className="text-xs text-[var(--color-text-muted)]">
+                    Requires attention
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Recent Activity */}
+        {recentActivity.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Clock size={16} className="text-[var(--color-text-muted)]" />
+              <span className="font-semibold text-[var(--color-text)]">Recent Activity</span>
+            </div>
+            <div className="space-y-2">
+              {recentActivity.map((activity, idx) => {
+                const Icon = activity.icon
+                return (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-lg bg-[var(--color-surface-subtle)] cursor-pointer hover:bg-[var(--color-surface)] transition-colors"
+                    onClick={activity.onClick}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="p-1.5 rounded bg-[var(--color-surface)] flex-shrink-0">
+                        <Icon size={14} style={{ color: activity.color }} />
                       </div>
-                      <div className="text-xs text-[var(--color-text-muted)] mb-1">
-                        {activity.description}
-                      </div>
-                      <div className="text-xs text-[var(--color-text-soft)]">
-                        {activity.time}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-[var(--color-text)] mb-0.5">
+                          {activity.title}
+                        </div>
+                        <div className="text-xs text-[var(--color-text-muted)] mb-1">
+                          {activity.description}
+                        </div>
+                        <div className="text-xs text-[var(--color-text-soft)]">
+                          {activity.time}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Quick Actions */}
+        <div>
+          <div className="font-semibold text-sm text-[var(--color-text)] mb-3">Quick Actions</div>
+          <div className="space-y-2">
+            <button
+              onClick={() => handleNavigate('/map')}
+              className="w-full fusion-button fusion-button-primary text-left justify-start text-xs md:text-sm"
+            >
+              <Map size={14} className="md:w-4 md:h-4" />
+              <span className="hidden sm:inline">View Map</span>
+              <span className="sm:hidden">Map</span>
+            </button>
+            <button
+              onClick={() => handleNavigate('/zones')}
+              className="w-full fusion-button text-left justify-start text-xs md:text-sm"
+              style={{ background: 'var(--color-surface-subtle)', color: 'var(--color-text)' }}
+            >
+              <Layers size={14} className="md:w-4 md:h-4" />
+              <span className="hidden sm:inline">Manage Zones</span>
+              <span className="sm:hidden">Zones</span>
+            </button>
+            <button
+              onClick={() => handleNavigate('/rules')}
+              className="w-full fusion-button text-left justify-start text-xs md:text-sm"
+              style={{ background: 'var(--color-surface-subtle)', color: 'var(--color-text)' }}
+            >
+              <Workflow size={14} className="md:w-4 md:h-4" />
+              <span className="hidden sm:inline">Configure Rules</span>
+              <span className="sm:hidden">Rules</span>
+            </button>
           </div>
         </div>
-      )}
 
-      {/* Quick Actions */}
-      <div>
-        <div className="font-semibold text-sm text-[var(--color-text)] mb-3">Quick Actions</div>
-        <div className="space-y-2">
-          <button
-            onClick={() => handleNavigate('/map')}
-            className="w-full fusion-button fusion-button-primary text-left justify-start text-xs md:text-sm"
-          >
-            <Map size={14} className="md:w-4 md:h-4" />
-            <span className="hidden sm:inline">View Map</span>
-            <span className="sm:hidden">Map</span>
-          </button>
-          <button
-            onClick={() => handleNavigate('/zones')}
-            className="w-full fusion-button text-left justify-start text-xs md:text-sm"
-            style={{ background: 'var(--color-surface-subtle)', color: 'var(--color-text)' }}
-          >
-            <Layers size={14} className="md:w-4 md:h-4" />
-            <span className="hidden sm:inline">Manage Zones</span>
-            <span className="sm:hidden">Zones</span>
-          </button>
-          <button
-            onClick={() => handleNavigate('/rules')}
-            className="w-full fusion-button text-left justify-start text-xs md:text-sm"
-            style={{ background: 'var(--color-surface-subtle)', color: 'var(--color-text)' }}
-          >
-            <Workflow size={14} className="md:w-4 md:h-4" />
-            <span className="hidden sm:inline">Configure Rules</span>
-            <span className="sm:hidden">Rules</span>
-          </button>
-        </div>
-      </div>
+
+        {/* Delete Action */}
+        {onRemoveSite && (
+          <div className="pt-4 border-t border-[var(--color-danger)]/20">
+            <button
+              onClick={() => {
+                if (confirm(`Are you sure you want to remove "${site.name}"? This will delete all associated data.`)) {
+                  onRemoveSite?.(site.id)
+                }
+              }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20 rounded-lg text-sm font-medium text-[var(--color-danger)] hover:bg-[var(--color-danger)]/20 transition-colors"
+            >
+              <Trash2 size={14} />
+              Delete Site
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Action Buttons Bar */}
@@ -652,7 +656,7 @@ export function SiteDetailsPanel({
           </button>
         </div>
       </div>
-    </div>
+    </div >
   )
 }
 

@@ -342,12 +342,7 @@ export default function MapPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
 
-  // Default filters panel open on desktop
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
-      setShowFilters(true)
-    }
-  }, [])
+  // Filters panel - user controls via Layers button
   const [filters, setFilters] = useState<MapFilters>({
     showMap: true,
     showFixtures: true,
@@ -992,11 +987,11 @@ export default function MapPage() {
           placeholder={mapUploaded ? "Search devices, zones, or locations..." : "Upload a map to search devices..."}
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
-          onLayersClick={() => setShowFilters(!showFilters)}
+          onLayersClick={() => setShowFilters(prev => !prev)}
           filterCount={activeFilterCount}
         />
         {mapUploaded && showFilters && (
-          <div className="absolute top-full right-[20px] mt-2 z-50">
+          <div className="absolute top-full right-[20px] mt-2 z-[var(--z-dropdown)]">
             <MapFiltersPanel
               filters={filters}
               onFiltersChange={setFilters}
@@ -1034,7 +1029,7 @@ export default function MapPage() {
                 <button
                   onClick={handleDetectLights}
                   disabled={isDetectingLights}
-                  className="flex items-center justify-center gap-2 px-3 md:px-4 py-2 rounded-lg bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-[var(--shadow-soft)]"
+                  className="flex items-center justify-center gap-2 px-3 md:px-4 py-2 rounded-lg bg-[var(--color-surface)] backdrop-blur-xl border border-[var(--color-border-subtle)] text-[var(--color-primary)] hover:bg-[var(--color-primary-soft)] hover:border-[var(--color-primary)] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-[var(--shadow-soft)]"
                   title={isDetectingLights ? 'Detecting lights...' : detectedLightsCount !== null ? `Detect Lights (${detectedLightsCount} found)` : 'Auto-detect light fixtures from the map'}
                 >
                   {isDetectingLights ? (

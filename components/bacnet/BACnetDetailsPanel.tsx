@@ -10,8 +10,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { Power, Sun, Clock, Radio, CheckCircle2, AlertCircle, XCircle, Edit2, Trash2, RefreshCw, Plus, Layers, Save } from 'lucide-react'
 import type { ControlCapability } from '@/lib/initialBACnetMappings'
+import { PanelEmptyState } from '@/components/shared/PanelEmptyState'
 
 interface BACnetMapping {
   zoneId: string
@@ -36,42 +38,42 @@ interface BACnetDetailsPanelProps {
 }
 
 const capabilityLabels: Record<ControlCapability, { label: string; icon: any; description: string }> = {
-  'on-off': { 
-    label: 'On/Off', 
+  'on-off': {
+    label: 'On/Off',
     icon: Power,
     description: 'Basic binary control - BMS can turn zone on or off'
   },
-  'dimming': { 
-    label: 'Dimming', 
+  'dimming': {
+    label: 'Dimming',
     icon: Sun,
     description: 'Analog control - BMS can adjust brightness level (0-100%)'
   },
-  'scheduled': { 
-    label: 'Scheduled', 
+  'scheduled': {
+    label: 'Scheduled',
     icon: Clock,
     description: 'Time-based control - Zone follows predefined schedule'
   },
-  'motion': { 
-    label: 'Motion', 
+  'motion': {
+    label: 'Motion',
     icon: Radio,
     description: 'Motion-activated - Zone responds to occupancy sensors'
   },
-  'daylight': { 
-    label: 'Daylight', 
+  'daylight': {
+    label: 'Daylight',
     icon: Sun,
     description: 'Daylight harvesting - Zone adjusts based on natural light'
   },
-  'override': { 
-    label: 'Override', 
+  'override': {
+    label: 'Override',
     icon: Power,
     description: 'BMS override - Building management can override local control'
   },
 }
 
-export function BACnetDetailsPanel({ 
-  mapping, 
-  onEdit, 
-  onDelete, 
+export function BACnetDetailsPanel({
+  mapping,
+  onEdit,
+  onDelete,
   onTestConnection,
   onAdd,
   hasZones = true
@@ -136,24 +138,20 @@ export function BACnetDetailsPanel({
               BACnet mappings are automatically created when you add zones. Create zones first to enable BMS integration.
             </p>
           </div>
-          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-            <div className="w-16 h-16 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center mb-4">
-              <Layers size={24} className="text-[var(--color-text-muted)]" />
-            </div>
-            <h3 className="text-lg font-semibold text-[var(--color-text)] mb-2">
-              No Zones Yet
-            </h3>
-            <p className="text-sm text-[var(--color-text-muted)] mb-4">
-              Add at least one zone first to create BACnet mappings.
-            </p>
-            <a 
-              href="/zones"
-              className="fusion-button fusion-button-primary flex items-center justify-center gap-2 px-4"
-            >
-              <Layers size={16} />
-              Go to Zones
-            </a>
-          </div>
+          <PanelEmptyState
+            icon={Layers}
+            title="No Zones Yet"
+            description="Add at least one zone first to create BACnet mappings."
+            action={
+              <Link
+                href="/zones"
+                className="fusion-button fusion-button-primary flex items-center justify-center gap-2 px-4"
+              >
+                <Layers size={16} />
+                Go to Zones
+              </Link>
+            }
+          />
         </div>
       )
     }
@@ -177,17 +175,11 @@ export function BACnetDetailsPanel({
             Add Mapping
           </button>
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <div className="w-16 h-16 rounded-full bg-[var(--color-surface-subtle)] flex items-center justify-center mb-4">
-            <Radio size={24} className="text-[var(--color-text-muted)]" />
-          </div>
-          <h3 className="text-lg font-semibold text-[var(--color-text)] mb-2">
-            No Mapping Selected
-          </h3>
-          <p className="text-sm text-[var(--color-text-muted)]">
-            Select a zone from the table to view detailed BACnet connection information
-          </p>
-        </div>
+        <PanelEmptyState
+          icon={Radio}
+          title="No Mapping Selected"
+          description="Select a zone from the table to view detailed BACnet connection information"
+        />
       </div>
     )
   }
@@ -255,13 +247,6 @@ export function BACnetDetailsPanel({
                     >
                       <Edit2 size={14} className="text-[var(--color-text-muted)]" />
                     </button>
-                    <button
-                      onClick={onDelete}
-                      className="p-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors"
-                      title="Delete mapping"
-                    >
-                      <Trash2 size={14} className="text-[var(--color-text-muted)]" />
-                    </button>
                   </>
                 )}
               </div>
@@ -305,14 +290,14 @@ export function BACnetDetailsPanel({
           <h4 className="text-xs md:text-sm font-semibold text-[var(--color-text)] mb-2 md:mb-3">Connection Status</h4>
           <div className="p-3 rounded-lg border border-[var(--color-border-subtle)]">
             <div className={getStatusTokenClass(mapping.status)}>
-            {getStatusIcon(mapping.status)}
+              {getStatusIcon(mapping.status)}
               <span className="font-medium capitalize">{mapping.status === 'not-assigned' ? 'Not Assigned' : mapping.status}</span>
             </div>
-              {mapping.lastConnected && (
+            {mapping.lastConnected && (
               <div className="text-xs opacity-80 mt-2 text-[var(--color-text-muted)]">
-                  Last connected: {formatLastConnected(mapping.lastConnected)}
-                </div>
-              )}
+                Last connected: {formatLastConnected(mapping.lastConnected)}
+              </div>
+            )}
           </div>
         </div>
 
@@ -443,6 +428,23 @@ export function BACnetDetailsPanel({
             {mapping.description}
           </p>
         </div>
+
+        {/* Delete Action - at bottom of scrollable content */}
+        {!isEditing && (
+          <div className="pt-4 mt-4 border-t border-[var(--color-border-subtle)]">
+            <button
+              onClick={() => {
+                if (confirm('Are you sure you want to delete this BACnet mapping?')) {
+                  onDelete()
+                }
+              }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20 rounded-lg text-sm font-medium text-[var(--color-danger)] hover:bg-[var(--color-danger)]/20 transition-colors"
+            >
+              <Trash2 size={14} />
+              Delete Mapping
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Actions Footer */}

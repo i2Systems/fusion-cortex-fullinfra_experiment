@@ -34,24 +34,24 @@ const triggerOptions: Array<{ value: TriggerType; label: string; icon: any; desc
 ]
 
 const ruleTypeOptions: Array<{ value: RuleType; label: string; icon: any; description: string; examples: string[] }> = [
-  { 
-    value: 'rule', 
-    label: 'Rule', 
-    icon: Workflow, 
+  {
+    value: 'rule',
+    label: 'Rule',
+    icon: Workflow,
     description: 'Automated logic-based control that responds to conditions',
     examples: ['Motion Activation - Clothing', 'Daylight Harvesting - Grocery', 'Auto-Off After Inactivity']
   },
-  { 
-    value: 'override', 
-    label: 'Override', 
-    icon: Zap, 
+  {
+    value: 'override',
+    label: 'Override',
+    icon: Zap,
     description: 'Manual override that takes priority over rules and schedules',
     examples: ['Maintenance Override - Grocery', 'Emergency Lighting Override', 'Device Override - FLX-3158']
   },
-  { 
-    value: 'schedule', 
-    label: 'Schedule', 
-    icon: CalendarClock, 
+  {
+    value: 'schedule',
+    label: 'Schedule',
+    icon: CalendarClock,
     description: 'Time-based automation that runs at specific times',
     examples: ['Opening Hours - Retail', 'Weekend Schedule - Clothing', 'Closing Time Dimming']
   },
@@ -149,8 +149,8 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
 
   const handleRuleTypeSelect = (ruleType: RuleType) => {
     setSelectedRuleType(ruleType)
-    setFormData({ 
-      ...formData, 
+    setFormData({
+      ...formData,
       ruleType,
       trigger: ruleType === 'schedule' ? 'schedule' : formData.trigger || 'motion'
     })
@@ -159,8 +159,8 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
 
   const handleTargetSelect = (targetId: string, targetName: string) => {
     setSelectedTargetId(targetId)
-    setFormData({ 
-      ...formData, 
+    setFormData({
+      ...formData,
       targetId,
       targetName,
       condition: {
@@ -249,8 +249,8 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
     const targets = (rule.action.zones && rule.action.zones.length > 0)
       ? rule.action.zones.join(', ')
       : (rule.action.devices && rule.action.devices.length > 0)
-      ? `${rule.action.devices.length} device(s)`
-      : 'targets'
+        ? `${rule.action.devices.length} device(s)`
+        : 'targets'
     return `set ${targets} ${parts.join(', ')}`
   }
 
@@ -340,17 +340,7 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
                       <Edit2 size={14} className="text-[var(--color-text-muted)]" />
                     </button>
                     {onDelete && (
-                      <button
-                        onClick={() => {
-                          if (confirm('Are you sure you want to delete this rule?')) {
-                            onDelete(selectedRule.id)
-                          }
-                        }}
-                        className="p-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors"
-                        title="Delete rule"
-                      >
-                        <Trash2 size={14} className="text-[var(--color-text-muted)]" />
-                      </button>
+                      <></>
                     )}
                   </div>
                 </div>
@@ -402,15 +392,15 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
           <>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold text-[var(--color-text)]">
-                {mode === 'create' 
-                  ? creationStep === 'target' 
+                {mode === 'create'
+                  ? creationStep === 'target'
                     ? 'Create New'
                     : creationStep === 'type'
-                    ? 'Select Type'
-                    : 'Configure'
-                  : selectedRule 
-                  ? 'Edit Rule' 
-                  : 'Create New Rule'}
+                      ? 'Select Type'
+                      : 'Configure'
+                  : selectedRule
+                    ? 'Edit Rule'
+                    : 'Create New Rule'}
               </h3>
               {mode === 'create' && creationStep !== 'target' && (
                 <button
@@ -487,22 +477,20 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
                     <button
                       key={option.value}
                       onClick={() => handleRuleTypeSelect(option.value)}
-                      className={`w-full p-4 rounded-lg border-2 transition-all text-left group ${
-                        isOverride
-                          ? 'border-[var(--color-warning)]/50 hover:border-[var(--color-warning)] hover:bg-[var(--color-warning)]/10'
-                          : isSchedule
+                      className={`w-full p-4 rounded-lg border-2 transition-all text-left group ${isOverride
+                        ? 'border-[var(--color-warning)]/50 hover:border-[var(--color-warning)] hover:bg-[var(--color-warning)]/10'
+                        : isSchedule
                           ? 'border-[var(--color-primary)]/50 hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]'
                           : 'border-[var(--color-border-subtle)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-lg flex-shrink-0 ${
-                          isOverride
-                            ? 'bg-[var(--color-warning)]/20 text-[var(--color-warning)]'
-                            : isSchedule
+                        <div className={`p-2 rounded-lg flex-shrink-0 ${isOverride
+                          ? 'bg-[var(--color-warning)]/20 text-[var(--color-warning)]'
+                          : isSchedule
                             ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'
                             : 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'
-                        }`}>
+                          }`}>
                           <Icon size={18} className="group-hover:scale-110 transition-transform" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -533,11 +521,11 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
                 value={formData.name || ''}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder={
-                  selectedRuleType === 'schedule' 
+                  selectedRuleType === 'schedule'
                     ? `e.g., Opening Hours, Weekend Schedule, Closing Time Dimming`
                     : selectedRuleType === 'override'
-                    ? `e.g., Maintenance Override, Emergency Override, Device Override`
-                    : `e.g., Motion Activation, Daylight Harvesting, Auto-Off After Inactivity`
+                      ? `e.g., Maintenance Override, Emergency Override, Device Override`
+                      : `e.g., Motion Activation, Daylight Harvesting, Auto-Off After Inactivity`
                 }
                 className="w-full px-3 py-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[var(--shadow-glow-primary)] transition-all"
               />
@@ -604,12 +592,12 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
               <h4 className="text-sm font-semibold text-[var(--color-text)] mb-3">Rule Flow</h4>
               <RuleFlowEditor
                 rule={selectedRule}
-                onChange={() => {}} // Read-only in view mode
+                onChange={() => { }} // Read-only in view mode
                 ruleType={selectedRule.ruleType || 'rule'}
                 readOnly={true}
               />
             </div>
-            
+
             {/* Human-Readable Preview */}
             <div>
               <RulePreview rule={selectedRule} />
@@ -647,10 +635,10 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
                   </span>
                 </div>
                 {selectedRule.overrideBMS && (
-                <div className="flex justify-between items-center p-2 rounded-lg bg-[var(--color-surface-subtle)]">
-                  <span className="text-sm text-[var(--color-text-muted)]">Override BMS</span>
+                  <div className="flex justify-between items-center p-2 rounded-lg bg-[var(--color-surface-subtle)]">
+                    <span className="text-sm text-[var(--color-text-muted)]">Override BMS</span>
                     <span className="text-sm font-medium text-[var(--color-warning)]">Yes</span>
-                </div>
+                  </div>
                 )}
                 <div className="flex justify-between items-center p-2 rounded-lg bg-[var(--color-surface-subtle)]">
                   <span className="text-sm text-[var(--color-text-muted)]">Last Triggered</span>
@@ -668,6 +656,23 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
             </div>
           </div>
         ) : null}
+
+        {/* Delete Action - at bottom of scrollable content */}
+        {selectedRule && mode === 'view' && onDelete && (
+          <div className="pt-4 mt-4 border-t border-[var(--color-border-subtle)]">
+            <button
+              onClick={() => {
+                if (confirm('Are you sure you want to delete this rule?')) {
+                  onDelete(selectedRule.id)
+                }
+              }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20 rounded-lg text-sm font-medium text-[var(--color-danger)] hover:bg-[var(--color-danger)]/20 transition-colors"
+            >
+              <Trash2 size={14} />
+              Delete Rule
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Action Buttons Footer */}

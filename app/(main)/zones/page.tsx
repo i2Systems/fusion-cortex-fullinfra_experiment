@@ -28,6 +28,7 @@ import { trpc } from '@/lib/trpc/client'
 import { isFixtureType } from '@/lib/deviceUtils'
 import { ResizablePanel } from '@/components/layout/ResizablePanel'
 import { useMap } from '@/lib/MapContext'
+import { useMapUpload } from '@/lib/useMapUpload'
 
 // Dynamically import ZoneCanvas to avoid SSR issues with Konva
 const ZoneCanvas = dynamic(() => import('@/components/map/ZoneCanvas').then(mod => ({ default: mod.ZoneCanvas })), {
@@ -76,19 +77,27 @@ export default function ZonesPage() {
   const panelRef = useRef<HTMLDivElement>(null)
 
   // Map data is now loaded from MapContext - no need to load it here
-
   const { refreshMapData } = useMap()
+  const { uploadMap, uploadVectorData } = useMapUpload()
   
   const handleMapUpload = async (imageUrl: string) => {
-    // Map upload is handled in the map page, which updates shared storage
-    // Just refresh the map data to pick up the new upload
-    await refreshMapData()
+    try {
+      await uploadMap(imageUrl)
+      // Refresh map data to show the new upload
+      await refreshMapData()
+    } catch (error: any) {
+      alert(error.message || 'Failed to upload map')
+    }
   }
 
   const handleVectorDataUpload = async (data: any) => {
-    // Vector data upload is handled in the map page
-    // Just refresh the map data to pick up the new upload
-    await refreshMapData()
+    try {
+      await uploadVectorData(data)
+      // Refresh map data to show the new upload
+      await refreshMapData()
+    } catch (error: any) {
+      alert(error.message || 'Failed to upload vector data')
+    }
   }
 
   const handleClearMap = async () => {

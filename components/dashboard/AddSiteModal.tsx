@@ -43,16 +43,16 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
 
   // tRPC hooks for image operations
   const utils = trpc.useUtils()
-  
+
   // Validate siteId before querying - use skipToken to completely skip query if invalid
   // Accept both 'site-*' and 'store-*' prefixes for backward compatibility with database
   const isValidSiteId = !!(editingSite?.id && typeof editingSite.id === 'string' && editingSite.id.length > 0 && isOpen)
-  
+
   // Ensure input is always a proper object, never undefined
   const queryInput = isValidSiteId && editingSite?.id ? { siteId: String(editingSite.id).trim() } : skipToken
   const { data: dbImage, refetch: refetchSiteImage } = trpc.image.getSiteImage.useQuery(
     queryInput,
-    { 
+    {
       // Double protection: enabled flag prevents query execution
       enabled: isValidSiteId && !!editingSite?.id && editingSite.id.trim().length > 0 && isOpen,
       // Skip if siteId is invalid to avoid validation errors
@@ -68,10 +68,10 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
     onSuccess: async (result) => {
       console.log('✅ [CLIENT] saveSiteImage mutation succeeded:', result)
       console.log('   Result imageUrl length:', result?.imageUrl?.length || 'N/A')
-      
+
       // Wait a bit for the database write to complete
       await new Promise(resolve => setTimeout(resolve, 300))
-      
+
       // Invalidate and refetch the image query
       if (editingSite?.id) {
         console.log('🔄 Invalidating query cache for site:', editingSite.id)
@@ -104,15 +104,15 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
         const canvas = document.createElement('canvas')
         let width = img.width
         let height = img.height
-        
+
         if (width > maxWidth) {
           height = (height * maxWidth) / width
           width = maxWidth
         }
-        
+
         canvas.width = width
         canvas.height = height
-        
+
         const ctx = canvas.getContext('2d')
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height)
@@ -131,7 +131,7 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
   useEffect(() => {
     const loadSiteImage = async () => {
       if (!isOpen) return
-      
+
       if (editingSite) {
         try {
           // First try database (from tRPC query)
@@ -153,9 +153,9 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
         setCurrentImage(null)
       }
     }
-    
+
     loadSiteImage()
-    
+
     // Listen for site image updates
     const handleSiteImageUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<{ siteId: string }>
@@ -252,28 +252,28 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
     console.log('🖱️ handleSaveImage called!')
     console.log('   previewImage:', !!previewImage, previewImage ? `${previewImage.length} chars` : 'null')
     console.log('   editingSite:', editingSite ? editingSite.id : 'null')
-    
+
     if (!previewImage) {
       console.warn('⚠️ No preview image to save')
       alert('Please select an image first')
       return
     }
-    
+
     if (!editingSite?.id) {
       console.warn('⚠️ No site ID available for saving image')
       alert('Please save the site first, or the site ID is missing')
       return
     }
-    
+
     console.log('💾 Starting image save process for site:', editingSite.id)
     setIsUploading(true)
     try {
       const { setSiteImage, getSiteImage } = await import('@/lib/libraryUtils')
-      
+
       if (editingSite) {
         // Save for existing site - ensure site exists in database first
         console.log(`Saving image for existing site: ${editingSite.id}`)
-        
+
         // CRITICAL: Ensure site exists in database before saving image
         try {
           await ensureSiteMutation.mutateAsync({
@@ -294,17 +294,17 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
           console.warn('⚠️ Error ensuring site exists:', ensureError.message)
           // Continue anyway - client storage will work
         }
-        
+
         // Use the mutation hook directly (same pattern as components, but using React hooks)
         try {
           console.log('💾 Attempting to save to database via mutation hook...')
           console.log('   Preview image size:', previewImage.length, 'chars')
-          
+
           // Compress the image first (same as components do)
           const { compressImage } = await import('@/lib/libraryUtils')
           const compressedImage = await compressImage(previewImage, 600, 0.7, 500000)
           console.log(`   Compressed size: ${compressedImage.length} chars (${(compressedImage.length / 1024).toFixed(1)} KB)`)
-          
+
           // Use the mutation hook directly - this is the React way (components use direct fetch, but mutation hook is better)
           const saveResult = await saveSiteImageMutation.mutateAsync({
             siteId: editingSite.id,
@@ -313,10 +313,10 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
           })
           console.log('✅ Image saved via mutation hook, result:', saveResult)
           console.log('   Saved imageUrl:', saveResult?.imageUrl ? `${saveResult.imageUrl.substring(0, 50)}...` : 'N/A')
-          
+
           // Wait for cache invalidation to complete (handled in onSuccess)
           await new Promise(resolve => setTimeout(resolve, 500))
-          
+
           // Also save to client storage as backup (like components do)
           const { setSiteImage } = await import('@/lib/libraryUtils')
           await setSiteImage(editingSite.id, compressedImage) // Without trpcClient - will use direct fetch as fallback
@@ -327,16 +327,16 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
           setIsUploading(false)
           return
         }
-        
+
         // Wait a bit for the save to complete and event to dispatch
         console.log('⏳ Waiting for save to complete...')
         await new Promise(resolve => setTimeout(resolve, 500))
-        
+
         // Reload the image to display (database query will refetch automatically)
         console.log('🔄 Refetching image from database...')
         refetchSiteImage()
         await new Promise(resolve => setTimeout(resolve, 300))
-        
+
         const savedImage = dbImage || await getSiteImage(editingSite.id)
         if (savedImage) {
           console.log('✅ Image saved and retrieved successfully')
@@ -380,7 +380,7 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
 
   const handleRemoveImage = async () => {
     if (!confirm('Remove image?')) return
-    
+
     if (editingSite) {
       try {
         const { removeSiteImage } = await import('@/lib/libraryUtils')
@@ -391,7 +391,7 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
         alert('Failed to remove image.')
       }
     }
-    
+
     setPreviewImage(null)
     setCurrentImage(null)
   }
@@ -400,7 +400,7 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     // Check if there's an unsaved preview image (only for existing sites)
     if (previewImage && editingSite?.id) {
       const shouldSaveImage = confirm(
@@ -408,7 +408,7 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
         'Would you like to save the image now before saving the site changes?\n\n' +
         'Click OK to save the image first, or Cancel to proceed without saving the image.'
       )
-      
+
       if (shouldSaveImage) {
         console.log('💾 User chose to save image before submitting form')
         try {
@@ -432,12 +432,12 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
         setPreviewImage(null)
       }
     }
-    
+
     if (!formData.name.trim()) {
       alert('Site name is required')
       return
     }
-    
+
     if (!formData.siteNumber.trim()) {
       alert('Site number is required')
       return
@@ -458,7 +458,7 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
       openedDate: new Date(),
       // Don't save imageUrl to database - it's stored client-side
     }
-    
+
     // Save image client-side if we have one (for new sites)
     if (previewImage && !editingSite) {
       try {
@@ -475,20 +475,20 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
     } else {
       onAdd(siteData)
     }
-    
+
     onClose()
   }
 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center">
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      
+
       {/* Modal */}
       <div className="relative w-full max-w-lg mx-4 bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border-subtle)] shadow-[var(--shadow-strong)] overflow-hidden">
         {/* Header */}
@@ -735,7 +735,7 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
                   </div>
                 </div>
               )}
-              
+
               {/* Upload Button (when no image) */}
               {!displayImage && (
                 <div>
@@ -757,7 +757,7 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
                   </button>
                 </div>
               )}
-              
+
               {previewImage && (
                 <div className="space-y-2">
                   <p className="text-xs text-[var(--color-text-muted)] text-center">

@@ -12,11 +12,12 @@
 
 'use client'
 
-import { useState, useMemo, useCallback, memo } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react'
 import Link from 'next/link'
 import { Device } from '@/lib/mockData'
-import { Wifi, Battery, WifiOff, Info } from 'lucide-react'
+import { Wifi, Battery, WifiOff, Info, Signal, Target, Plus, CheckSquare, Square, Trash2 } from 'lucide-react'
 import { getDeviceLibraryUrl } from '@/lib/libraryUtils'
+import { getStatusTokenClass, getSignalTokenClass, getBatteryTokenClass } from '@/lib/styleUtils'
 
 interface Zone {
   id: string
@@ -35,25 +36,13 @@ interface ZonesListViewProps {
 }
 
 // Helper functions moved outside component to prevent recreation
-const getStatusTokenClass = (status: string) => {
-  switch (status) {
-    case 'online': return 'token token-status-online'
-    case 'offline': return 'token token-status-offline'
-    case 'missing': return 'token token-status-error'
-    default: return 'token token-status-offline'
+const getTypeLabel = (type: string) => {
+  switch (type) {
+    case 'fixture': return 'Fixture'
+    case 'motion': return 'Motion Sensor'
+    case 'light-sensor': return 'Light Sensor'
+    default: return type
   }
-}
-
-const getSignalTokenClass = (signal: number) => {
-  if (signal >= 70) return 'token token-data token-data-signal-high'
-  if (signal >= 40) return 'token token-data token-data-signal-medium'
-  return 'token token-data token-data-signal-low'
-}
-
-const getBatteryTokenClass = (battery: number) => {
-  if (battery >= 70) return 'token token-data token-data-battery-high'
-  if (battery >= 40) return 'token token-data token-data-battery-medium'
-  return 'token token-data token-data-battery-low'
 }
 
 // Extracted DeviceCard component with React.memo for performance

@@ -27,6 +27,7 @@ import { ManualDeviceEntry } from '@/components/discovery/ManualDeviceEntry'
 import { Component, Device, DeviceType } from '@/lib/mockData'
 import { fuzzySearch } from '@/lib/fuzzySearch'
 import { useMap } from '@/lib/MapContext'
+import { useMapUpload } from '@/lib/useMapUpload'
 import { generateComponentsForFixture, generateWarrantyExpiry, isFixtureType } from '@/lib/deviceUtils'
 
 // Dynamically import MapCanvas and ZoneCanvas to avoid SSR issues with Konva
@@ -49,7 +50,7 @@ const ZoneCanvas = dynamic(() => import('@/components/map/ZoneCanvas').then(mod 
 })
 
 export default function LookupPage() {
-  const { devices, addDevice } = useDevices()
+  const { devices, addDevice, removeDevice } = useDevices()
   const { zones } = useZones()
   const { activeSiteId } = useSite()
 
@@ -264,17 +265,26 @@ export default function LookupPage() {
 
   // Map data is now loaded from MapContext - no need to load it here
   const { refreshMapData } = useMap()
+  const { uploadMap, uploadVectorData, isUploading } = useMapUpload()
 
   const handleMapUpload = async (imageUrl: string) => {
-    // Map upload is handled in the map page, which updates shared storage
-    // Just refresh the map data to pick up the new upload
-    await refreshMapData()
+    try {
+      await uploadMap(imageUrl)
+      // Refresh map data to show the new upload
+      await refreshMapData()
+    } catch (error: any) {
+      alert(error.message || 'Failed to upload map')
+    }
   }
 
   const handleVectorDataUpload = async (data: any) => {
-    // Vector data upload is handled in the map page
-    // Just refresh the map data to pick up the new upload
-    await refreshMapData()
+    try {
+      await uploadVectorData(data)
+      // Refresh map data to show the new upload
+      await refreshMapData()
+    } catch (error: any) {
+      alert(error.message || 'Failed to upload vector data')
+    }
   }
 
   // Check if we should select a device from sessionStorage (e.g., from faults page)
@@ -508,6 +518,10 @@ export default function LookupPage() {
             onQRScan={handleQRScan}
             onImport={handleImport}
             onExport={handleExport}
+            onDelete={(deviceId) => {
+              removeDevice(deviceId)
+              setSelectedDeviceId(null)
+            }}
           />
         </ResizablePanel>
       </div>

@@ -287,8 +287,22 @@ See [SETUP.md](./SETUP.md) for detailed setup instructions.
 
 See [AI_NOTES.md](./AI_NOTES.md) for comprehensive AI-friendly documentation including patterns, file locations, and common issues.
 
+## 🚀 Deployment
+
+See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for complete deployment guide to Vercel.
+
+**Quick Deploy:**
+1. Push code to GitHub
+2. Connect repository to Vercel
+3. Set environment variables in Vercel Dashboard
+4. Deploy automatically on push to `main`
+
+**CI/CD:** GitHub Actions runs lint, typecheck, and build on every push/PR.
+
 ## 📚 Additional Documentation
 
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Complete deployment guide (Vercel, GitHub)
+- **[DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)** - Pre/post-deployment checklist
 - **[SETUP.md](./SETUP.md)** - Quick setup guide and common tasks
 - **[AI_NOTES.md](./AI_NOTES.md)** - Comprehensive guide for AI assistants
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)** - System architecture and data flow
