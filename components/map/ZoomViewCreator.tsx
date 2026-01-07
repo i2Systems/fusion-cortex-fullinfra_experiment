@@ -50,36 +50,36 @@ export function ZoomViewCreator({
   const [viewName, setViewName] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
-  
+
   // Track the actual rendered bounds of the image in the modal
   const [modalImageBounds, setModalImageBounds] = useState<ModalImageBounds | null>(null)
 
   // Calculate the actual rendered bounds of the image within the modal container
   const calculateModalImageBounds = useCallback(() => {
     if (!containerRef.current || !imageRef.current) return
-    
+
     const container = containerRef.current
     const img = imageRef.current
-    
+
     // Get container dimensions
     const containerWidth = container.clientWidth
     const containerHeight = container.clientHeight
-    
+
     // Get image natural dimensions
     const naturalWidth = img.naturalWidth
     const naturalHeight = img.naturalHeight
-    
+
     if (naturalWidth === 0 || naturalHeight === 0) return
-    
+
     // Calculate aspect-ratio-preserving dimensions (same as object-contain)
     const containerAspect = containerWidth / containerHeight
     const imageAspect = naturalWidth / naturalHeight
-    
+
     let renderedWidth: number
     let renderedHeight: number
     let offsetX: number
     let offsetY: number
-    
+
     if (imageAspect > containerAspect) {
       // Image is wider - fit to width
       renderedWidth = containerWidth
@@ -93,7 +93,7 @@ export function ZoomViewCreator({
       offsetX = (containerWidth - renderedWidth) / 2
       offsetY = 0
     }
-    
+
     setModalImageBounds({
       x: offsetX,
       y: offsetY,
@@ -112,19 +112,19 @@ export function ZoomViewCreator({
       setModalImageBounds(null)
     }
   }, [isOpen])
-  
+
   // Recalculate image bounds when container/image changes
   useEffect(() => {
     if (!isOpen) return
-    
+
     // Wait a frame for the modal to render
     const timer = setTimeout(() => {
       calculateModalImageBounds()
     }, 100)
-    
+
     // Also listen for resize
     window.addEventListener('resize', calculateModalImageBounds)
-    
+
     return () => {
       clearTimeout(timer)
       window.removeEventListener('resize', calculateModalImageBounds)
@@ -166,7 +166,7 @@ export function ZoomViewCreator({
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return // Only left mouse button
-    
+
     const rect = containerRef.current?.getBoundingClientRect()
     if (!rect) return
 
@@ -293,10 +293,10 @@ export function ZoomViewCreator({
                 onLoad={calculateModalImageBounds}
               />
             )}
-            
+
             {/* Selection overlay */}
             {selectionBox}
-            
+
             {/* Hint text */}
             {!selectionStart && (
               <div className="absolute inset-0 flex items-center justify-center bg-[var(--color-bg-elevated)]/80 backdrop-blur-sm">
@@ -336,7 +336,7 @@ export function ZoomViewCreator({
             <button
               onClick={handleSave}
               disabled={!selectionStart || !selectionEnd || !viewName.trim()}
-              className="px-4 py-2 rounded-lg bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              className="px-4 py-2 rounded-lg bg-[var(--color-primary)] text-[var(--color-text-on-primary)] hover:bg-[var(--color-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
             >
               <Check size={16} />
               Create Zoom View

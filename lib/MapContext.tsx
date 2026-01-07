@@ -37,10 +37,13 @@ export function MapProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false)
 
   // Load locations from database via tRPC
-  const { data: dbLocations = [], isLoading: dbLocationsLoading } = trpc.location.list.useQuery(
+  const { data: dbLocationsData, isLoading: dbLocationsLoading } = trpc.location.list.useQuery(
     { siteId: activeSiteId || '' },
     { enabled: !!activeSiteId }
   )
+
+  // Stable reference for dbLocations to prevent infinite loops
+  const dbLocations = useMemo(() => dbLocationsData ?? [], [dbLocationsData])
 
   // Load map data for current site
   const loadMapData = useCallback(async (siteId: string | null, forceRefresh = false) => {

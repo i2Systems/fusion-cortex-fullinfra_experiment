@@ -96,11 +96,10 @@ export function SelectSwitcher<T>({
                     onSelect(item)
                     setIsOpen(false)
                   }}
-                  className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                    isSelected
-                      ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]'
+                  className={`w-full text-left px-3 py-2 text-sm transition-colors ${isSelected
+                      ? 'bg-[var(--color-primary)] text-white'
                       : 'text-[var(--color-text)] hover:bg-[var(--color-surface-subtle)]'
-                  }`}
+                    }`}
                 >
                   {getLabel(item)}
                 </button>

@@ -10,22 +10,7 @@
 
 import { useState } from 'react'
 import { X } from 'lucide-react'
-
-// Frontend device type (matches the string format used in the app)
-type DeviceType = 
-  | 'fixture-16ft-power-entry'
-  | 'fixture-12ft-power-entry'
-  | 'fixture-8ft-power-entry'
-  | 'fixture-16ft-follower'
-  | 'fixture-12ft-follower'
-  | 'fixture-8ft-follower'
-  | 'motion'
-  | 'light-sensor'
-
-// Helper to check if a device type is a fixture
-function isFixtureType(type: DeviceType): boolean {
-  return type.startsWith('fixture-')
-}
+import { DisplayDeviceType as DeviceType, isDisplayFixtureType as isFixtureType } from '@/lib/types'
 
 interface ManualDeviceEntryProps {
   isOpen: boolean
@@ -58,12 +43,12 @@ export function ManualDeviceEntry({ isOpen, onClose, onAdd }: ManualDeviceEntryP
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 backdrop-blur-sm"
         onClick={onClose}
         style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
       />
-      
+
       {/* Modal */}
       <div className="relative w-full max-w-md bg-[var(--color-surface)] backdrop-blur-xl rounded-2xl border border-[var(--color-border-subtle)] shadow-[var(--shadow-strong)] p-6" style={{ boxShadow: 'var(--glow-modal)' }}>
         <div className="flex items-center justify-between mb-4">

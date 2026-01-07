@@ -10,9 +10,9 @@
 'use client'
 
 import { useState } from 'react'
-import { 
-  MousePointer2, 
-  Pencil, 
+import {
+  MousePointer2,
+  Pencil,
   Trash2,
   Square,
   Circle,
@@ -20,8 +20,8 @@ import {
   Save
 } from 'lucide-react'
 
-export type ZoneToolMode = 
-  | 'select' 
+export type ZoneToolMode =
+  | 'select'
   | 'draw-rectangle'
   | 'draw-polygon'
   | 'edit'
@@ -82,9 +82,9 @@ const toolOptions: ToolOption[] = [
   },
 ]
 
-export function ZoneToolbar({ 
-  mode, 
-  onModeChange, 
+export function ZoneToolbar({
+  mode,
+  onModeChange,
   onDeleteZone,
   canDelete = false,
   onSave
@@ -101,49 +101,49 @@ export function ZoneToolbar({
 
   return (
     <div className="pointer-events-auto flex items-center gap-2 bg-[var(--color-surface)] backdrop-blur-xl rounded-xl border border-[var(--color-border-subtle)] p-2 shadow-[var(--shadow-strong)]">
-        {/* Tool Buttons */}
-        <div className="flex items-center gap-1">
-          {toolOptions.map((tool) => {
-            const Icon = tool.icon
-            const isActive = mode === tool.id && tool.isToggle
-            const isDisabled = tool.id === 'delete' && !canDelete
+      {/* Tool Buttons */}
+      <div className="flex items-center gap-1">
+        {toolOptions.map((tool) => {
+          const Icon = tool.icon
+          const isActive = mode === tool.id && tool.isToggle
+          const isDisabled = tool.id === 'delete' && !canDelete
 
-            return (
-              <button
-                key={tool.id}
-                onClick={() => handleToolClick(tool)}
-                disabled={isDisabled}
-                className={`
+          return (
+            <button
+              key={tool.id}
+              onClick={() => handleToolClick(tool)}
+              disabled={isDisabled}
+              className={`
                   flex items-center justify-center gap-2 px-2 md:px-3 py-2 rounded-lg
                   transition-all duration-200
-                  ${isActive 
-                    ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)] shadow-[var(--shadow-glow-primary)]' 
-                    : isDisabled
+                  ${isActive
+                  ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)] shadow-[var(--shadow-glow-primary)]'
+                  : isDisabled
                     ? 'text-[var(--color-text-muted)] opacity-30 cursor-not-allowed'
                     : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-primary)]'
-                  }
+                }
                 `}
-                title={tool.description}
-              >
-                <Icon size={16} className={isActive ? 'opacity-100' : 'opacity-70'} />
-                <span className="hidden md:inline text-sm font-medium whitespace-nowrap">{tool.label}</span>
-              </button>
-            )
-          })}
-        </div>
-        
-        {/* Separator */}
-        <div className="h-6 w-px bg-[var(--color-border-subtle)] mx-1" />
-        
-        {/* Save Button */}
-        <button
-          onClick={() => onSave?.()}
-          className="flex items-center justify-center gap-2 px-3 md:px-4 py-2 rounded-lg bg-[var(--color-primary)] text-[var(--color-text-on-primary)] hover:bg-[var(--color-primary-hover)] transition-all duration-200 shadow-[var(--shadow-soft)]"
-          title="Save zone layout to system (prevents automatic resets)"
-        >
-          <Save size={16} />
-          <span className="hidden md:inline text-sm font-medium whitespace-nowrap">Save Layout</span>
-        </button>
+              title={tool.description}
+            >
+              <Icon size={16} className={isActive ? 'opacity-100' : 'opacity-70'} />
+              <span className="hidden md:inline text-sm font-medium whitespace-nowrap">{tool.label}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Separator */}
+      <div className="h-6 w-px bg-[var(--color-border-subtle)] mx-1" />
+
+      {/* Save Button */}
+      <button
+        onClick={() => onSave?.()}
+        className="flex items-center justify-center gap-2 px-3 md:px-4 py-2 rounded-lg bg-[var(--color-primary)] text-[var(--color-text-on-primary)] hover:bg-[var(--color-primary-hover)] transition-all duration-200 shadow-[var(--shadow-soft)]"
+        title="Save zone layout to system (prevents automatic resets)"
+      >
+        <Save size={16} />
+        <span className="hidden md:inline text-sm font-medium whitespace-nowrap">Save Layout</span>
+      </button>
     </div>
   )
 }

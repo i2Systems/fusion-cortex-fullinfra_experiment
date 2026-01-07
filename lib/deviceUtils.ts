@@ -7,14 +7,10 @@
  * they have proper components, warranty info, etc.
  */
 
-import { Component, DeviceStatus, DeviceType } from './mockData'
+import { Component, DeviceStatus, DeviceType, isFixtureType } from './mockData'
 
-/**
- * Check if a device type is a fixture (any of the 6 fixture types).
- */
-export function isFixtureType(type: DeviceType): boolean {
-  return type.startsWith('fixture-')
-}
+// Re-export isFixtureType for backward compatibility
+export { isFixtureType }
 
 let componentCounter = 10000 // Start high to avoid conflicts with mock data
 
@@ -33,8 +29,8 @@ let componentCounter = 10000 // Start high to avoid conflicts with mock data
  * with realistic warranty and build date information.
  */
 export function generateComponentsForFixture(
-  fixtureId: string, 
-  fixtureSerial: string, 
+  fixtureId: string,
+  fixtureSerial: string,
   parentWarrantyExpiry?: Date
 ): Component[] {
   // Real component types with quantities
@@ -48,9 +44,9 @@ export function generateComponentsForFixture(
     { type: 'Lower LED Housing with Optic', quantity: 4 },
     { type: 'Sensor', quantity: 2 },
   ]
-  
+
   const components: Component[] = []
-  
+
   // Sample notes that might apply to specific component instances
   const sampleNotes = [
     'Replaced during maintenance on 3/15/2024',
@@ -60,19 +56,19 @@ export function generateComponentsForFixture(
     undefined, // Some components may not have notes
     undefined,
   ]
-  
+
   const now = new Date()
-  
+
   // Generate components based on specs (with quantities)
   for (const spec of componentSpecs) {
     for (let instance = 1; instance <= spec.quantity; instance++) {
-      const componentType = spec.quantity > 1 
-        ? `${spec.type} ${instance}` 
+      const componentType = spec.quantity > 1
+        ? `${spec.type} ${instance}`
         : spec.type
-      
+
       const buildDate = new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1)
       const warrantyExpiry = new Date()
-      
+
       // Create variety: some expired, some near end, some active
       const rand = Math.random()
       if (rand < 0.15) {
@@ -85,16 +81,16 @@ export function generateComponentsForFixture(
         // 65% active (expires in future, 1-5 years from now)
         warrantyExpiry.setTime(now.getTime() + (1000 * 60 * 60 * 24 * (365 + Math.floor(Math.random() * 1460)))) // 1-5 years from now
       }
-      
+
       const warrantyStatus = warrantyExpiry > now ? 'Active' : 'Expired'
       const status: DeviceStatus = Math.random() > 0.1 ? 'online' : 'offline'
       const notes = Math.random() > 0.6 ? sampleNotes[Math.floor(Math.random() * sampleNotes.length)] : undefined
-      
+
       // Generate component serial based on fixture serial and component type
       const typeCode = spec.type.replace(/\s+/g, '').substring(0, 3).toUpperCase()
       const instanceCode = spec.quantity > 1 ? String(instance).padStart(2, '0') : ''
       const componentSerial = `${fixtureSerial}-${typeCode}${instanceCode}-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`
-      
+
       components.push({
         id: `component-${componentCounter++}`,
         componentType,
@@ -107,7 +103,7 @@ export function generateComponentsForFixture(
       })
     }
   }
-  
+
   return components
 }
 

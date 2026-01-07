@@ -76,15 +76,14 @@ export function LocationsMenu({
                   baseLocations.map(location => {
                     const isActive = location.id === currentLocationId
                     const hasZoomViews = zoomViews.length > 0 && location.id === currentLocationId
-                    
+
                     return (
                       <div key={location.id}>
                         <div
-                          className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-sm transition-all ${
-                            isActive
+                          className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-sm transition-all ${isActive
                               ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]'
                               : 'text-[var(--color-text)] hover:bg-[var(--color-surface-subtle)]'
-                          }`}
+                            }`}
                         >
                           <button
                             onClick={() => {
@@ -111,7 +110,7 @@ export function LocationsMenu({
                             </button>
                           )}
                         </div>
-                        
+
                         {/* Zoom views for this location */}
                         {hasZoomViews && (
                           <div className="ml-4 mt-1 space-y-1">
@@ -142,7 +141,7 @@ export function LocationsMenu({
               <div className="relative">
                 <button
                   onClick={() => setShowAddMenu(!showAddMenu)}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[var(--color-primary-soft)] text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white transition-all text-sm font-medium"
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[var(--color-primary-soft)] text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-[var(--color-text-on-primary)] transition-all text-sm font-medium"
                 >
                   <Plus size={16} />
                   <span>Add Location</span>

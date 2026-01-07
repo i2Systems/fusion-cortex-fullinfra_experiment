@@ -6,6 +6,7 @@
  */
 
 import { generateComponentsForFixture, generateWarrantyExpiry, isFixtureType } from './deviceUtils'
+import { DisplayDeviceType } from '@/lib/types'
 
 /**
  * Analyzes PDF data to determine if it contains light symbols
@@ -31,11 +32,11 @@ export function analyzePDFForLights(vectorData: ExtractedVectorData | null): {
       report: 'No vector data available. PDF may use Form XObjects (nested content) which cannot be analyzed directly.'
     }
   }
-  
+
   let circleCount = 0
   let smallRectCount = 0
   let lightKeywords = 0
-  
+
   // Count circles
   vectorData.paths.forEach(path => {
     if (path.type === 'path' && path.points.length >= 6 && path.points.length <= 20) {
@@ -46,7 +47,7 @@ export function analyzePDFForLights(vectorData: ExtractedVectorData | null): {
       const height = Math.max(...ys) - Math.min(...ys)
       const aspectRatio = width / height
       const size = Math.max(width, height)
-      
+
       if (aspectRatio > 0.7 && aspectRatio < 1.3 && size > 2 && size < 100) {
         circleCount++
       }
@@ -58,7 +59,7 @@ export function analyzePDFForLights(vectorData: ExtractedVectorData | null): {
       }
     }
   })
-  
+
   // Count light-related keywords
   const lightKeywordsList = ['LIGHT', 'FIXTURE', 'LED', 'LAMP', 'F', 'L', 'LT']
   vectorData.texts.forEach(text => {
@@ -67,16 +68,16 @@ export function analyzePDFForLights(vectorData: ExtractedVectorData | null): {
       lightKeywords++
     }
   })
-  
+
   const hasLights = circleCount > 0 || smallRectCount > 10 || lightKeywords > 0
-  
+
   let report = `PDF Analysis:\n`
   report += `- Total paths: ${vectorData.paths.length}\n`
   report += `- Total text items: ${vectorData.texts.length}\n`
   report += `- Circular shapes (potential lights): ${circleCount}\n`
   report += `- Small rectangles (potential fixtures): ${smallRectCount}\n`
   report += `- Light-related keywords: ${lightKeywords}\n`
-  
+
   if (vectorData.paths.length === 0) {
     report += `\n⚠️ WARNING: No paths extracted. This PDF likely uses Form XObjects.\n`
     report += `Vector extraction cannot access nested content. Image-based detection will be used instead.`
@@ -87,7 +88,7 @@ export function analyzePDFForLights(vectorData: ExtractedVectorData | null): {
   } else {
     report += `\n✅ Light symbols detected! Auto-detection should work.`
   }
-  
+
   return {
     hasLights,
     circleCount,
@@ -106,7 +107,7 @@ export interface LightLocation {
   x: number // Normalized 0-1
   y: number // Normalized 0-1
   confidence: number // 0-1
-  type: 'fixture-16ft-power-entry' | 'fixture-12ft-power-entry' | 'fixture-8ft-power-entry' | 'fixture-16ft-follower' | 'fixture-12ft-follower' | 'fixture-8ft-follower' | 'motion' | 'light-sensor'
+  type: DisplayDeviceType
   size?: number // Approximate size in pixels
 }
 
@@ -123,11 +124,11 @@ export function detectLightsFromVectorData(
   imageHeight: number
 ): LightLocation[] {
   const lights: LightLocation[] = []
-  
+
   // Normalize coordinates from PDF space to 0-1
   const normalizeX = (x: number) => x / vectorData.bounds.width
   const normalizeY = (y: number) => y / vectorData.bounds.height
-  
+
   // 1. Look for circles (common light fixture symbol)
   vectorData.paths.forEach((path, idx) => {
     if (path.type === 'path' && path.points.length >= 6) {
@@ -141,16 +142,16 @@ export function detectLightsFromVectorData(
         const maxX = Math.max(...xs)
         const minY = Math.min(...ys)
         const maxY = Math.max(...ys)
-        
+
         const width = maxX - minX
         const height = maxY - minY
         const centerX = (minX + maxX) / 2
         const centerY = (minY + maxY) / 2
-        
+
         // Check if roughly circular (aspect ratio close to 1, small size)
         const aspectRatio = width / height
         const size = Math.max(width, height)
-        
+
         // Light symbols are typically small circles (5-50 pixels at scale 1)
         if (aspectRatio > 0.7 && aspectRatio < 1.3 && size > 2 && size < 100) {
           lights.push({
@@ -165,7 +166,7 @@ export function detectLightsFromVectorData(
     } else if (path.type === 'rect' && path.points.length >= 4) {
       const [x, y, w, h] = path.points
       const size = Math.max(w, h)
-      
+
       // Small rectangles are often light fixtures
       if (size > 2 && size < 50) {
         lights.push({
@@ -178,12 +179,12 @@ export function detectLightsFromVectorData(
       }
     }
   })
-  
+
   // 2. Look for text labels that might indicate lights
   const lightKeywords = ['LIGHT', 'FIXTURE', 'LED', 'LAMP', 'F', 'L', 'LT']
   vectorData.texts.forEach((text) => {
     const textUpper = text.text.toUpperCase().trim()
-    
+
     // Check if text contains light-related keywords
     if (lightKeywords.some(keyword => textUpper.includes(keyword))) {
       lights.push({
@@ -193,7 +194,7 @@ export function detectLightsFromVectorData(
         type: 'fixture-16ft-power-entry',
       })
     }
-    
+
     // Single letters or numbers near small shapes might be light labels
     if (textUpper.length <= 2 && text.fontSize < 20) {
       // Check if there's a nearby path (within 20 pixels)
@@ -205,7 +206,7 @@ export function detectLightsFromVectorData(
         }
         return false
       })
-      
+
       if (nearbyPath) {
         lights.push({
           x: normalizeX(text.x),
@@ -216,7 +217,7 @@ export function detectLightsFromVectorData(
       }
     }
   })
-  
+
   // Remove duplicates (lights very close to each other)
   const uniqueLights: LightLocation[] = []
   lights.forEach(light => {
@@ -226,12 +227,12 @@ export function detectLightsFromVectorData(
       )
       return distance < 0.01 // Within 1% of image size
     })
-    
+
     if (!isDuplicate) {
       uniqueLights.push(light)
     }
   })
-  
+
   return uniqueLights
 }
 
@@ -247,7 +248,7 @@ export async function detectLightsFromImage(
   return new Promise((resolve) => {
     const img = new Image()
     img.crossOrigin = 'anonymous'
-    
+
     img.onload = () => {
       const canvas = document.createElement('canvas')
       const ctx = canvas.getContext('2d')
@@ -255,33 +256,33 @@ export async function detectLightsFromImage(
         resolve([])
         return
       }
-      
+
       canvas.width = imageWidth
       canvas.height = imageHeight
       ctx.drawImage(img, 0, 0, imageWidth, imageHeight)
-      
+
       const imageData = ctx.getImageData(0, 0, imageWidth, imageHeight)
       const lights: LightLocation[] = []
       const threshold = 50 // Dark pixel threshold
       const minLineLength = 10 // Minimum pixels for a line segment
       const gapTolerance = 5 // Max gap in dashed lines
-      
+
       // IMPROVED: Scan for vertical dashed lines (these are the light fixtures!)
       // Architectural PDFs often show lights as vertical dashed lines in a grid
       const verticalLines: Array<{ x: number; segments: Array<{ start: number; end: number }> }> = []
-      
+
       for (let x = 0; x < imageWidth; x += 2) { // Sample every 2 pixels for performance
         const segments: Array<{ start: number; end: number }> = []
         let lineStart = -1
         let gapCount = 0
-        
+
         for (let y = 0; y < imageHeight; y++) {
           const idx = (y * imageWidth + x) * 4
           const r = imageData.data[idx]
           const g = imageData.data[idx + 1]
           const b = imageData.data[idx + 2]
           const brightness = (r + g + b) / 3
-          
+
           if (brightness < threshold) {
             gapCount = 0
             if (lineStart === -1) {
@@ -298,12 +299,12 @@ export async function detectLightsFromImage(
             }
           }
         }
-        
+
         // Handle segment at end
         if (lineStart !== -1 && imageHeight - lineStart >= 2) {
           segments.push({ start: lineStart, end: imageHeight })
         }
-        
+
         // If we have multiple segments, it's likely a dashed vertical line (light fixture)
         if (segments.length >= 2) {
           // Calculate total line length
@@ -311,13 +312,13 @@ export async function detectLightsFromImage(
           segments.forEach(seg => {
             totalLength += seg.end - seg.start
           })
-          
+
           // If total length is significant, it's a light fixture
           if (totalLength >= minLineLength) {
             // Use the middle Y coordinate of all segments
             const avgY = segments.reduce((sum, seg) => sum + (seg.start + seg.end) / 2, 0) / segments.length
             verticalLines.push({ x, segments })
-            
+
             lights.push({
               x: x / imageWidth,
               y: avgY / imageHeight,
@@ -337,20 +338,20 @@ export async function detectLightsFromImage(
           })
         }
       }
-      
+
       // Also look for horizontal patterns (less common but still possible)
       for (let y = 0; y < imageHeight; y += 2) {
         const segments: Array<{ start: number; end: number }> = []
         let lineStart = -1
         let gapCount = 0
-        
+
         for (let x = 0; x < imageWidth; x++) {
           const idx = (y * imageWidth + x) * 4
           const r = imageData.data[idx]
           const g = imageData.data[idx + 1]
           const b = imageData.data[idx + 2]
           const brightness = (r + g + b) / 3
-          
+
           if (brightness < threshold) {
             gapCount = 0
             if (lineStart === -1) {
@@ -367,11 +368,11 @@ export async function detectLightsFromImage(
             }
           }
         }
-        
+
         if (lineStart !== -1 && imageWidth - lineStart >= 2) {
           segments.push({ start: lineStart, end: imageWidth })
         }
-        
+
         if (segments.length >= 2) {
           const totalLength = segments.reduce((sum, seg) => sum + (seg.end - seg.start), 0)
           if (totalLength >= minLineLength) {
@@ -385,7 +386,7 @@ export async function detectLightsFromImage(
           }
         }
       }
-      
+
       // Remove duplicates (lights very close to each other)
       const uniqueLights = lights
         .sort((a, b) => b.confidence - a.confidence) // Sort by confidence
@@ -397,15 +398,15 @@ export async function detectLightsFromImage(
             return distance < 0.015 // Within 1.5% of image size
           })
         })
-      
+
       console.log(`Image detection found ${uniqueLights.length} potential light fixtures (vertical lines: ${verticalLines.length})`)
       resolve(uniqueLights)
     }
-    
+
     img.onerror = () => {
       resolve([])
     }
-    
+
     img.src = imageUrl
   })
 }
@@ -420,21 +421,21 @@ export async function detectAllLights(
   imageHeight: number
 ): Promise<LightLocation[]> {
   const allLights: LightLocation[] = []
-  
+
   // Try vector detection first (more accurate if available)
   if (vectorData && vectorData.paths.length > 0) {
     const vectorLights = detectLightsFromVectorData(vectorData, imageWidth, imageHeight)
     allLights.push(...vectorLights)
     console.log(`Detected ${vectorLights.length} lights from vector data`)
   }
-  
+
   // Fall back to image detection
   if (imageUrl && allLights.length === 0) {
     const imageLights = await detectLightsFromImage(imageUrl, imageWidth, imageHeight)
     allLights.push(...imageLights)
     console.log(`Detected ${imageLights.length} lights from image analysis`)
   }
-  
+
   // Remove duplicates and sort by confidence
   const uniqueLights = allLights
     .sort((a, b) => b.confidence - a.confidence)
@@ -446,7 +447,7 @@ export async function detectAllLights(
         return distance < 0.015 // Within 1.5% of image size
       })
     })
-  
+
   console.log(`Total unique lights detected: ${uniqueLights.length}`)
   return uniqueLights
 }
@@ -462,7 +463,7 @@ export function createDevicesFromLights(
     const deviceId = `light-${baseDeviceId + idx}`
     const serialNumber = `SN${String(baseDeviceId + idx).padStart(6, '0')}`
     const warrantyExpiry = generateWarrantyExpiry()
-    
+
     return {
       id: deviceId,
       deviceId: String(baseDeviceId + idx),
@@ -476,7 +477,7 @@ export function createDevicesFromLights(
       orientation: 0,
       locked: false,
       // Generate components for fixtures
-      components: isFixtureType(light.type) 
+      components: isFixtureType(light.type)
         ? generateComponentsForFixture(deviceId, serialNumber, warrantyExpiry)
         : undefined,
       warrantyStatus: 'Active',
