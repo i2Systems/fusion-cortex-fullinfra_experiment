@@ -796,62 +796,65 @@ export default function MapPage() {
   // Convert device coordinates for zoom views
   const { convertParentToZoom } = require('@/lib/locationStorage')
   const devicesForCanvas = useMemo(() => {
-    return filteredDevices.map(d => {
-      // Convert device coordinates for zoom views
-      let deviceX = d.x || 0
-      let deviceY = d.y || 0
+    return filteredDevices
+      // Filter out devices without valid positions (they would render at 0,0 and then jump)
+      .filter(d => typeof d.x === 'number' && typeof d.y === 'number' && (d.x !== 0 || d.y !== 0))
+      .map(d => {
+        // Convert device coordinates for zoom views
+        let deviceX = d.x || 0
+        let deviceY = d.y || 0
 
-      if (currentLocation?.type === 'zoom' && currentLocation.zoomBounds) {
-        // Convert parent coordinates to zoom view coordinates
-        // Create compatible Location object for convertParentToZoom
-        const zoomBounds = typeof currentLocation.zoomBounds === 'object' &&
-          currentLocation.zoomBounds !== null &&
-          'minX' in currentLocation.zoomBounds &&
-          'minY' in currentLocation.zoomBounds &&
-          'maxX' in currentLocation.zoomBounds &&
-          'maxY' in currentLocation.zoomBounds
-          ? currentLocation.zoomBounds as { minX: number; minY: number; maxX: number; maxY: number }
-          : undefined
+        if (currentLocation?.type === 'zoom' && currentLocation.zoomBounds) {
+          // Convert parent coordinates to zoom view coordinates
+          // Create compatible Location object for convertParentToZoom
+          const zoomBounds = typeof currentLocation.zoomBounds === 'object' &&
+            currentLocation.zoomBounds !== null &&
+            'minX' in currentLocation.zoomBounds &&
+            'minY' in currentLocation.zoomBounds &&
+            'maxX' in currentLocation.zoomBounds &&
+            'maxY' in currentLocation.zoomBounds
+            ? currentLocation.zoomBounds as { minX: number; minY: number; maxX: number; maxY: number }
+            : undefined
 
-        if (zoomBounds) {
-          const zoomLocation = {
-            id: currentLocation.id,
-            name: currentLocation.name,
-            type: currentLocation.type as 'base' | 'zoom',
-            zoomBounds,
-            createdAt: typeof currentLocation.createdAt === 'string'
-              ? new Date(currentLocation.createdAt).getTime()
-              : currentLocation.createdAt instanceof Date
-                ? currentLocation.createdAt.getTime()
-                : Date.now(),
-            updatedAt: typeof currentLocation.updatedAt === 'string'
-              ? new Date(currentLocation.updatedAt).getTime()
-              : currentLocation.updatedAt instanceof Date
-                ? currentLocation.updatedAt.getTime()
-                : Date.now(),
-          }
-          const zoomCoords = convertParentToZoom(zoomLocation, deviceX, deviceY)
-          if (zoomCoords) {
-            deviceX = zoomCoords.x
-            deviceY = zoomCoords.y
+          if (zoomBounds) {
+            const zoomLocation = {
+              id: currentLocation.id,
+              name: currentLocation.name,
+              type: currentLocation.type as 'base' | 'zoom',
+              zoomBounds,
+              createdAt: typeof currentLocation.createdAt === 'string'
+                ? new Date(currentLocation.createdAt).getTime()
+                : currentLocation.createdAt instanceof Date
+                  ? currentLocation.createdAt.getTime()
+                  : Date.now(),
+              updatedAt: typeof currentLocation.updatedAt === 'string'
+                ? new Date(currentLocation.updatedAt).getTime()
+                : currentLocation.updatedAt instanceof Date
+                  ? currentLocation.updatedAt.getTime()
+                  : Date.now(),
+            }
+            const zoomCoords = convertParentToZoom(zoomLocation, deviceX, deviceY)
+            if (zoomCoords) {
+              deviceX = zoomCoords.x
+              deviceY = zoomCoords.y
+            }
           }
         }
-      }
 
-      return {
-        id: d.id,
-        x: deviceX,
-        y: deviceY,
-        type: d.type,
-        deviceId: d.deviceId,
-        status: d.status,
-        signal: d.signal,
-        location: d.location,
-        locked: d.locked || false,
-        orientation: d.orientation,
-        components: d.components,
-      }
-    }).filter((d): d is NonNullable<typeof d> => d !== null).filter(Boolean)
+        return {
+          id: d.id,
+          x: deviceX,
+          y: deviceY,
+          type: d.type,
+          deviceId: d.deviceId,
+          status: d.status,
+          signal: d.signal,
+          location: d.location,
+          locked: d.locked || false,
+          orientation: d.orientation,
+          components: d.components,
+        }
+      }).filter((d): d is NonNullable<typeof d> => d !== null).filter(Boolean)
   }, [filteredDevices, currentLocation])
 
   const handleComponentExpand = (deviceId: string, expanded: boolean) => {

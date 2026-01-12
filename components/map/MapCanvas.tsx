@@ -1000,7 +1000,8 @@ export function MapCanvas({
           })}
 
           {/* Device points - with viewport culling for performance */}
-          {visibleDevices.map((device) => {
+          {/* Only render devices when imageBounds is ready to prevent position jumping */}
+          {imageBounds && visibleDevices.map((device) => {
             // Scale device positions to canvas coordinates (respects image bounds)
             const deviceCoords = toCanvasCoords({ x: device.x, y: device.y })
             const isSelected = selectedDeviceId === device.id || selectedDeviceIds.includes(device.id)

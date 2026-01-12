@@ -124,6 +124,8 @@ export function SiteProvider({ children }: { children: ReactNode }) {
     gcTime: 10 * 60 * 1000, // 10 minutes
   })
 
+  const utils = trpc.useUtils()
+
   // No longer auto-creating default sites - users manage their own sites
 
   // Map database sites to Site interface (no default sites)
@@ -226,13 +228,36 @@ export function SiteProvider({ children }: { children: ReactNode }) {
     return sites.find(s => s.id === siteId)
   }
 
-  // Create site mutation
+
+  // Create site mutation - track pending temp IDs to clean up optimistic updates
+  const pendingTempIds = useRef<Set<string>>(new Set())
+
   const createSiteMutation = trpc.site.create.useMutation({
     onSuccess: (newSite) => {
+      console.log(`✅ [SiteContext] Site created in DB with ID: ${newSite.id}`)
+      console.log(`   Pending temp IDs to remove: ${Array.from(pendingTempIds.current).join(', ')}`)
+
+      // Remove all optimistic sites (temp IDs) from cache before refetching
+      // This prevents duplicate sites appearing
+      utils.site.list.setData(undefined, (oldSites) => {
+        if (!oldSites) return []
+        const filtered = oldSites.filter(site => !pendingTempIds.current.has(site.id))
+        console.log(`   Filtered sites: ${oldSites.length} -> ${filtered.length}`)
+        return filtered
+      })
+      pendingTempIds.current.clear()
+
+      // Now refetch to get the real site from the database
       refetchSites()
-      // If we just created a site and it's not in our sites yet, 
-      // wait for refetch to complete, then set it as active
-      // The refetch will update the sites list, and we'll handle the active site in the useEffect
+    },
+    onError: (error) => {
+      console.error(`❌ [SiteContext] Site creation failed:`, error)
+      // On error, also remove optimistic sites
+      utils.site.list.setData(undefined, (oldSites) => {
+        if (!oldSites) return []
+        return oldSites.filter(site => !pendingTempIds.current.has(site.id))
+      })
+      pendingTempIds.current.clear()
     },
   })
 
@@ -251,6 +276,19 @@ export function SiteProvider({ children }: { children: ReactNode }) {
       ...siteData,
       id: tempId,
     }
+
+    // Track the temp ID so we can remove it later
+    pendingTempIds.current.add(tempId)
+
+    // Optimistically update the cache
+    utils.site.list.setData(undefined, (oldSites) => {
+      const optimisticSiteForCache = {
+        ...newSite,
+        storeNumber: newSite.siteNumber, // Map back for cache consistency
+      }
+      if (!oldSites) return [optimisticSiteForCache as any]
+      return [...oldSites, optimisticSiteForCache as any]
+    })
 
     // Create in database - the mutation will refetch sites and update the site list
     // The database will generate the actual ID (cuid)

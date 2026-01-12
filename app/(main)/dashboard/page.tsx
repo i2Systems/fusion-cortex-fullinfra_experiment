@@ -52,6 +52,7 @@ import {
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { PanelEmptyState } from '@/components/shared/PanelEmptyState'
 
 interface SiteSummary {
   siteId: string
@@ -189,7 +190,21 @@ function SiteImageCard({ siteId }: { siteId: string }) {
       if (!customEvent.detail || customEvent.detail?.siteId === siteId) {
         console.log(`🔄 Site image updated event received for ${siteId}`)
         setImageKey(prev => prev + 1) // Force re-render
-        refetchSiteImage() // Refetch from database
+
+        // Only refetch if we have a valid, non-temporary site ID
+        if (siteId) {
+          // Temporary IDs are: "site-" followed only by digits (timestamp), or "temp-"
+          const isTempId = /^site-\d+$/.test(siteId) || siteId.startsWith('temp-')
+          // Also check that the query wasn't configured with skipToken by verifying we have a real database ID format
+          const isRealDbId = siteId.length > 15 && !isTempId // Database CUIDs are longer
+
+          if (!isTempId && isRealDbId) {
+            console.log(`✅ Refetching image for valid site ID: ${siteId}`)
+            refetchSiteImage() // Refetch from database
+          } else {
+            console.log(`⏭️ Skipping refetch for temporary site ID: ${siteId}`)
+          }
+        }
         loadImage() // Reload from client storage
       }
     }
@@ -818,7 +833,36 @@ export default function DashboardPage() {
         {/* Site Cards - Left Side */}
         <div ref={cardsContainerRef} className="flex-1 min-w-0 flex flex-col overflow-y-auto -m-4 p-4">
           {/* Site Cards Grid - Responsive */}
-          <div className="flex-1 min-h-0">
+          {/* Empty State: No Sites */}
+          {sites.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center min-h-[400px]">
+              <PanelEmptyState
+                icon={Building2}
+                title="No Sites Added"
+                description="Get started by adding your first site to monitor and manage."
+                action={
+                  <Button onClick={handleAddSite}>
+                    Add Site
+                  </Button>
+                }
+              />
+            </div>
+          ) : filteredSiteSummaries.length === 0 ? (
+            /* Empty State: No Search Results */
+            <div className="flex-1 flex items-center justify-center min-h-[400px]">
+              <PanelEmptyState
+                icon={Search}
+                title="No sites found"
+                description="No sites match your search terms."
+                action={
+                  <Button variant="secondary" onClick={() => setSearchQuery('')}>
+                    Clear Search
+                  </Button>
+                }
+              />
+            </div>
+          ) : (
+            /* Site Cards Grid - Responsive */
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-6">
               {filteredSiteSummaries.map((summary) => {
                 const site = sites.find(s => s.id === summary.siteId)
@@ -947,7 +991,7 @@ export default function DashboardPage() {
                 )
               })}
             </div>
-          </div>
+          )}
 
         </div>
 

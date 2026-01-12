@@ -177,7 +177,23 @@ export function SiteDetailsPanel({
       if (!customEvent.detail || customEvent.detail?.siteId === site?.id) {
         console.log(`🔄 Site image updated event received for ${site?.id}`)
         setImageKey(prev => prev + 1) // Force re-render
-        refetchSiteImage() // Refetch from database
+
+        // Only refetch if we have a valid, non-temporary site ID
+        // Check site?.id directly here to avoid stale closure issues
+        const currentSiteId = site?.id
+        if (currentSiteId) {
+          // Temporary IDs are: "site-" followed only by digits (timestamp), or "temp-"
+          const isTempId = /^site-\d+$/.test(currentSiteId) || currentSiteId.startsWith('temp-')
+          // Also check that the query wasn't configured with skipToken by verifying we have a real database ID format
+          const isRealDbId = currentSiteId.length > 15 && !isTempId // Database CUIDs are longer
+
+          if (!isTempId && isRealDbId) {
+            console.log(`✅ Refetching image for valid site ID: ${currentSiteId}`)
+            refetchSiteImage() // Refetch from database
+          } else {
+            console.log(`⏭️ Skipping refetch for temporary site ID: ${currentSiteId}`)
+          }
+        }
         loadSiteImage() // Reload from client storage
       }
     }

@@ -466,13 +466,15 @@ export const deviceRouter = router({
       id: z.string(),
       deviceId: z.string().optional(),
       serialNumber: z.string().optional(),
-      type: z.enum(['fixture', 'motion', 'light-sensor']).optional(),
-      status: z.enum(['online', 'offline', 'missing']).optional(),
+      type: DisplayDeviceTypeSchema.optional(),
+      status: DisplayDeviceStatusSchema.optional(),
       signal: z.number().optional(),
       battery: z.number().optional(),
       x: z.number().optional(),
       y: z.number().optional(),
       orientation: z.number().optional(),
+      location: z.string().optional(),
+      zone: z.string().optional(),
       warrantyStatus: z.string().optional(),
       warrantyExpiry: z.date().optional(),
     }))
@@ -494,13 +496,8 @@ export const deviceRouter = router({
         if (updates.deviceId !== undefined) updateData.deviceId = updates.deviceId
         if (updates.serialNumber !== undefined) updateData.serialNumber = updates.serialNumber
         if (updates.type !== undefined) {
-          // Convert simplified type to Prisma type
-          const fullType = updates.type === 'fixture'
-            ? 'fixture-16ft-power-entry'
-            : updates.type === 'motion'
-              ? 'motion'
-              : 'light-sensor'
-          updateData.type = toPrismaDeviceType(fullType)
+          // Directly convert to Prisma type (we now receive full type names)
+          updateData.type = toPrismaDeviceType(updates.type)
         }
         if (updates.status !== undefined) updateData.status = toPrismaDeviceStatus(updates.status)
         if (updates.signal !== undefined) updateData.signal = updates.signal
@@ -554,13 +551,8 @@ export const deviceRouter = router({
             if (updates.deviceId !== undefined) updateData.deviceId = updates.deviceId
             if (updates.serialNumber !== undefined) updateData.serialNumber = updates.serialNumber
             if (updates.type !== undefined) {
-              // Convert simplified type to Prisma type
-              const fullType = updates.type === 'fixture'
-                ? 'fixture-16ft-power-entry'
-                : updates.type === 'motion'
-                  ? 'motion'
-                  : 'light-sensor'
-              updateData.type = toPrismaDeviceType(fullType)
+              // Directly convert to Prisma type (we now receive full type names)
+              updateData.type = toPrismaDeviceType(updates.type)
             }
             if (updates.status !== undefined) updateData.status = toPrismaDeviceStatus(updates.status)
             if (updates.signal !== undefined) updateData.signal = updates.signal

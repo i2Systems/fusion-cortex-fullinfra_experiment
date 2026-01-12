@@ -18,6 +18,8 @@ import { SiteProvider } from '@/lib/SiteContext'
 import { DomainProvider } from '@/lib/DomainContext'
 import { NotificationProvider } from '@/lib/NotificationContext'
 import { MapProvider } from '@/lib/MapContext'
+import { ToastProvider } from '@/lib/ToastContext'
+import { ToastContainer } from '@/components/ui/Toast'
 import { FontProvider } from '@/lib/FontContext'
 import { I18nProvider } from '@/lib/i18n'
 import { AdvancedSettingsProvider } from '@/lib/AdvancedSettingsContext'
@@ -62,9 +64,11 @@ export default function RootLayout({
             MapProvider,
             DomainProvider,
             NotificationProvider,
+            ToastProvider,
           ]}
         >
           {children}
+          <ToastContainer />
         </ComposeProviders>
       </body>
     </html>

@@ -16,16 +16,18 @@ import { Site } from '@/lib/SiteContext'
 import { trpc } from '@/lib/trpc/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { useToast } from '@/lib/ToastContext'
 
 interface AddSiteModalProps {
   isOpen: boolean
   onClose: () => void
-  onAdd: (siteData: Omit<Site, 'id'>) => void
-  onEdit?: (siteId: string, updates: Partial<Omit<Site, 'id'>>) => void
+  onAdd: (siteData: Omit<Site, 'id'>) => Promise<void> | void
+  onEdit?: (siteId: string, updates: Partial<Omit<Site, 'id'>>) => Promise<void> | void
   editingSite?: Site | null
 }
 
 export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: AddSiteModalProps) {
+  const { addToast } = useToast()
   const [formData, setFormData] = useState({
     name: '',
     siteNumber: '',
@@ -41,6 +43,7 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [currentImage, setCurrentImage] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // tRPC hooks for image operations
@@ -162,7 +165,21 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
     const handleSiteImageUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<{ siteId: string }>
       if (editingSite && customEvent.detail?.siteId === editingSite.id) {
-        refetchSiteImage()
+        // Only refetch if we have a valid, non-temporary site ID
+        const currentSiteId = editingSite.id
+        if (currentSiteId) {
+          // Temporary IDs are: "site-" followed only by digits (timestamp), or "temp-"
+          const isTempId = /^site-\d+$/.test(currentSiteId) || currentSiteId.startsWith('temp-')
+          // Also check that the query wasn't configured with skipToken by verifying we have a real database ID format
+          const isRealDbId = currentSiteId.length > 15 && !isTempId // Database CUIDs are longer
+
+          if (!isTempId && isRealDbId) {
+            console.log(`✅ Refetching image for valid site ID: ${currentSiteId}`)
+            refetchSiteImage()
+          } else {
+            console.log(`⏭️ Skipping refetch for temporary site ID: ${currentSiteId}`)
+          }
+        }
         loadSiteImage()
       }
     }
@@ -262,17 +279,16 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
     }
 
     if (!editingSite?.id) {
-      console.warn('⚠️ No site ID available for saving image')
-      alert('Please save the site first, or the site ID is missing')
-      return
+      console.log('ℹ️ No site ID available, will save to temporary storage')
+      // We'll handle this in the else block below
     }
 
-    console.log('💾 Starting image save process for site:', editingSite.id)
+    console.log('💾 Starting image save process for site:', editingSite?.id || 'new-site')
     setIsUploading(true)
     try {
       const { setSiteImage, getSiteImage } = await import('@/lib/libraryUtils')
 
-      if (editingSite) {
+      if (editingSite && editingSite.id) {
         // Save for existing site - ensure site exists in database first
         console.log(`Saving image for existing site: ${editingSite.id}`)
 
@@ -472,13 +488,35 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
       }
     }
 
-    if (editingSite && onEdit) {
-      onEdit(editingSite.id, siteData)
-    } else {
-      onAdd(siteData)
-    }
+    setIsSubmitting(true)
 
-    onClose()
+    try {
+      if (editingSite && onEdit) {
+        await onEdit(editingSite.id, siteData)
+        addToast({
+          type: 'success',
+          title: 'Site Updated',
+          message: `${siteData.name} has been successfully updated.`
+        })
+      } else {
+        await onAdd(siteData)
+        addToast({
+          type: 'success',
+          title: 'Site Created',
+          message: `${siteData.name} has been successfully added.`
+        })
+      }
+      onClose()
+    } catch (error) {
+      console.error('Failed to submit site:', error)
+      addToast({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to save site. Please try again.'
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (!isOpen) return null
@@ -517,7 +555,7 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+        <form id="add-site-form" onSubmit={handleSubmit} className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
           {/* Site Name */}
           <div>
             <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
@@ -646,22 +684,89 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
             />
           </div>
 
-          {/* Site Image Upload */}
+          {/* Site Image Upload - Only available when editing existing site */}
           <div>
             <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">
               Site Image
             </label>
-            <div className="space-y-3">
-              {/* Image Preview */}
-              {displayImage && (
-                <div className="relative aspect-video w-full rounded-lg bg-[var(--color-surface-subtle)] overflow-hidden border border-[var(--color-border-subtle)]">
-                  <img
-                    src={displayImage}
-                    alt="Site preview"
-                    className="w-full h-full object-cover"
-                  />
-                  {/* Image Controls - Lower Left */}
-                  <div className="absolute bottom-3 left-3 flex items-center gap-2">
+            {editingSite ? (
+              <div className="space-y-3">
+                {/* Image Preview */}
+                {displayImage && (
+                  <div className="relative aspect-video w-full rounded-lg bg-[var(--color-surface-subtle)] overflow-hidden border border-[var(--color-border-subtle)]">
+                    <img
+                      src={displayImage}
+                      alt="Site preview"
+                      className="w-full h-full object-cover"
+                    />
+                    {/* Image Controls - Lower Left */}
+                    <div className="absolute bottom-3 left-3 flex items-center gap-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                        className="hidden"
+                      />
+                      {previewImage ? (
+                        <>
+                          <Button
+                            type="button"
+                            onClick={async (e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              console.log('🖱️ Save Image button clicked! (overlay button)')
+                              try {
+                                await handleSaveImage()
+                              } catch (error) {
+                                console.error('❌ Error in handleSaveImage:', error)
+                              }
+                            }}
+                            disabled={isUploading}
+                            variant="primary"
+                            className="h-8 text-xs px-3 py-1.5 shadow-lg"
+                          >
+                            {isUploading ? 'Saving...' : '💾 Save Image'}
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={handleCancelPreview}
+                            disabled={isUploading}
+                            variant="secondary"
+                            className="h-8 text-xs px-3 py-1.5 bg-[var(--color-surface)]/90 backdrop-blur-sm hover:bg-[var(--color-surface)] shadow-lg"
+                          >
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isUploading}
+                            variant="secondary"
+                            className="h-8 text-xs px-3 py-1.5 bg-[var(--color-surface)]/90 backdrop-blur-sm hover:bg-[var(--color-surface)] shadow-lg gap-1.5"
+                          >
+                            <Upload size={14} />
+                            {isUploading ? 'Uploading...' : 'Replace Image'}
+                          </Button>
+                          <button
+                            type="button"
+                            onClick={handleRemoveImage}
+                            className="p-1.5 rounded-lg bg-[var(--color-surface)]/90 backdrop-blur-sm hover:bg-[var(--color-danger)]/20 border border-[var(--color-border-subtle)] hover:border-[var(--color-danger)]/30 text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors shadow-lg"
+                            title="Remove image"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Upload Button (when no image) */}
+                {!displayImage && (
+                  <div>
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -669,119 +774,61 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
                       onChange={handleImageSelect}
                       className="hidden"
                     />
-                    {previewImage ? (
-                      <>
-                        <Button
-                          type="button"
-                          onClick={async (e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            console.log('🖱️ Save Image button clicked! (overlay button)')
-                            try {
-                              await handleSaveImage()
-                            } catch (error) {
-                              console.error('❌ Error in handleSaveImage:', error)
-                            }
-                          }}
-                          disabled={isUploading}
-                          variant="primary"
-                          className="h-8 text-xs px-3 py-1.5 shadow-lg"
-                        >
-                          {isUploading ? 'Saving...' : '💾 Save Image'}
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={handleCancelPreview}
-                          disabled={isUploading}
-                          variant="secondary"
-                          className="h-8 text-xs px-3 py-1.5 bg-[var(--color-surface)]/90 backdrop-blur-sm hover:bg-[var(--color-surface)] shadow-lg"
-                        >
-                          Cancel
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <Button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={isUploading}
-                          variant="secondary"
-                          className="h-8 text-xs px-3 py-1.5 bg-[var(--color-surface)]/90 backdrop-blur-sm hover:bg-[var(--color-surface)] shadow-lg gap-1.5"
-                        >
-                          <Upload size={14} />
-                          {isUploading ? 'Uploading...' : 'Replace Image'}
-                        </Button>
-                        <button
-                          type="button"
-                          onClick={handleRemoveImage}
-                          className="p-1.5 rounded-lg bg-[var(--color-surface)]/90 backdrop-blur-sm hover:bg-[var(--color-danger)]/20 border border-[var(--color-border-subtle)] hover:border-[var(--color-danger)]/30 text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors shadow-lg"
-                          title="Remove image"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Upload Button (when no image) */}
-              {!displayImage && (
-                <div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageSelect}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
-                    className="w-full px-4 py-3 rounded-lg bg-[var(--color-surface-subtle)] border-2 border-dashed border-[var(--color-border-subtle)] hover:border-[var(--color-primary)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Upload size={18} />
-                    {isUploading ? 'Uploading...' : 'Upload Site Image'}
-                  </button>
-                </div>
-              )}
-
-              {previewImage && (
-                <div className="space-y-2">
-                  <p className="text-xs text-[var(--color-text-muted)] text-center">
-                    Preview - Click "Save Image" button below to save
-                  </p>
-                  <div className="flex justify-center gap-2">
-                    <Button
+                    <button
                       type="button"
-                      onClick={async (e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        console.log('🖱️ Save Image button clicked! (below preview)')
-                        try {
-                          await handleSaveImage()
-                        } catch (error) {
-                          console.error('❌ Error in handleSaveImage:', error)
-                        }
-                      }}
+                      onClick={() => fileInputRef.current?.click()}
                       disabled={isUploading}
-                      variant="primary"
+                      className="w-full px-4 py-3 rounded-lg bg-[var(--color-surface-subtle)] border-2 border-dashed border-[var(--color-border-subtle)] hover:border-[var(--color-primary)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isUploading ? 'Saving...' : '💾 Save Image'}
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={handleCancelPreview}
-                      disabled={isUploading}
-                      variant="secondary"
-                    >
-                      Cancel
-                    </Button>
+                      <Upload size={18} />
+                      {isUploading ? 'Uploading...' : 'Upload Site Image'}
+                    </button>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+
+                {previewImage && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-[var(--color-text-muted)] text-center">
+                      Preview - Click "Save Image" button below to save
+                    </p>
+                    <div className="flex justify-center gap-2">
+                      <Button
+                        type="button"
+                        onClick={async (e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          console.log('🖱️ Save Image button clicked! (below preview)')
+                          try {
+                            await handleSaveImage()
+                          } catch (error) {
+                            console.error('❌ Error in handleSaveImage:', error)
+                          }
+                        }}
+                        disabled={isUploading}
+                        variant="primary"
+                      >
+                        {isUploading ? 'Saving...' : '💾 Save Image'}
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={handleCancelPreview}
+                        disabled={isUploading}
+                        variant="secondary"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* New Site - Show message instead of upload */
+              <div className="px-4 py-3 rounded-lg bg-[var(--color-surface-subtle)] border border-dashed border-[var(--color-border-subtle)] text-center">
+                <p className="text-sm text-[var(--color-text-muted)]">
+                  Save the site first, then edit it to add an image.
+                </p>
+              </div>
+            )}
           </div>
         </form>
 
@@ -796,12 +843,13 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
           </Button>
           <Button
             type="submit"
-            onClick={handleSubmit}
+            form="add-site-form"
             variant="primary"
             className="flex items-center gap-2"
+            disabled={isUploading || isSubmitting}
           >
-            <Building2 size={16} />
-            {editingSite ? 'Save Changes' : 'Add Site'}
+            <Building2 size={16} className={isSubmitting ? 'animate-pulse' : ''} />
+            {isSubmitting ? 'Saving...' : (editingSite ? 'Save Changes' : 'Add Site')}
           </Button>
         </div>
       </div>

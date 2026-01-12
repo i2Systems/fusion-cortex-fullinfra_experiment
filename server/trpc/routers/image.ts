@@ -22,53 +22,48 @@ export const imageRouter = router({
     .mutation(async ({ input }) => {
       const MAX_RETRIES = 3
       let lastError: any = null
-      
+
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {
           if (attempt > 0) {
             console.log(`  Retry attempt ${attempt + 1}/${MAX_RETRIES}...`)
             await new Promise(resolve => setTimeout(resolve, 200 * attempt))
           }
-          
+
           console.log(`💾 [SERVER] Saving site image for ${input.siteId}, size: ${input.imageData.length} chars (${(input.imageData.length / 1024).toFixed(1)} KB)`)
-          
+
+          // Reject temporary site IDs - they should not be saved to the database
+          // Temporary IDs are: "site-" followed only by digits (timestamp), or "temp-"
+          const isTempId = /^site-\d+$/.test(input.siteId) || input.siteId.startsWith('temp-')
+          if (isTempId) {
+            console.warn(`⚠️ [SERVER] Rejecting temporary site ID: ${input.siteId}. Images for new sites should be saved after the site is created in the database.`)
+            throw new Error(`Cannot save image for temporary site ID: ${input.siteId}. Please create the site first.`)
+          }
+
           // First ensure site exists
           const siteExists = await prisma.site.findUnique({
             where: { id: input.siteId },
             select: { id: true },
           })
-          
+
           if (!siteExists) {
-            console.warn(`⚠️ [SERVER] Site ${input.siteId} does not exist, cannot save image. Creating site first...`)
-            // Try to create a minimal site record
-            try {
-              await prisma.site.create({
-                data: {
-                  id: input.siteId,
-                  name: `Site ${input.siteId}`,
-                  storeNumber: input.siteId.replace('site-', '').replace('store-', ''),
-                },
-              })
-              console.log(`✅ [SERVER] Created site ${input.siteId} for image storage`)
-            } catch (createError: any) {
-              console.error(`❌ [SERVER] Failed to create site ${input.siteId}:`, createError.message)
-              throw new Error(`Site ${input.siteId} does not exist and could not be created: ${createError.message}`)
-            }
+            console.error(`❌ [SERVER] Site ${input.siteId} does not exist in database. Cannot save image.`)
+            throw new Error(`Site ${input.siteId} does not exist. Please create the site first.`)
           }
-          
+
           // Try to upload to Supabase Storage
           let imageUrl = input.imageData // Fallback to base64
-          
+
           if (supabaseAdmin && input.imageData.startsWith('data:')) {
             try {
               // Convert base64 to Buffer
               const base64Data = input.imageData.replace(/^data:image\/\w+;base64,/, '')
               const buffer = Buffer.from(base64Data, 'base64')
-              
+
               // Generate filename
               const fileExtension = 'jpg' // Always use jpg for optimization
               const fileName = `${input.siteId}.${fileExtension}`
-              
+
               // Upload to Supabase Storage
               const { data, error } = await supabaseAdmin.storage
                 .from(STORAGE_BUCKETS.SITE_IMAGES)
@@ -76,13 +71,13 @@ export const imageRouter = router({
                   contentType: 'image/jpeg', // Always JPEG for optimization
                   upsert: true,
                 })
-              
+
               if (!error && data) {
                 // Get public URL
                 const { data: urlData } = supabaseAdmin.storage
                   .from(STORAGE_BUCKETS.SITE_IMAGES)
                   .getPublicUrl(fileName)
-                
+
                 imageUrl = urlData.publicUrl
                 console.log(`✅ [SERVER] Uploaded site image to Supabase Storage: ${imageUrl}`)
               } else {
@@ -92,13 +87,13 @@ export const imageRouter = router({
               console.warn(`⚠️ [SERVER] Supabase upload error, using base64 fallback:`, uploadError.message)
             }
           }
-          
+
           // Update site with imageUrl (either Supabase URL or base64 fallback)
           const site = await prisma.site.update({
             where: { id: input.siteId },
             data: { imageUrl },
           })
-          
+
           console.log(`✅ [SERVER] Site image saved for ${input.siteId}`)
           const isSupabaseUrl = imageUrl.startsWith('http')
           console.log(`   imageUrl type: ${isSupabaseUrl ? '✅ Supabase URL (persistent)' : '⚠️ base64 (fallback - browser-specific)'}`)
@@ -112,7 +107,7 @@ export const imageRouter = router({
             console.warn(`      - Image will be stored in database (not ideal for large images)`)
             console.warn(`      - Check SUPABASE_SERVICE_ROLE_KEY environment variable`)
           }
-          
+
           // Verify it was actually saved by reading it back
           const verify = await prisma.site.findUnique({
             where: { id: input.siteId },
@@ -129,12 +124,12 @@ export const imageRouter = router({
           } else {
             console.error(`❌ [SERVER] VERIFICATION FAILED: Image URL not found in database after save for ${input.siteId}`)
           }
-          
+
           return { success: true, siteId: input.siteId, imageUrl }
         } catch (error: any) {
           lastError = error
           console.error(`Error saving site image to database (attempt ${attempt + 1}):`, error)
-          
+
           // Handle missing column error
           if (error.code === 'P2022' && error.meta?.column === 'Site.imageUrl') {
             console.warn('imageUrl column missing, attempting to add it...')
@@ -153,22 +148,22 @@ export const imageRouter = router({
               throw new Error('Database schema update required. Please run migrations.')
             }
           }
-          
+
           // Handle site not found
           if (error.code === 'P2025') {
             throw new Error(`Site with ID ${input.siteId} not found`)
           }
-          
+
           // Handle prepared statement errors
           if (error.code === '26000' || error.code === '42P05' || error.message?.includes('prepared statement')) {
             if (attempt < MAX_RETRIES - 1) continue
           }
-          
+
           // If not a retryable error, throw immediately
           if (attempt < MAX_RETRIES - 1) continue
         }
       }
-      
+
       throw new Error(`Failed to save site image after ${MAX_RETRIES} attempts: ${lastError?.message || 'Unknown error'}`)
     }),
 
@@ -180,32 +175,32 @@ export const imageRouter = router({
     .query(async ({ input }) => {
       console.log(`🔍 [SERVER] getSiteImage called for siteId: ${input.siteId} at ${new Date().toISOString()}`)
       const MAX_RETRIES = 3
-      
+
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {
           if (attempt > 0) {
             console.log(`  [SERVER] Retry attempt ${attempt + 1}/${MAX_RETRIES}...`)
             await new Promise(resolve => setTimeout(resolve, 200 * attempt))
           }
-          
+
           // First check if site exists
           const siteExists = await prisma.site.findUnique({
             where: { id: input.siteId },
             select: { id: true, imageUrl: true },
           })
-          
+
           if (!siteExists) {
             // Log available sites for debugging (only first 10 to avoid spam)
-            const availableSites = await prisma.site.findMany({ 
-              select: { id: true }, 
-              take: 10 
+            const availableSites = await prisma.site.findMany({
+              select: { id: true },
+              take: 10
             }).catch(() => [])
-            console.log(`⚠️ [SERVER] Site ${input.siteId} does not exist in database. Available sites:`, 
+            console.log(`⚠️ [SERVER] Site ${input.siteId} does not exist in database. Available sites:`,
               availableSites.map(s => s.id)
             )
             return null
           }
-          
+
           if (siteExists.imageUrl && siteExists.imageUrl.trim().length > 0) {
             console.log(`✅ [SERVER] Found image in database for ${input.siteId}, length: ${siteExists.imageUrl.length}`)
             return siteExists.imageUrl
@@ -220,29 +215,29 @@ export const imageRouter = router({
             siteId: input.siteId,
             stack: error.stack?.substring(0, 200),
           })
-          
+
           // Handle missing column error
           if (error.code === 'P2022' && error.meta?.column === 'Site.imageUrl') {
             console.warn(`⚠️ [SERVER] imageUrl column missing for ${input.siteId}`)
             return null
           }
-          
+
           // Handle site not found
           if (error.code === 'P2025' || error.message?.includes('Record to find does not exist')) {
             console.log(`⚠️ [SERVER] Site ${input.siteId} not found in database`)
             return null
           }
-          
+
           // Handle prepared statement errors
           if ((error.code === '26000' || error.code === '42P05' || error.message?.includes('prepared statement')) && attempt < MAX_RETRIES - 1) {
             continue
           }
-          
+
           // Return null on other errors
           return null
         }
       }
-      
+
       console.warn(`⚠️ [SERVER] Failed to get site image after ${MAX_RETRIES} attempts for ${input.siteId}`)
       return null
     }),
@@ -257,29 +252,29 @@ export const imageRouter = router({
     .mutation(async ({ input }) => {
       const MAX_RETRIES = 3
       let lastError: any = null
-      
+
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {
           if (attempt > 0) {
             console.log(`  Retry attempt ${attempt + 1}/${MAX_RETRIES}...`)
             await new Promise(resolve => setTimeout(resolve, 200 * attempt))
           }
-          
+
           console.log(`💾 [SERVER] Saving library image for ${input.libraryId}, size: ${input.imageData.length} chars`)
-          
+
           // Try to upload to Supabase Storage
           let imageUrl = input.imageData // Fallback to base64
-          
+
           if (supabaseAdmin && input.imageData.startsWith('data:')) {
             try {
               // Convert base64 to Buffer
               const base64Data = input.imageData.replace(/^data:image\/\w+;base64,/, '')
               const buffer = Buffer.from(base64Data, 'base64')
-              
+
               // Generate filename (sanitize libraryId for filename)
               const sanitizedId = input.libraryId.replace(/[^a-zA-Z0-9-_]/g, '_')
               const fileName = `${sanitizedId}.jpg`
-              
+
               // Upload to Supabase Storage
               const { data, error } = await supabaseAdmin.storage
                 .from(STORAGE_BUCKETS.LIBRARY_IMAGES)
@@ -287,13 +282,13 @@ export const imageRouter = router({
                   contentType: 'image/jpeg', // Always JPEG for optimization
                   upsert: true,
                 })
-              
+
               if (!error && data) {
                 // Get public URL
                 const { data: urlData } = supabaseAdmin.storage
                   .from(STORAGE_BUCKETS.LIBRARY_IMAGES)
                   .getPublicUrl(fileName)
-                
+
                 imageUrl = urlData.publicUrl
                 console.log(`✅ [SERVER] Uploaded library image to Supabase Storage: ${imageUrl}`)
               } else {
@@ -303,7 +298,7 @@ export const imageRouter = router({
               console.warn(`⚠️ [SERVER] Supabase upload error, using base64 fallback:`, uploadError.message)
             }
           }
-          
+
           // Upsert library image (create or update) - now using imageUrl instead of imageData
           const libraryImage = await prisma.libraryImage.upsert({
             where: { libraryId: input.libraryId },
@@ -318,13 +313,13 @@ export const imageRouter = router({
               mimeType: input.mimeType,
             },
           })
-          
+
           console.log(`✅ [SERVER] Library image saved for ${input.libraryId}`)
           return { success: true, libraryId: input.libraryId, imageUrl }
         } catch (error: any) {
           lastError = error
           console.error(`Error saving library image to database (attempt ${attempt + 1}):`, error)
-          
+
           // Handle missing column error (imageUrl column doesn't exist)
           if (error.code === 'P2022' && error.meta?.column === 'LibraryImage.imageUrl') {
             console.warn('⚠️ [SERVER] imageUrl column missing in LibraryImage table, attempting to add it...')
@@ -359,7 +354,7 @@ export const imageRouter = router({
               throw new Error('Database schema update required. Please run migrations.')
             }
           }
-          
+
           // Handle table doesn't exist error
           if (error.code === 'P2021' || error.message?.includes('does not exist') || error.message?.includes('LibraryImage')) {
             console.warn('⚠️ [SERVER] LibraryImage table missing, attempting to create it...')
@@ -390,17 +385,17 @@ export const imageRouter = router({
               throw new Error('Database schema update required. Please run migrations or visit /api/migrate-library-images')
             }
           }
-          
+
           // Handle prepared statement errors
           if (error.code === '26000' || error.code === '42P05' || error.message?.includes('prepared statement')) {
             if (attempt < MAX_RETRIES - 1) continue
           }
-          
+
           // If not a retryable error, throw immediately
           if (attempt < MAX_RETRIES - 1) continue
         }
       }
-      
+
       throw new Error(`Failed to save library image after ${MAX_RETRIES} attempts: ${lastError?.message || 'Unknown error'}`)
     }),
 
@@ -411,37 +406,37 @@ export const imageRouter = router({
     }))
     .query(async ({ input }) => {
       const MAX_RETRIES = 3
-      
+
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {
           if (attempt > 0) {
             await new Promise(resolve => setTimeout(resolve, 200 * attempt))
           }
-          
+
           const libraryImage = await prisma.libraryImage.findUnique({
             where: { libraryId: input.libraryId },
             select: { imageUrl: true, mimeType: true },
           })
-          
+
           return libraryImage?.imageUrl || null
         } catch (error: any) {
           console.error(`Error getting library image from database (attempt ${attempt + 1}):`, error)
-          
+
           // Handle table doesn't exist - return null (will fallback to client storage)
           if (error.code === 'P2021' || error.message?.includes('does not exist') || error.message?.includes('LibraryImage')) {
             return null
           }
-          
+
           // Handle prepared statement errors
           if ((error.code === '26000' || error.code === '42P05' || error.message?.includes('prepared statement')) && attempt < MAX_RETRIES - 1) {
             continue
           }
-          
+
           // Return null on other errors
           return null
         }
       }
-      
+
       return null
     }),
 
@@ -455,7 +450,7 @@ export const imageRouter = router({
         await prisma.libraryImage.delete({
           where: { libraryId: input.libraryId },
         })
-        
+
         return { success: true }
       } catch (error: any) {
         // Ignore if image doesn't exist
