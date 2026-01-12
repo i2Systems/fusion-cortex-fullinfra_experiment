@@ -35,7 +35,7 @@ NEXTAUTH_URL=https://your-app.vercel.app
 # Supabase (for image storage)
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key-here>
 ```
 
 #### Generating NEXTAUTH_SECRET
