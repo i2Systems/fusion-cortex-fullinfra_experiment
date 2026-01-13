@@ -20,7 +20,7 @@ const globalForPrisma = globalThis as unknown as {
 // Also add SSL mode and connection limit for serverless environments
 const databaseUrl = process.env.DATABASE_URL
 const poolerUrl = databaseUrl?.includes('pooler.supabase.com') 
-  ? `${databaseUrl}${databaseUrl.includes('?') ? '&' : '?'}pgbouncer=true&sslmode=require&connection_limit=1`
+  ? `${databaseUrl}${databaseUrl.includes('?') ? '&' : '?'}pgbouncer=true&sslmode=require&connection_limit=1&connect_timeout=10&pool_timeout=10`
   : databaseUrl
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({
@@ -32,9 +32,15 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient({
   },
 })
 
-// In serverless environments, we need to handle connection pooling differently
-// The connection pool will be managed by the database provider (Supabase)
-if (process.env.NODE_ENV !== 'production') {
+// In serverless environments, reuse the same Prisma client instance
+// This is critical for connection pooling in Vercel/serverless
+if (process.env.NODE_ENV === 'production') {
+  // In production (Vercel), reuse the global instance to prevent connection exhaustion
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = prisma
+  }
+} else {
+  // In development, also reuse to prevent multiple instances during hot reload
   globalForPrisma.prisma = prisma
 }
 
