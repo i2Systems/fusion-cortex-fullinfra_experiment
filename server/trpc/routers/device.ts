@@ -113,6 +113,10 @@ export const deviceRouter = router({
             siteId: true,
             createdAt: true,
             updatedAt: true,
+            firmwareVersion: true,
+            firmwareTarget: true,
+            firmwareStatus: true,
+            lastFirmwareUpdate: true,
             components: {
               orderBy: {
                 createdAt: 'asc',
@@ -172,6 +176,10 @@ export const deviceRouter = router({
                 siteId: true,
                 createdAt: true,
                 updatedAt: true,
+                firmwareVersion: true,
+                firmwareTarget: true,
+                firmwareStatus: true,
+                lastFirmwareUpdate: true,
                 components: {
                   orderBy: {
                     createdAt: 'asc',
@@ -243,6 +251,10 @@ export const deviceRouter = router({
           siteId: true,
           createdAt: true,
           updatedAt: true,
+          firmwareVersion: true,
+          firmwareTarget: true,
+          firmwareStatus: true,
+          lastFirmwareUpdate: true,
           components: {
             orderBy: {
               createdAt: 'asc',
@@ -287,6 +299,10 @@ export const deviceRouter = router({
           siteId: true,
           createdAt: true,
           updatedAt: true,
+          firmwareVersion: true,
+          firmwareTarget: true,
+          firmwareStatus: true,
+          lastFirmwareUpdate: true,
           ...(input.includeComponents
             ? {
                 components: {
