@@ -546,8 +546,8 @@ export const firmwareRouter = router({
         const failed = campaign.FirmwareDeviceUpdate.filter(
           du => du.status === FirmwareDeviceStatus.FAILED
         ).length
-        const inProgress = campaign.deviceUpdates.filter(
-          du => du.status === FirmwareDeviceStatus.IN_PROGRESS
+        const inProgress = campaign.FirmwareDeviceUpdate.filter(
+          (du: any) => du.status === FirmwareDeviceStatus.IN_PROGRESS
         ).length
         
         // Check if campaign is complete

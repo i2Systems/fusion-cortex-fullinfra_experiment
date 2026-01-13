@@ -309,9 +309,11 @@ export const imageRouter = router({
               updatedAt: new Date(),
             },
             create: {
+              id: randomUUID(),
               libraryId: input.libraryId,
               imageUrl,
               mimeType: input.mimeType,
+              updatedAt: new Date(),
             },
           })
 
