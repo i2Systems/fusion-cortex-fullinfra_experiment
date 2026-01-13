@@ -283,7 +283,7 @@ export const deviceRouter = router({
         const device = await prisma.device.create({
           data: {
             ...deviceDataForPrisma,
-            other_Device: components
+            components: components
               ? {
                 create: components.map((comp, index) => {
                   // Generate unique serial number for component to avoid conflicts
@@ -455,7 +455,7 @@ export const deviceRouter = router({
                 y: deviceData.y,
                 warrantyStatus: deviceData.warrantyStatus,
                 warrantyExpiry: deviceData.warrantyExpiry,
-                other_Device: components
+                components: components
                   ? {
                     create: components.map(comp => ({
                       siteId: deviceData.siteId,
