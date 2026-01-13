@@ -47,7 +47,7 @@ export const zoneRouter = router({
           color: zone.color,
           description: zone.description,
           polygon: zone.polygon as Array<{ x: number; y: number }> | null,
-          deviceIds: zone.ZoneDevice.map(zd => zd.deviceId),
+          deviceIds: zone.ZoneDevice.map((zd: any) => zd.deviceId),
           daylightEnabled: zone.daylightEnabled,
           minDaylight: zone.minDaylight,
           createdAt: zone.createdAt,
@@ -80,13 +80,13 @@ export const zoneRouter = router({
               where: {
                 siteId: input.siteId,
               },
+          include: {
+            ZoneDevice: {
               include: {
-                devices: {
-                  include: {
-                    device: true,
-                  },
-                },
+                Device: true,
               },
+            },
+          },
               orderBy: {
                 createdAt: 'asc',
               },
@@ -98,7 +98,7 @@ export const zoneRouter = router({
               color: zone.color,
               description: zone.description,
               polygon: zone.polygon as Array<{ x: number; y: number }> | null,
-              deviceIds: zone.ZoneDevice.map(zd => zd.deviceId),
+              deviceIds: zone.ZoneDevice.map((zd: any) => zd.deviceId),
               daylightEnabled: zone.daylightEnabled,
               minDaylight: zone.minDaylight,
               createdAt: zone.createdAt,
@@ -178,7 +178,7 @@ export const zoneRouter = router({
           color: zone.color,
           description: zone.description,
           polygon: zone.polygon as Array<{ x: number; y: number }> | null,
-          deviceIds: zone.ZoneDevice.map(zd => zd.deviceId),
+          deviceIds: zone.ZoneDevice.map((zd: any) => zd.deviceId),
           createdAt: zone.createdAt,
           updatedAt: zone.updatedAt,
         }
@@ -242,13 +242,13 @@ export const zoneRouter = router({
                   })),
                 } : undefined,
               },
+          include: {
+            ZoneDevice: {
               include: {
-                devices: {
-                  include: {
-                    device: true,
-                  },
-                },
+                Device: true,
               },
+            },
+          },
             })
             
             return {
@@ -257,7 +257,7 @@ export const zoneRouter = router({
               color: zone.color,
               description: zone.description,
               polygon: zone.polygon as Array<{ x: number; y: number }> | null,
-              deviceIds: zone.ZoneDevice.map(zd => zd.deviceId),
+              deviceIds: zone.ZoneDevice.map((zd: any) => zd.deviceId),
               createdAt: zone.createdAt,
               updatedAt: zone.updatedAt,
             }
@@ -351,7 +351,7 @@ export const zoneRouter = router({
           color: updatedZone.color,
           description: updatedZone.description,
           polygon: updatedZone.polygon as Array<{ x: number; y: number }> | null,
-          deviceIds: updatedZone.devices.map(zd => zd.deviceId),
+          deviceIds: updatedZone.ZoneDevice.map((zd: any) => zd.deviceId),
           createdAt: updatedZone.createdAt,
           updatedAt: updatedZone.updatedAt,
         }
@@ -436,13 +436,13 @@ export const zoneRouter = router({
                 ...updates,
                 polygon: input.polygon ? (input.polygon as any) : undefined,
               },
+          include: {
+            ZoneDevice: {
               include: {
-                devices: {
-                  include: {
-                    device: true,
-                  },
-                },
+                Device: true,
               },
+            },
+          },
             })
             
             return {
@@ -451,7 +451,7 @@ export const zoneRouter = router({
               color: updatedZone.color,
               description: updatedZone.description,
               polygon: updatedZone.polygon as Array<{ x: number; y: number }> | null,
-              deviceIds: updatedZone.devices.map(zd => zd.deviceId),
+              deviceIds: updatedZone.ZoneDevice.map((zd: any) => zd.deviceId),
               createdAt: updatedZone.createdAt,
               updatedAt: updatedZone.updatedAt,
             }
@@ -544,6 +544,7 @@ export const zoneRouter = router({
               polygon: zoneData.polygon ? (zoneData.polygon as any) : null,
               devices: {
                 create: (zoneData.deviceIds || []).map(deviceId => ({
+                  id: randomUUID(),
                   deviceId,
                 })),
               },
