@@ -371,16 +371,17 @@ export function FaultList({ faults, selectedFaultId, onFaultSelect, searchQuery 
             className="space-y-2 p-2 fault-list-container"
             onClick={handleContainerClick}
           >
-            {sortedFaults.map((fault) => {
-              const faultId = fault.id || fault.device.id
-              const isSelected = selectedFaultId === faultId
+            {sortedFaults.map((fault, index) => {
+              // Use fault.id if available, otherwise create a unique composite key
+              const faultId = fault.id || `${fault.device.id}-${fault.faultType}-${fault.detectedAt.getTime()}-${index}`
+              const isSelected = selectedFaultId === (fault.id || fault.device.id)
 
               return (
                 <FaultListItem
                   key={faultId}
                   fault={fault}
                   isSelected={isSelected}
-                  onSelect={() => onFaultSelect?.(isSelected ? null : faultId)}
+                  onSelect={() => onFaultSelect?.(isSelected ? null : (fault.id || fault.device.id))}
                 />
               )
             })}
