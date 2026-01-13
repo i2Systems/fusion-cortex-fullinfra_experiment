@@ -96,7 +96,7 @@ export function FirmwareCampaignPanel({
       <PanelEmptyState
         icon={Download}
         title="No Campaign Selected"
-        message="Select a campaign from the list to view details and manage devices."
+        description="Select a campaign from the list to view details and manage devices."
       />
     )
   }
