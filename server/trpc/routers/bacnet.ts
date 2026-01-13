@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { router, publicProcedure } from '../trpc'
 import { prisma } from '@/lib/prisma'
 import { BACnetStatus } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 export const bacnetRouter = router({
   list: publicProcedure
@@ -73,6 +74,7 @@ export const bacnetRouter = router({
     .mutation(async ({ input }) => {
       const mapping = await prisma.bACnetMapping.create({
         data: {
+          id: randomUUID(),
           zoneId: input.zoneId,
           bacnetObjectId: input.bacnetObjectId || null,
           status: input.status as BACnetStatus,
