@@ -308,6 +308,9 @@ export const deviceRouter = router({
                     warrantyExpiry: comp.warrantyExpiry,
                     buildDate: comp.buildDate,
                     updatedAt: new Date(),
+                    Site: {
+                      connect: { id: deviceData.siteId },
+                    },
                   }
                 }),
               }
