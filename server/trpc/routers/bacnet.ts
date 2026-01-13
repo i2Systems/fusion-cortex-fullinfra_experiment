@@ -32,7 +32,7 @@ export const bacnetRouter = router({
         .filter(zone => zone.BACnetMapping)
         .map(zone => ({
           zoneId: zone.id,
-          zoneName: zone.BACnetMapping?.Zone?.name || zone.name,
+          zoneName: zone.name,
           bacnetObjectId: zone.BACnetMapping?.bacnetObjectId || null,
           status: zone.BACnetMapping?.status || 'NOT_ASSIGNED',
           lastConnected: zone.BACnetMapping?.lastConnected || null,
@@ -110,17 +110,20 @@ export const bacnetRouter = router({
       if (updates.status !== undefined) updateData.status = updates.status as BACnetStatus
       if (updates.lastConnected !== undefined) updateData.lastConnected = updates.lastConnected
 
+      updateData.updatedAt = new Date()
       const mapping = await prisma.bACnetMapping.upsert({
         where: { zoneId },
         update: updateData,
         create: {
+          id: randomUUID(),
           zoneId,
-          bacnetObjectId: updates.bacnetObjectId,
+          bacnetObjectId: updates.bacnetObjectId || null,
           status: (updates.status as BACnetStatus) || BACnetStatus.NOT_ASSIGNED,
-          lastConnected: updates.lastConnected,
+          lastConnected: updates.lastConnected || null,
+          updatedAt: new Date(),
         },
         include: {
-          zone: true,
+          Zone: true,
         },
       })
 
