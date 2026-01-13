@@ -217,7 +217,17 @@ export const faultRouter = router({
               siteId: true,
               createdAt: true,
               updatedAt: true,
-              components: true,
+              components: {
+                select: {
+                  id: true,
+                  serialNumber: true,
+                  deviceId: true,
+                  type: true,
+                  status: true,
+                  componentType: true,
+                  componentSerialNumber: true,
+                },
+              },
             },
           },
         },
