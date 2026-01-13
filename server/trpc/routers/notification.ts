@@ -55,7 +55,7 @@ export const notificationRouter = router({
 
             const warrantyDevices = await prisma.device.findMany({
                 where: {
-                    siteId: siteId,
+                    siteId: siteId || undefined,
                     AND: [
                         { warrantyExpiry: { not: null } },
                         { warrantyExpiry: { lte: thirtyDaysFromNow } },
@@ -91,7 +91,7 @@ export const notificationRouter = router({
             // 3. Device Health (Low Signal or Offline)
             const healthDevices = await prisma.device.findMany({
                 where: {
-                    siteId: siteId,
+                    siteId: siteId || undefined,
                     OR: [
                         { signal: { lt: 20, gt: 0 } },
                         { status: DeviceStatus.MISSING },
