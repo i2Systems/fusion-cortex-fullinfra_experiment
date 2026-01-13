@@ -17,10 +17,10 @@ const globalForPrisma = globalThis as unknown as {
 
 // Transaction pooler doesn't support PREPARE statements
 // Add ?pgbouncer=true to disable prepared statements when using pooler
-// Also add SSL mode for secure connections
+// Also add SSL mode and connection limit for serverless environments
 const databaseUrl = process.env.DATABASE_URL
 const poolerUrl = databaseUrl?.includes('pooler.supabase.com') 
-  ? `${databaseUrl}${databaseUrl.includes('?') ? '&' : '?'}pgbouncer=true&sslmode=require`
+  ? `${databaseUrl}${databaseUrl.includes('?') ? '&' : '?'}pgbouncer=true&sslmode=require&connection_limit=1`
   : databaseUrl
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({
