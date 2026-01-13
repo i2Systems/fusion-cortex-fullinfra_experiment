@@ -545,6 +545,7 @@ export const zoneRouter = router({
               color: zoneData.color,
               description: zoneData.description,
               polygon: zoneData.polygon ? (zoneData.polygon as any) : null,
+              updatedAt: new Date(),
               ZoneDevice: {
                 create: (zoneData.deviceIds || []).map(deviceId => ({
                   id: randomUUID(),
