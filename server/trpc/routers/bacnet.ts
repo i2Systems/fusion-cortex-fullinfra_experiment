@@ -46,7 +46,7 @@ export const bacnetRouter = router({
       const mapping = await prisma.bACnetMapping.findUnique({
         where: { zoneId: input.zoneId },
         include: {
-          zone: true,
+          Zone: true,
         },
       })
 
@@ -57,7 +57,7 @@ export const bacnetRouter = router({
       return {
         id: mapping.id,
         zoneId: mapping.zoneId,
-        zoneName: mapping.zone.name,
+        zoneName: mapping.Zone.name,
         bacnetObjectId: mapping.bacnetObjectId,
         status: mapping.status,
         lastConnected: mapping.lastConnected,
