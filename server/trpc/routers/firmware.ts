@@ -151,7 +151,7 @@ export const firmwareRouter = router({
           },
           FirmwareDeviceUpdate: {
             include: {
-              device: {
+              Device: {
                 select: {
                   id: true,
                   deviceId: true,
@@ -457,8 +457,8 @@ export const firmwareRouter = router({
       })
       
       if (campaign) {
-        const inProgress = campaign.deviceUpdates.filter(
-          du => du.status === FirmwareDeviceStatus.IN_PROGRESS
+        const inProgress = campaign.FirmwareDeviceUpdate.filter(
+          (du: any) => du.status === FirmwareDeviceStatus.IN_PROGRESS
         ).length
         
         await prisma.firmwareUpdate.update({
