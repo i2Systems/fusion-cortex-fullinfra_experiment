@@ -50,8 +50,10 @@ postgresql://postgres:password@db.pphgyszfvzlsjoaukqsn.supabase.co:5432/postgres
 
 **✅ Correct (Connection Pooler - Works on Vercel):**
 ```
-postgresql://postgres.pphgyszfvzlsjoaukqsn:password@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+postgresql://postgres.pphgyszfvzlsjoaukqsn:RnFU9vnn2dPpQNWb@aws-1-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
 ```
+
+**Note:** The code automatically adds `?pgbouncer=true` if it detects a pooler URL, but you can also add it manually to the connection string in Vercel.
 
 ## Local Development
 
