@@ -1,14 +1,3 @@
-// Prisma Schema for Fusion/Cortex
-//
-// AI Note: This schema defines the core data models for:
-// - Devices (fixtures, sensors)
-// - Zones (groupings of devices)
-// - BACnet mappings
-// - Rules & overrides
-// - Sites/stores
-//
-// Extend as needed for your specific requirements.
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -18,81 +7,240 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Site {
-  id            String    @id @default(cuid())
-  name          String
-  storeNumber   String?
-  address       String?
-  city          String?
-  state         String?
-  zipCode       String?
-  phone         String?
-  manager       String?
-  squareFootage Int?
-  openedDate    DateTime?
-  imageUrl      String? // URL to site/store image
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  devices         Device[]
-  zones           Zone[]
-  locations       Location[]
-  firmwareUpdates FirmwareUpdate[]
-  rules           Rule[]
+model BACnetMapping {
+  id             String       @id
+  zoneId         String       @unique
+  bacnetObjectId String?
+  status         BACnetStatus @default(NOT_ASSIGNED)
+  lastConnected  DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime
+  Zone           Zone         @relation(fields: [zoneId], references: [id], onDelete: Cascade)
 }
 
 model Device {
-  id           String       @id @default(cuid())
-  serialNumber String       @unique
-  deviceId     String // User-facing ID (e.g., "765")
-  type         DeviceType
-  status       DeviceStatus @default(OFFLINE)
+  id                    String                 @id
+  serialNumber          String                 @unique
+  deviceId              String
+  type                  DeviceType
+  status                DeviceStatus           @default(OFFLINE)
+  x                     Float?
+  y                     Float?
+  orientation           Float?
+  signal                Int?
+  battery               Int?
+  buildDate             DateTime?
+  cct                   Int?
+  warrantyStatus        String?
+  warrantyExpiry        DateTime?
+  partsList             Json?
+  parentId              String?
+  componentType         String?
+  componentSerialNumber String?
+  firmwareVersion       String?
+  firmwareTarget        String?
+  firmwareStatus        FirmwareStatus         @default(UP_TO_DATE)
+  lastFirmwareUpdate    DateTime?
+  siteId                String
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime
+  Device                Device?                @relation("DeviceToDevice", fields: [parentId], references: [id], onDelete: Cascade)
+  other_Device          Device[]               @relation("DeviceToDevice")
+  Site                  Site                   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  Fault                 Fault[]
+  FirmwareDeviceUpdate  FirmwareDeviceUpdate[]
+  ZoneDevice            ZoneDevice[]
 
-  // Location (for map rendering)
-  x Float?
-  y Float?
-  orientation Float? // Rotation angle in degrees (0 = horizontal, 90 = vertical)
+  @@index([deviceId])
+  @@index([firmwareStatus])
+  @@index([firmwareVersion])
+  @@index([parentId])
+  @@index([serialNumber])
+  @@index([siteId])
+}
 
-  // Device properties
-  signal  Int? // Signal strength
-  battery Int? // Battery level (if applicable)
+model Fault {
+  id          String    @id
+  deviceId    String
+  faultType   String
+  description String
+  resolved    Boolean   @default(false)
+  resolvedAt  DateTime?
+  detectedAt  DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  Device      Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
-  // I2QR data
-  buildDate      DateTime?
-  cct            Int? // Color temperature
-  warrantyStatus String?
-  warrantyExpiry DateTime? // Warranty expiration date
-  partsList      Json? // Parts list as JSON
+  @@index([detectedAt])
+  @@index([deviceId])
+  @@index([resolved])
+}
 
-  // Parent-child relationships (for components)
-  parentId   String? // Parent device ID (null for top-level devices like fixtures)
-  parent     Device?  @relation("DeviceComponents", fields: [parentId], references: [id], onDelete: Cascade)
-  components Device[] @relation("DeviceComponents")
+model FirmwareDeviceUpdate {
+  id               String               @id
+  firmwareUpdateId String
+  deviceId         String
+  status           FirmwareDeviceStatus @default(PENDING)
+  errorMessage     String?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  retryCount       Int                  @default(0)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime
+  Device           Device               @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  FirmwareUpdate   FirmwareUpdate       @relation(fields: [firmwareUpdateId], references: [id], onDelete: Cascade)
 
-  // Component-specific fields
-  componentType         String? // e.g., "LCM", "Driver Board", "Power Supply", "LED Board", "Metal Bracket", "Cable Harness", "Lower LED Housing with Optic", "Sensor"
-  componentSerialNumber String? // Serial number for the component itself
+  @@unique([firmwareUpdateId, deviceId])
+  @@index([deviceId])
+  @@index([status])
+}
 
-  // Firmware information
-  firmwareVersion    String?  // Current firmware version (e.g., "v2.1.3")
-  firmwareTarget     String?  // Target firmware version for update
-  firmwareStatus     FirmwareStatus @default(UP_TO_DATE)
-  lastFirmwareUpdate DateTime?  // When firmware was last updated
-
-  // Relationships
-  siteId          String
-  site            Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  zoneMemberships ZoneDevice[]
-  faults          Fault[]
-  firmwareUpdates FirmwareDeviceUpdate[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model FirmwareUpdate {
+  id                   String                 @id
+  name                 String
+  description          String?
+  version              String
+  fileUrl              String?
+  siteId               String?
+  deviceTypes          DeviceType[]
+  status               FirmwareUpdateStatus   @default(PENDING)
+  totalDevices         Int                    @default(0)
+  completed            Int                    @default(0)
+  failed               Int                    @default(0)
+  inProgress           Int                    @default(0)
+  scheduledAt          DateTime?
+  startedAt            DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime
+  FirmwareDeviceUpdate FirmwareDeviceUpdate[]
+  Site                 Site?                  @relation(fields: [siteId], references: [id], onDelete: Cascade)
 
   @@index([siteId])
-  @@index([serialNumber])
-  @@index([deviceId])
+  @@index([status])
+}
+
+model LibraryImage {
+  id        String   @id
+  libraryId String   @unique
+  imageUrl  String?
+  mimeType  String   @default("image/jpeg")
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+
+  @@index([libraryId])
+}
+
+model Location {
+  id             String     @id
+  name           String
+  type           String
+  imageUrl       String?
+  vectorDataUrl  String?
+  zoomBounds     Json?
+  parentId       String?
+  siteId         String
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime
+  Location       Location?  @relation("LocationToLocation", fields: [parentId], references: [id], onDelete: Cascade)
+  other_Location Location[] @relation("LocationToLocation")
+  Site           Site       @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
   @@index([parentId])
+  @@index([siteId])
+}
+
+model Rule {
+  id            String    @id
+  name          String
+  description   String?
+  ruleType      String    @default("rule")
+  targetType    String    @default("zone")
+  targetId      String?
+  targetName    String?
+  trigger       String
+  condition     Json
+  action        Json
+  overrideBMS   Boolean   @default(false)
+  duration      Int?
+  siteId        String
+  zoneId        String?
+  targetZones   String[]
+  enabled       Boolean   @default(true)
+  lastTriggered DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime
+  Site          Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  Zone          Zone?     @relation(fields: [zoneId], references: [id])
+
+  @@index([siteId])
+  @@index([zoneId])
+}
+
+model Site {
+  id             String           @id
+  name           String
+  storeNumber    String?
+  address        String?
+  city           String?
+  state          String?
+  zipCode        String?
+  phone          String?
+  manager        String?
+  squareFootage  Int?
+  openedDate     DateTime?
+  imageUrl       String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime
+  Device         Device[]
+  FirmwareUpdate FirmwareUpdate[]
+  Location       Location[]
+  Rule           Rule[]
+  Zone           Zone[]
+}
+
+model Zone {
+  id              String         @id
+  name            String
+  color           String         @default("#4c7dff")
+  description     String?
+  polygon         Json?
+  daylightEnabled Boolean        @default(false)
+  minDaylight     Int?
+  siteId          String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime
+  BACnetMapping   BACnetMapping?
+  Rule            Rule[]
+  Site            Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  ZoneDevice      ZoneDevice[]
+
+  @@index([siteId])
+}
+
+model ZoneDevice {
+  id       String @id
+  zoneId   String
+  deviceId String
+  Device   Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  Zone     Zone   @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+
+  @@unique([zoneId, deviceId])
+  @@index([deviceId])
+  @@index([zoneId])
+}
+
+enum BACnetStatus {
+  CONNECTED
+  ERROR
+  NOT_ASSIGNED
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  MISSING
+  DUPLICATE
 }
 
 enum DeviceType {
@@ -106,11 +254,12 @@ enum DeviceType {
   LIGHT_SENSOR
 }
 
-enum DeviceStatus {
-  ONLINE
-  OFFLINE
-  MISSING
-  DUPLICATE
+enum FirmwareDeviceStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  SKIPPED
 }
 
 enum FirmwareStatus {
@@ -121,250 +270,10 @@ enum FirmwareStatus {
   UPDATE_REQUIRED
 }
 
-model Zone {
-  id          String  @id @default(cuid())
-  name        String
-  color       String  @default("#4c7dff") // Hex color for visualization
-  description String?
-
-  // Zone shape/geometry (normalized coordinates 0-1)
-  polygon Json? // Array of {x: number, y: number} points
-
-  // Daylight settings
-  daylightEnabled Boolean @default(false)
-  minDaylight     Int? // Minimum fc level
-
-  // Relationships
-  siteId        String
-  site          Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  devices       ZoneDevice[]
-  bacnetMapping BACnetMapping?
-  rules         Rule[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([siteId])
-}
-
-model ZoneDevice {
-  id       String @id @default(cuid())
-  zoneId   String
-  zone     Zone   @relation(fields: [zoneId], references: [id], onDelete: Cascade)
-  deviceId String
-  device   Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-
-  @@unique([zoneId, deviceId])
-  @@index([zoneId])
-  @@index([deviceId])
-}
-
-model BACnetMapping {
-  id             String       @id @default(cuid())
-  zoneId         String       @unique
-  zone           Zone         @relation(fields: [zoneId], references: [id], onDelete: Cascade)
-  bacnetObjectId String?
-  status         BACnetStatus @default(NOT_ASSIGNED)
-  lastConnected  DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-enum BACnetStatus {
-  CONNECTED
-  ERROR
-  NOT_ASSIGNED
-}
-
-model Rule {
-  id          String  @id @default(cuid())
-  name        String
-  description String?
-
-  // Rule classification
-  ruleType    String  @default("rule")  // 'rule', 'override', 'schedule'
-  targetType  String  @default("zone")  // 'zone' or 'device'
-  targetId    String?                    // Zone ID or Device ID (display reference)
-  targetName  String?                    // Display name for target
-
-  // Rule definition (Alexa-style)
-  trigger   String // e.g., "motion", "no_motion", "daylight", "bms", "schedule"
-  condition Json   // Condition parameters as JSON
-  action    Json   // Action parameters as JSON
-
-  // Override settings
-  overrideBMS Boolean @default(false)
-  duration    Int?    // Duration in minutes (if applicable)
-
-  // Site relationship (rules are site-scoped)
-  siteId      String
-  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
-
-  // Zone relationship (optional, for zone-targeted rules)
-  zoneId      String?
-  zone        Zone?    @relation(fields: [zoneId], references: [id], onDelete: SetNull)
-  targetZones String[] // Array of zone IDs this rule affects
-
-  enabled       Boolean   @default(true)
-  lastTriggered DateTime? // When rule was last triggered
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([siteId])
-  @@index([zoneId])
-}
-
-model Fault {
-  id       String @id @default(cuid())
-  deviceId String
-  device   Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-
-  faultType   String // FaultCategory as string
-  description String
-
-  // Status
-  resolved   Boolean   @default(false)
-  resolvedAt DateTime?
-
-  detectedAt DateTime @default(now())
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([deviceId])
-  @@index([resolved])
-  @@index([detectedAt])
-}
-
-model LibraryImage {
-  id        String   @id @default(cuid())
-  libraryId String   @unique // Library object ID (e.g., "lcm", "fixture-16ft-power-entry")
-  imageUrl  String? // URL to image in Supabase Storage (or base64 fallback)
-  mimeType  String   @default("image/jpeg") // MIME type (image/jpeg, image/png)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([libraryId])
-}
-
-// NOTE: DiscoverySession model kept for potential future use
-// Currently, device entry is manual via the lookup page
-// model DiscoverySession {
-//   id          String   @id @default(cuid())
-//   siteId      String
-//   site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
-//   
-//   status      DiscoveryStatus @default(RUNNING)
-//   devicesFound Int     @default(0)
-//   devicesMissing Int   @default(0)
-//   devicesOffline Int   @default(0)
-//   
-//   startedAt   DateTime @default(now())
-//   completedAt DateTime?
-//   
-//   @@index([siteId])
-//   @@index([status])
-// }
-
-// Map Location Model
-model Location {
-  id   String @id @default(cuid())
-  name String
-  type String // 'base' or 'zoom'
-
-  // Storage references (Supabase Key/URL)
-  imageUrl      String?
-  vectorDataUrl String?
-
-  // Zoom view properties
-  zoomBounds Json? // { minX, minY, maxX, maxY }
-
-  // Hierarchy
-  parentId String?
-  parent   Location?  @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children Location[] @relation("LocationHierarchy")
-
-  // Site context
-  siteId String
-  site   Site   @relation(fields: [siteId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([siteId])
-  @@index([parentId])
-}
-
-// Firmware Update Models
-model FirmwareUpdate {
-  id          String   @id @default(cuid())
-  name        String   // Campaign name (e.g., "Q1 2024 Security Patch")
-  description String?
-  version     String   // Target firmware version
-  fileUrl     String?  // URL to firmware binary (if stored)
-  
-  // Targeting
-  siteId      String?
-  site        Site?    @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  deviceTypes DeviceType[] // Which device types this applies to
-  
-  // Status tracking
-  status      FirmwareUpdateStatus @default(PENDING)
-  totalDevices Int     @default(0)
-  completed   Int     @default(0)
-  failed      Int     @default(0)
-  inProgress  Int     @default(0)
-  
-  // Scheduling
-  scheduledAt DateTime?
-  startedAt   DateTime?
-  completedAt DateTime?
-  
-  // Relationships
-  deviceUpdates FirmwareDeviceUpdate[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@index([siteId])
-  @@index([status])
-}
-
-model FirmwareDeviceUpdate {
-  id              String   @id @default(cuid())
-  firmwareUpdateId String
-  firmwareUpdate  FirmwareUpdate @relation(fields: [firmwareUpdateId], references: [id], onDelete: Cascade)
-  deviceId        String
-  device          Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  
-  status          FirmwareDeviceStatus @default(PENDING)
-  errorMessage    String?
-  startedAt       DateTime?
-  completedAt     DateTime?
-  retryCount      Int      @default(0)
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  @@unique([firmwareUpdateId, deviceId])
-  @@index([deviceId])
-  @@index([status])
-}
-
 enum FirmwareUpdateStatus {
   PENDING
   IN_PROGRESS
   COMPLETED
   FAILED
   CANCELLED
-}
-
-enum FirmwareDeviceStatus {
-  PENDING
-  IN_PROGRESS
-  COMPLETED
-  FAILED
-  SKIPPED
 }
