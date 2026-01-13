@@ -150,7 +150,7 @@ export const notificationRouter = router({
                         },
                         take: 10,
                         include: {
-                            device: {
+                            Device: {
                                 select: {
                                     deviceId: true,
                                     siteId: true,
@@ -206,11 +206,11 @@ export const notificationRouter = router({
                         id: `firmware-device-${deviceUpdate.id}`,
                         type: 'firmware',
                         title: 'Device Firmware Update Failed',
-                        message: `Device ${deviceUpdate.device.deviceId} failed to update firmware: ${deviceUpdate.errorMessage || 'Unknown error'}`,
+                        message: `Device ${deviceUpdate.Device.deviceId} failed to update firmware: ${deviceUpdate.errorMessage || 'Unknown error'}`,
                         timestamp: deviceUpdate.completedAt || deviceUpdate.updatedAt,
                         read: false,
-                        link: `/firmware?id=${campaign.id}&deviceId=${deviceUpdate.deviceId}${deviceUpdate.device.siteId ? `&siteId=${deviceUpdate.device.siteId}` : ''}`,
-                        siteId: deviceUpdate.device.siteId || undefined,
+                        link: `/firmware?id=${campaign.id}&deviceId=${deviceUpdate.deviceId}${deviceUpdate.Device.siteId ? `&siteId=${deviceUpdate.Device.siteId}` : ''}`,
+                        siteId: deviceUpdate.Device.siteId || undefined,
                     });
                 }
             }

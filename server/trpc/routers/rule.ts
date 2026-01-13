@@ -8,6 +8,7 @@
 import { z } from 'zod'
 import { router, publicProcedure } from '../trpc'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 
 // Helper to transform database rule to frontend format
 function transformRule(rule: any) {
@@ -26,7 +27,7 @@ function transformRule(rule: any) {
     duration: rule.duration,
     siteId: rule.siteId,
     zoneId: rule.zoneId,
-    zoneName: rule.zone?.name,
+    zoneName: rule.Zone?.name,
     targetZones: rule.targetZones,
     enabled: rule.enabled,
     lastTriggered: rule.lastTriggered,
@@ -58,7 +59,7 @@ export const ruleRouter = router({
         const rules = await prisma.rule.findMany({
           where,
           include: {
-            zone: {
+            Zone: {
               select: {
                 id: true,
                 name: true,
@@ -123,6 +124,7 @@ export const ruleRouter = router({
       try {
         const rule = await prisma.rule.create({
           data: {
+            id: randomUUID(),
             name: input.name,
             description: input.description,
             ruleType: input.ruleType,
@@ -138,9 +140,10 @@ export const ruleRouter = router({
             zoneId: input.zoneId,
             targetZones: input.targetZones,
             enabled: input.enabled,
+            updatedAt: new Date(),
           },
           include: {
-            zone: {
+            Zone: {
               select: {
                 id: true,
                 name: true,
@@ -201,7 +204,7 @@ export const ruleRouter = router({
           where: { id },
           data: updateData,
           include: {
-            zone: {
+            Zone: {
               select: {
                 id: true,
                 name: true,
@@ -239,7 +242,7 @@ export const ruleRouter = router({
           where: { id: input.id },
           data: { enabled: !current.enabled },
           include: {
-            zone: {
+            Zone: {
               select: {
                 id: true,
                 name: true,
