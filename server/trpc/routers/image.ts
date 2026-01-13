@@ -9,6 +9,7 @@
 import { z } from 'zod'
 import { router, publicProcedure } from '../trpc'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 import { supabaseAdmin, STORAGE_BUCKETS } from '@/lib/supabase'
 
 export const imageRouter = router({
