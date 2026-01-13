@@ -18,7 +18,12 @@ export const notificationRouter = router({
                     resolved: false,
                     device: siteId ? { siteId } : undefined,
                 },
-                include: {
+                select: {
+                    id: true,
+                    deviceId: true,
+                    faultType: true,
+                    description: true,
+                    detectedAt: true,
                     device: {
                         select: {
                             deviceId: true,
