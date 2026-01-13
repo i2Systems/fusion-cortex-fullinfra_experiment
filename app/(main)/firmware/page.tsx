@@ -133,8 +133,8 @@ export default function FirmwarePage() {
         <div className="flex items-center gap-4">
           <div className="flex-1">
             <SearchIsland
-              value={searchQuery}
-              onChange={setSearchQuery}
+              searchValue={searchQuery}
+              onSearchChange={setSearchQuery}
               placeholder="Search campaigns..."
             />
           </div>
