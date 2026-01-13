@@ -294,6 +294,7 @@ export const deviceRouter = router({
                     : `${deviceData.serialNumber}-${comp.componentType}-${Date.now()}-${index}`
 
                   return {
+                    id: randomUUID(),
                     siteId: deviceData.siteId,
                     deviceId: `${deviceData.deviceId}-${comp.componentType}`,
                     serialNumber: uniqueSerialNumber,
@@ -304,6 +305,7 @@ export const deviceRouter = router({
                     warrantyStatus: comp.warrantyStatus,
                     warrantyExpiry: comp.warrantyExpiry,
                     buildDate: comp.buildDate,
+                    updatedAt: new Date(),
                   }
                 }),
               }
