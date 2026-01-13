@@ -32,7 +32,7 @@ export const bacnetRouter = router({
         .filter(zone => zone.BACnetMapping)
         .map(zone => ({
           zoneId: zone.id,
-          zoneName: zone.name,
+          zoneName: zone.BACnetMapping?.Zone?.name || zone.name,
           bacnetObjectId: zone.BACnetMapping?.bacnetObjectId || null,
           status: zone.BACnetMapping?.status || 'NOT_ASSIGNED',
           lastConnected: zone.BACnetMapping?.lastConnected || null,
@@ -88,7 +88,7 @@ export const bacnetRouter = router({
       return {
         id: mapping.id,
         zoneId: mapping.zoneId,
-        zoneName: mapping.zone.name,
+        zoneName: mapping.Zone.name,
         bacnetObjectId: mapping.bacnetObjectId,
         status: mapping.status,
         lastConnected: mapping.lastConnected,
@@ -127,7 +127,7 @@ export const bacnetRouter = router({
       return {
         id: mapping.id,
         zoneId: mapping.zoneId,
-        zoneName: mapping.zone.name,
+        zoneName: mapping.Zone.name,
         bacnetObjectId: mapping.bacnetObjectId,
         status: mapping.status,
         lastConnected: mapping.lastConnected,
