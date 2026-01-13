@@ -424,6 +424,7 @@ export const zoneRouter = router({
               if (deviceIds.length > 0) {
                 await prisma.zoneDevice.createMany({
                   data: deviceIds.map(deviceId => ({
+                    id: randomUUID(),
                     zoneId: id,
                     deviceId,
                   })),
@@ -528,6 +529,7 @@ export const zoneRouter = router({
           if (zoneData.deviceIds && zoneData.deviceIds.length > 0) {
             await prisma.zoneDevice.createMany({
               data: zoneData.deviceIds.map(deviceId => ({
+                id: randomUUID(),
                 zoneId: zoneData.id,
                 deviceId,
               })),
