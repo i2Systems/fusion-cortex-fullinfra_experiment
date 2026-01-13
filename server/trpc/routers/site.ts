@@ -8,6 +8,7 @@
 import { z } from 'zod'
 import { router, publicProcedure } from '../trpc'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 
 export const siteRouter = router({
   list: publicProcedure.query(async () => {
@@ -107,21 +108,23 @@ export const siteRouter = router({
       imageUrl: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
-      const site = await prisma.site.create({
-        data: {
-          name: input.name,
-          storeNumber: input.storeNumber,
-          address: input.address,
-          city: input.city,
-          state: input.state,
-          zipCode: input.zipCode,
-          phone: input.phone,
-          manager: input.manager,
-          squareFootage: input.squareFootage,
-          openedDate: input.openedDate,
-          imageUrl: input.imageUrl,
-        },
-      })
+        const site = await prisma.site.create({
+          data: {
+            id: randomUUID(),
+            name: input.name,
+            storeNumber: input.storeNumber,
+            address: input.address,
+            city: input.city,
+            state: input.state,
+            zipCode: input.zipCode,
+            phone: input.phone,
+            manager: input.manager,
+            squareFootage: input.squareFootage,
+            openedDate: input.openedDate,
+            imageUrl: input.imageUrl,
+            updatedAt: new Date(),
+          },
+        })
       return site
     }),
 
