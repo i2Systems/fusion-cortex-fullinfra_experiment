@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { router, publicProcedure } from '../trpc'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 import { TRPCError } from '@trpc/server'
 
 export const locationRouter = router({
@@ -53,16 +54,18 @@ export const locationRouter = router({
             }
 
             // Create location
-            const location = await prisma.location.create({
-                data: {
-                    siteId: input.siteId,
-                    name: input.name,
-                    type: input.type,
-                    parentId: input.parentId,
-                    imageUrl: input.imageUrl,
-                    vectorDataUrl: input.vectorDataUrl,
-                    zoomBounds: input.zoomBounds,
-                },
+        const location = await prisma.location.create({
+          data: {
+            id: randomUUID(),
+            siteId: input.siteId,
+            name: input.name,
+            type: input.type,
+            parentId: input.parentId,
+            imageUrl: input.imageUrl,
+            vectorDataUrl: input.vectorDataUrl,
+            zoomBounds: input.zoomBounds,
+            updatedAt: new Date(),
+          },
             })
 
             return location
