@@ -71,6 +71,7 @@ interface MapCanvasProps {
   mode?: 'select' | 'move' | 'rotate' | 'align-direction' | 'auto-arrange'
   onDeviceMove?: (deviceId: string, x: number, y: number) => void
   onDeviceMoveEnd?: (deviceId: string, x: number, y: number) => void
+  onDevicesMoveEnd?: (updates: { deviceId: string; x: number; y: number }[]) => void
   onDeviceRotate?: (deviceId: string) => void
   onLassoAlign?: (deviceIds: string[]) => void
   onLassoArrange?: (deviceIds: string[]) => void
@@ -106,6 +107,7 @@ export function MapCanvas({
   mode = 'select',
   onDeviceMove,
   onDeviceMoveEnd,
+  onDevicesMoveEnd,
   onDeviceRotate,
   onLassoAlign,
   onLassoArrange,
@@ -265,7 +267,15 @@ export function MapCanvas({
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
   const tooltipPositionRef = useRef({ x: 0, y: 0 })
   const tooltipUpdateFrameRef = useRef<number | null>(null)
-  const [draggedDevice, setDraggedDevice] = useState<{ id: string; startX: number; startY: number; dragX?: number; dragY?: number; dragStartX?: number; dragStartY?: number } | null>(null)
+  const [draggedDevice, setDraggedDevice] = useState<{
+    id: string;
+    startX: number;
+    startY: number;
+    startCanvasX: number;
+    startCanvasY: number;
+    dragX?: number;
+    dragY?: number;
+  } | null>(null)
 
   // Throttled tooltip position update to prevent excessive re-renders
   const updateTooltipPosition = useCallback((x: number, y: number) => {
@@ -690,10 +700,12 @@ export function MapCanvas({
             // Don't return - allow normal drag behavior
           }
 
-          // Check for lasso modes (align or arrange) - these always allow lasso drawing
-          const isLassoMode = mode === 'align-direction' || mode === 'auto-arrange'
+          // Check for lasso modes (align, arrange, or simple move) - these allow lasso drawing
+          const isLassoMode = mode === 'align-direction' || mode === 'auto-arrange' || mode === 'move'
+          // Standard Select mode also allows it
+          const canSelect = mode === 'select' || isLassoMode
 
-          if ((mode === 'select' || isLassoMode) && e.evt.button === 0 && !draggedDevice && !spaceHeld) {
+          if (canSelect && e.evt.button === 0 && !draggedDevice && !spaceHeld) {
             // Check if shift is actually held (use both state and event) - OR if we're in lasso mode
             const shiftHeld = isShiftHeld || e.evt.shiftKey
             const clickedOnEmpty = e.target === stage || e.target === stage.findOne('Layer')
@@ -1022,10 +1034,26 @@ export function MapCanvas({
             const isHovered = hoveredDevice?.id === device.id
 
             // Use drag position if device is being dragged, otherwise use device coordinates
-            // This prevents jumping during drag
             const isDragging = draggedDevice?.id === device.id
-            const groupX = isDragging && draggedDevice.dragX !== undefined ? draggedDevice.dragX : deviceCoords.x
-            const groupY = isDragging && draggedDevice.dragY !== undefined ? draggedDevice.dragY : deviceCoords.y
+            // Check if this device is part of a multi-selection group being dragged
+            const isGroupDragging = draggedDevice &&
+              selectedDeviceIds.includes(draggedDevice.id) &&
+              selectedDeviceIds.includes(device.id) &&
+              !isDragging
+
+            let groupX = deviceCoords.x
+            let groupY = deviceCoords.y
+
+            if (isDragging && draggedDevice.dragX !== undefined && draggedDevice.dragY !== undefined) {
+              groupX = draggedDevice.dragX
+              groupY = draggedDevice.dragY
+            } else if (isGroupDragging && draggedDevice.dragX !== undefined && draggedDevice.dragY !== undefined && draggedDevice.startCanvasX !== undefined) {
+              // Calculate delta from the dragged device
+              const deltaX = draggedDevice.dragX - draggedDevice.startCanvasX
+              const deltaY = draggedDevice.dragY - draggedDevice.startCanvasY
+              groupX = deviceCoords.x + deltaX
+              groupY = deviceCoords.y + deltaY
+            }
 
             return (
               <Group
@@ -1053,7 +1081,9 @@ export function MapCanvas({
                   setDraggedDevice({
                     id: device.id,
                     startX: device.x || 0,
-                    startY: device.y || 0
+                    startY: device.y || 0,
+                    startCanvasX: deviceCoords.x,
+                    startCanvasY: deviceCoords.y
                   })
                   // Clear hover state when starting to drag to hide tooltip
                   setHoveredDevice(null)
@@ -1087,16 +1117,54 @@ export function MapCanvas({
                   // Prevent stage dragging
                   e.cancelBubble = true
 
-                  if (mode === 'move' && onDeviceMoveEnd) {
-                    // Use Group position directly - it's already in canvas coordinates
-                    // and accounts for rotation properly
-                    const pos = e.target.position()
-                    // Convert canvas coordinates to normalized 0-1 coordinates using image bounds
-                    const normalized = fromCanvasCoords({ x: pos.x, y: pos.y })
-                    // Clamp to valid range
-                    const normalizedX = Math.max(0, Math.min(1, normalized.x))
-                    const normalizedY = Math.max(0, Math.min(1, normalized.y))
-                    onDeviceMoveEnd(device.id, normalizedX, normalizedY)
+                  if (mode === 'move') {
+                    // Check if we are moving a group
+                    if (selectedDeviceIds.includes(device.id) && selectedDeviceIds.length > 1) {
+                      const pos = e.target.position()
+                      const deviceStartCanvasX = draggedDevice?.startCanvasX || deviceCoords.x
+                      const deviceStartCanvasY = draggedDevice?.startCanvasY || deviceCoords.y
+
+                      // Calculate visual delta
+                      const deltaX = pos.x - deviceStartCanvasX
+                      const deltaY = pos.y - deviceStartCanvasY
+
+                      // Apply to all selected devices
+                      const updates: { deviceId: string; x: number; y: number }[] = []
+
+                      selectedDeviceIds.forEach(id => {
+                        const d = devices.find(dev => dev.id === id)
+                        if (d) {
+                          // Get device's canvas start position
+                          const dCanvas = toCanvasCoords({ x: d.x || 0, y: d.y || 0 })
+                          const newCanvasX = dCanvas.x + deltaX
+                          const newCanvasY = dCanvas.y + deltaY
+
+                          // Convert back to normalized
+                          const normalized = fromCanvasCoords({ x: newCanvasX, y: newCanvasY })
+
+                          updates.push({
+                            deviceId: id,
+                            x: Math.max(0, Math.min(1, normalized.x)),
+                            y: Math.max(0, Math.min(1, normalized.y))
+                          })
+                        }
+                      })
+
+                      if (updates.length > 0) {
+                        onDevicesMoveEnd?.(updates)
+                      }
+                    } else if (onDeviceMoveEnd) {
+                      // Single device move
+                      // Use Group position directly - it's already in canvas coordinates
+                      // and accounts for rotation properly
+                      const pos = e.target.position()
+                      // Convert canvas coordinates to normalized 0-1 coordinates using image bounds
+                      const normalized = fromCanvasCoords({ x: pos.x, y: pos.y })
+                      // Clamp to valid range
+                      const normalizedX = Math.max(0, Math.min(1, normalized.x))
+                      const normalizedY = Math.max(0, Math.min(1, normalized.y))
+                      onDeviceMoveEnd(device.id, normalizedX, normalizedY)
+                    }
                   }
                   setDraggedDevice(null)
                 }}

@@ -222,12 +222,36 @@ export default function MapPage() {
     return locations.find((loc: any) => loc.id === currentLocationId) || null
   }, [locations, currentLocationId])
 
-  // Sync ID if not set
+  // Sync ID: Auto-select last visited location or default to first base location
   useEffect(() => {
-    if (locations.length > 0 && !currentLocationId) {
-      setCurrentLocationId(locations[0].id)
+    if (locations.length > 0) {
+      // 1. Try to get last visited location for this site
+      const storageKey = `fusion_map_location_${activeSiteId}`
+      const savedLocationId = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null
+
+      // Check validity of current, saved, and find a default
+      // If current is valid, keep it (React state persistence)
+      const isCurrentValid = currentLocationId && locations.some((l: any) => l.id === currentLocationId)
+
+      if (!currentLocationId || !isCurrentValid) {
+        // Try saved location
+        const isSavedValid = savedLocationId && locations.some((l: any) => l.id === savedLocationId)
+
+        if (isSavedValid) {
+          setCurrentLocationId(savedLocationId!)
+        } else {
+          // Fallback: Prefer 'base' locations over 'zoom' views
+          const defaultLocation = locations.find((l: any) => l.type === 'base') || locations[0]
+          setCurrentLocationId(defaultLocation.id)
+        }
+      }
+    } else {
+      // No locations for this site, clear selection so we show empty state/upload
+      if (currentLocationId) {
+        setCurrentLocationId(null)
+      }
     }
-  }, [locations, currentLocationId])
+  }, [locations, currentLocationId, activeSiteId])
 
   const mapUploaded = !!currentLocation
 
@@ -430,6 +454,10 @@ export default function MapPage() {
 
   const handleLocationSelect = (locationId: string) => {
     setCurrentLocationId(locationId)
+    // Save selection to localStorage
+    if (activeSiteId) {
+      localStorage.setItem(`fusion_map_location_${activeSiteId}`, locationId)
+    }
   }
 
   const handleCreateZoomView = async (name: string, bounds: { minX: number; minY: number; maxX: number; maxY: number }) => {
@@ -632,6 +660,79 @@ export default function MapPage() {
 
       // Sync all zone deviceIds arrays using projected state
       const projectedDevices = devices.map(d => d.id === deviceId ? projectedMovedDevice : d)
+      syncZoneDeviceIds(projectedDevices)
+    }
+  }
+
+  const handleDevicesMoveEnd = (updates: { deviceId: string; x: number; y: number }[]) => {
+    // Only allow moving in 'move' mode
+    if (toolMode !== 'move') return
+
+    const deviceUpdates: { deviceId: string; updates: { x: number; y: number; zone?: string } }[] = []
+
+    // Process all updates
+    updates.forEach(update => {
+      let finalX = update.x
+      let finalY = update.y
+
+      // Handle zoom conversion if needed
+      if (currentLocation?.type === 'zoom' && currentLocation.zoomBounds) {
+        const zoomBounds = typeof currentLocation.zoomBounds === 'object' &&
+          currentLocation.zoomBounds !== null &&
+          'minX' in currentLocation.zoomBounds &&
+          'minY' in currentLocation.zoomBounds &&
+          'maxX' in currentLocation.zoomBounds &&
+          'maxY' in currentLocation.zoomBounds
+          ? currentLocation.zoomBounds as { minX: number; minY: number; maxX: number; maxY: number }
+          : undefined
+
+        if (zoomBounds) {
+          const zoomLocation = {
+            id: currentLocation.id,
+            name: currentLocation.name,
+            type: currentLocation.type as 'base' | 'zoom',
+            zoomBounds,
+            createdAt: typeof currentLocation.createdAt === 'string'
+              ? new Date(currentLocation.createdAt).getTime()
+              : currentLocation.createdAt instanceof Date
+                ? currentLocation.createdAt.getTime()
+                : Date.now(),
+            updatedAt: typeof currentLocation.updatedAt === 'string'
+              ? new Date(currentLocation.updatedAt).getTime()
+              : currentLocation.updatedAt instanceof Date
+                ? currentLocation.updatedAt.getTime()
+                : Date.now(),
+          }
+          const parentCoords = convertZoomToParent(zoomLocation, update.x, update.y)
+          finalX = parentCoords.x
+          finalY = parentCoords.y
+        }
+      }
+
+      const device = devices.find(d => d.id === update.deviceId)
+      let newZoneName: string | undefined = undefined
+
+      if (device) {
+        const projectedDevice = { ...device, x: finalX, y: finalY }
+        const foundZone = findZoneForDevice(projectedDevice, zones)
+        if (foundZone) newZoneName = foundZone.name
+      }
+
+      deviceUpdates.push({
+        deviceId: update.deviceId,
+        updates: { x: finalX, y: finalY, ...(newZoneName !== undefined && device?.zone !== newZoneName ? { zone: newZoneName } : {}) }
+      })
+    })
+
+    // Batch update all devices
+    if (deviceUpdates.length > 0) {
+      updateMultipleDevices(deviceUpdates)
+
+      // Update zone projections
+      const projectedDevices = devices.map(d => {
+        const update = deviceUpdates.find(u => u.deviceId === d.id)
+        return update ? { ...d, ...update.updates } : d
+      })
       syncZoneDeviceIds(projectedDevices)
     }
   }
@@ -1089,6 +1190,7 @@ export default function MapPage() {
                   highlightDeviceId={selectedDevice}
                   onDeviceMove={handleDeviceMove}
                   onDeviceMoveEnd={handleDeviceMoveEnd}
+                  onDevicesMoveEnd={handleDevicesMoveEnd}
                   onDeviceRotate={handleDeviceRotate}
                   onComponentExpand={handleComponentExpand}
                   expandedComponents={expandedComponents}
