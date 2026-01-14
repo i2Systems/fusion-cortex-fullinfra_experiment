@@ -197,7 +197,7 @@ export function SearchIsland({
     : ''
 
   return (
-    <div className={`${containerClass} ${positionClass}`} style={{ position: 'relative' }}>
+    <div className={`${containerClass} ${positionClass}`} style={{ position: 'relative', zIndex: showSuggestions ? 9999 : 'auto' }}>
       <div className="fusion-card backdrop-blur-xl border border-[var(--color-primary)]/20 search-island py-3 md:py-4 px-3 md:px-5">
         {/* Layout: Title + Metrics (stacked on mobile) + Search + Actions */}
         <div className="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-3 lg:gap-4">
@@ -244,10 +244,10 @@ export function SearchIsland({
                         </span>
                         {metric.trend && metric.delta !== undefined && metric.delta !== 0 && (
                           <div className={`flex items-center gap-0.5 text-[9px] sm:text-[10px] md:text-[9px] lg:text-xs font-semibold flex-shrink-0 ${metric.trend === 'up'
-                              ? 'text-[var(--color-success)]'
-                              : metric.trend === 'down'
-                                ? 'text-[var(--color-danger)]'
-                                : 'text-[var(--color-text-muted)]'
+                            ? 'text-[var(--color-success)]'
+                            : metric.trend === 'down'
+                              ? 'text-[var(--color-danger)]'
+                              : 'text-[var(--color-text-muted)]'
                             }`}>
                             {metric.trend === 'up' ? (
                               <ArrowUp size={8} className="md:w-2.5 md:h-2.5 lg:w-3 lg:h-3" />
@@ -302,8 +302,8 @@ export function SearchIsland({
                   setTimeout(() => setFocused(false), 200)
                 }}
                 className={`w-full pl-9 md:pl-10 lg:pl-12 pr-2 md:pr-3 lg:pr-4 py-2 md:py-2.5 lg:py-3 h-[40px] md:h-[44px] lg:h-[52px] bg-[var(--color-bg-elevated)] border-2 rounded-xl text-xs md:text-sm lg:text-base xl:text-lg font-medium text-[var(--color-text)] placeholder:text-[var(--color-text-soft)] placeholder:font-normal focus:outline-none focus:shadow-[var(--shadow-glow-primary)] transition-all ${detectedAction
-                    ? 'border-[var(--color-primary)] pr-20 md:pr-24 lg:pr-32 focus:ring-2 focus:ring-[var(--color-primary)]'
-                    : 'border-[var(--color-border-subtle)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]'
+                  ? 'border-[var(--color-primary)] pr-20 md:pr-24 lg:pr-32 focus:ring-2 focus:ring-[var(--color-primary)]'
+                  : 'border-[var(--color-border-subtle)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]'
                   }`}
               />
 
@@ -311,12 +311,13 @@ export function SearchIsland({
               {showSuggestions && (suggestions.recent.length > 0 || suggestions.devices.length > 0) && (
                 <div
                   ref={suggestionsRef}
-                  className="absolute top-full left-0 right-0 mt-2 rounded-xl max-h-96 overflow-auto border border-[var(--color-border-subtle)]/50 shadow-[var(--shadow-strong)]"
+                  className="absolute top-full left-0 right-0 mt-2 rounded-xl max-h-96 overflow-auto border border-[var(--color-primary)]/30 shadow-[var(--shadow-strong)]"
                   style={{
                     zIndex: 9999,
-                    background: 'rgba(17, 24, 39, 0.75)',
+                    background: 'rgba(9, 11, 17, 0.95)',
                     backdropFilter: 'blur(40px) saturate(200%)',
                     WebkitBackdropFilter: 'blur(40px) saturate(200%)',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 229, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
                   }}
                 >
                   {/* Recent Searches */}
@@ -345,8 +346,8 @@ export function SearchIsland({
                             key={`recent-${idx}`}
                             onClick={() => handleSuggestionSelect(recent.query)}
                             className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${isSelected
-                                ? 'bg-[var(--color-primary-soft)] text-[var(--color-text)]'
-                                : 'hover:bg-[var(--color-surface-subtle)] text-[var(--color-text)]'
+                              ? 'bg-[var(--color-primary-soft)] text-[var(--color-text)]'
+                              : 'hover:bg-[var(--color-surface-subtle)] text-[var(--color-text)]'
                               }`}
                           >
                             <div className="flex items-center gap-2">
@@ -376,8 +377,8 @@ export function SearchIsland({
                             key={`device-${device.id}`}
                             onClick={() => handleSuggestionSelect(device.deviceId || device.serialNumber || '')}
                             className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${isSelected
-                                ? 'bg-[var(--color-primary-soft)] text-[var(--color-text)]'
-                                : 'hover:bg-[var(--color-surface-subtle)] text-[var(--color-text)]'
+                              ? 'bg-[var(--color-primary-soft)] text-[var(--color-text)]'
+                              : 'hover:bg-[var(--color-surface-subtle)] text-[var(--color-text)]'
                               }`}
                           >
                             <div className="flex items-center gap-2">

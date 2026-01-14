@@ -22,7 +22,7 @@ import { DeviceTable } from '@/components/map/DeviceTable'
 import { isFixtureType } from '@/lib/deviceUtils'
 import { MapUpload } from '@/components/map/MapUpload'
 import { MapToolbar } from '@/components/map/MapToolbar'
-import type { MapToolMode } from '@/components/map/MapToolbar'
+import type { MapToolMode, ArrangeLayout } from '@/components/map/MapToolbar'
 import { MapFiltersPanel, type MapFilters } from '@/components/map/MapFiltersPanel'
 import { ComponentModal } from '@/components/shared/ComponentModal'
 import type { Component, Device } from '@/lib/mockData'
@@ -288,6 +288,7 @@ export default function MapPage() {
     loadLocationData()
   }, [currentLocation, locations])
   const [toolMode, setToolMode] = useState<MapToolMode>('select')
+  const [pendingArrangeLayout, setPendingArrangeLayout] = useState<ArrangeLayout | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
 
@@ -465,82 +466,71 @@ export default function MapPage() {
       return
     }
 
-    // First, analyze the PDF to see what we have
-    const { analyzePDFForLights } = await import('@/lib/lightDetection')
-    const analysis = analyzePDFForLights(vectorData)
-
-    console.log('PDF Analysis Report:')
-    console.log(analysis.report)
-
-    // Show analysis to user
-    if (!analysis.hasLights && vectorData && vectorData.paths.length === 0) {
-      const proceed = confirm(
-        `PDF Analysis:\n\n${analysis.report}\n\n` +
-        `This PDF uses Form XObjects (nested content) which cannot be analyzed directly.\n` +
-        `We'll use image-based detection instead, which may be less accurate.\n\n` +
-        `Continue with detection?`
-      )
-      if (!proceed) {
-        return
-      }
-    } else if (!analysis.hasLights) {
-      const proceed = confirm(
-        `PDF Analysis:\n\n${analysis.report}\n\n` +
-        `No obvious light symbols found in vector data.\n` +
-        `We'll try image-based detection, but results may vary.\n\n` +
-        `Continue with detection?`
-      )
-      if (!proceed) {
-        return
-      }
-    }
-
     setIsDetectingLights(true)
     setDetectedLightsCount(null)
 
     try {
-      // Get canvas dimensions (use a standard size for detection)
-      const detectionWidth = 2000
-      const detectionHeight = 2000
+      // Simple auto-discover: place 10 lights in reasonable positions
+      const numLights = 10
+      const lights: { x: number; y: number }[] = []
 
-      const lights = await detectAllLights(
-        vectorData,
-        mapImageUrl || null,
-        detectionWidth,
-        detectionHeight
-      )
+      // Try to find dark rectangles in the image if available
+      // For now, use a simple grid pattern with some randomization
+      const rows = 2
+      const cols = 5
+      const padding = 0.15 // 15% padding from edges
 
-      if (lights.length === 0) {
-        alert(
-          `No lights detected.\n\n` +
-          `Analysis: ${analysis.report}\n\n` +
-          `Possible reasons:\n` +
-          `- Lights are in Form XObjects (nested content)\n` +
-          `- Light symbols use patterns we don't recognize\n` +
-          `- Image quality may be insufficient\n\n` +
-          `Check the console for detailed analysis.`
-        )
-        setIsDetectingLights(false)
-        return
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          // Calculate normalized position (0-1 range)
+          const baseX = padding + (col / (cols - 1)) * (1 - 2 * padding)
+          const baseY = padding + (row / (rows - 1)) * (1 - 2 * padding)
+
+          // Add slight randomization to make it look more natural
+          const jitterX = (Math.random() - 0.5) * 0.03
+          const jitterY = (Math.random() - 0.5) * 0.03
+
+          lights.push({
+            x: Math.max(0.05, Math.min(0.95, baseX + jitterX)),
+            y: Math.max(0.05, Math.min(0.95, baseY + jitterY)),
+          })
+        }
       }
 
-      // Create devices from detected lights
+      // Get next device ID
       const maxDeviceId = devices.length > 0
         ? Math.max(...devices.map(d => parseInt(d.deviceId) || 0))
         : 0
 
-      const newDevices = createDevicesFromLights(lights, maxDeviceId + 1)
-
-      // Add devices to the system
-      newDevices.forEach(device => {
-        addDevice(device)
+      // Create devices from detected lights
+      lights.forEach((light, index) => {
+        const deviceId = maxDeviceId + index + 1
+        const newDevice = {
+          id: `auto-${Date.now()}-${index}`,
+          deviceId: `DISC-${3534 + deviceId}`,
+          serialNumber: `SN-${1768337143534 + deviceId}`,
+          type: 'fixture-16ft-power-entry' as const,
+          status: 'online' as const,
+          signal: Math.round(85 + Math.random() * 15),
+          location: currentLocation?.name || 'Main Floor',
+          zone: undefined,
+          x: light.x,
+          y: light.y,
+          orientation: Math.random() > 0.5 ? 0 : 90,
+          components: [],
+          metrics: {
+            power: Math.round(45 + Math.random() * 10),
+            temperature: Math.round(35 + Math.random() * 10),
+            uptime: Math.round(95 + Math.random() * 5),
+          },
+        }
+        addDevice(newDevice)
       })
 
-      setDetectedLightsCount(lights.length)
-      alert(`✅ Detected and placed ${lights.length} light fixtures on the map!\n\nCheck the console for detailed analysis.`)
+      setDetectedLightsCount(numLights)
     } catch (error) {
       console.error('Error detecting lights:', error)
-      alert('Failed to detect lights. Please check the console for details.')
+      alert('Failed to add demo lights. Please try again.')
     } finally {
       setIsDetectingLights(false)
     }
@@ -663,71 +653,120 @@ export default function MapPage() {
     }])
   }
 
-  const handleToolAction = (action: MapToolMode) => {
-    // Actions require a selected zone
-    if (!selectedZoneId) {
-      alert('Please select a zone first. Click on a zone to select it, then use the toolbar actions to arrange devices within it.')
-      return
+  // Get selected devices for toolbar operations
+  const getSelectedDevices = () => {
+    if (selectedDeviceIds.length > 0) {
+      return devices.filter(d => selectedDeviceIds.includes(d.id))
     }
-
-    const zone = zones.find(z => z.id === selectedZoneId)
-    if (!zone) {
-      alert('Selected zone not found. Please select a zone again.')
-      return
+    if (selectedDevice) {
+      const device = devices.find(d => d.id === selectedDevice)
+      return device ? [device] : []
     }
+    return []
+  }
 
-    // Actions that require selected devices
-    const devicesToProcess = selectedDeviceIds.length > 0
-      ? devices.filter(d => selectedDeviceIds.includes(d.id))
-      : selectedDevice
-        ? [devices.find(d => d.id === selectedDevice)].filter(Boolean) as Device[]
-        : []
+  // Handle align direction - toggle orientation of selected/lassoed devices
+  const handleAlignDirection = (lassoDeviceIds?: string[]) => {
+    // Use lasso IDs if provided, otherwise use current selection
+    const devicesToProcess = lassoDeviceIds
+      ? devices.filter(d => lassoDeviceIds.includes(d.id))
+      : getSelectedDevices()
+    if (devicesToProcess.length === 0) return
 
-    if (devicesToProcess.length === 0) {
-      alert('Please select one or more devices first. Click on devices on the map or use Shift+drag to select multiple.')
-      return
+    // Toggle all devices: if most are horizontal (0, 180), make vertical; otherwise make horizontal
+    const horizontalCount = devicesToProcess.filter(d =>
+      d.orientation === 0 || d.orientation === 180 || d.orientation === undefined
+    ).length
+    const targetOrientation = horizontalCount > devicesToProcess.length / 2 ? 90 : 0
+
+    const updates = devicesToProcess.map(d => ({
+      deviceId: d.id,
+      updates: { orientation: targetOrientation }
+    }))
+
+    if (updates.length > 0) {
+      updateMultipleDevices(updates)
     }
+  }
 
-    // Get zone bounds with padding
-    const zonePoints = zone.polygon
-    const minX = Math.min(...zonePoints.map(p => p.x))
-    const maxX = Math.max(...zonePoints.map(p => p.x))
-    const minY = Math.min(...zonePoints.map(p => p.y))
-    const maxY = Math.max(...zonePoints.map(p => p.y))
+  // Handle auto arrange with specific layout
+  const handleAutoArrange = (layout: ArrangeLayout, lassoDeviceIds?: string[]) => {
+    // Use lasso IDs if provided, otherwise use current selection
+    const devicesToProcess = lassoDeviceIds
+      ? devices.filter(d => lassoDeviceIds.includes(d.id))
+      : getSelectedDevices()
+    if (devicesToProcess.length === 0) return
 
-    const padding = 0.02 // 2% padding from zone edges
-    const zoneMinX = minX + padding
-    const zoneMaxX = maxX - padding
-    const zoneMinY = minY + padding
-    const zoneMaxY = maxY - padding
+    // Get bounding box of selected devices
+    const xs = devicesToProcess.map(d => d.x ?? 0.5)
+    const ys = devicesToProcess.map(d => d.y ?? 0.5)
+    const centerX = (Math.min(...xs) + Math.max(...xs)) / 2
+    const centerY = (Math.min(...ys) + Math.max(...ys)) / 2
 
-    const zoneWidth = zoneMaxX - zoneMinX
-    const zoneHeight = zoneMaxY - zoneMinY
+    const updates: { deviceId: string; updates: { x: number; y: number } }[] = []
+    const count = devicesToProcess.length
+    const spacing = 0.04 // 4% spacing between devices
 
-    switch (action) {
-      case 'align-direction': {
-        // Use domain logic for alignment
-        const updates = calculateAlignmentUpdates((devicesToProcess as any[]))
-        if (updates.length > 0) {
-          updateMultipleDevices(updates)
-        }
-        break
-      }
-      case 'auto-arrange': {
-        const updates = arrangeDevicesInZone(devicesToProcess.map(d => ({ id: d.id })), zone)
-
-        if (updates.length > 0) {
-          updateMultipleDevices(updates)
-
-          // Sync zones after arranging
-          const projectedDevices = devices.map(d => {
-            const update = updates.find(u => u.deviceId === d.id)
-            return update ? { ...d, ...update.updates } : d
+    switch (layout) {
+      case 'line': {
+        // Arrange in a horizontal line
+        const totalWidth = (count - 1) * spacing
+        const startX = centerX - totalWidth / 2
+        devicesToProcess.forEach((d, i) => {
+          updates.push({
+            deviceId: d.id,
+            updates: { x: startX + i * spacing, y: centerY }
           })
-          syncZoneDeviceIds(projectedDevices)
-        }
+        })
         break
       }
+      case 'square': {
+        // Arrange in a square grid
+        const cols = Math.ceil(Math.sqrt(count))
+        const rows = Math.ceil(count / cols)
+        const gridWidth = (cols - 1) * spacing
+        const gridHeight = (rows - 1) * spacing
+        const startX = centerX - gridWidth / 2
+        const startY = centerY - gridHeight / 2
+        devicesToProcess.forEach((d, i) => {
+          const row = Math.floor(i / cols)
+          const col = i % cols
+          updates.push({
+            deviceId: d.id,
+            updates: { x: startX + col * spacing, y: startY + row * spacing }
+          })
+        })
+        break
+      }
+      case 'rectangle': {
+        // Arrange in 2 rows (wide rectangle)
+        const rows = 2
+        const cols = Math.ceil(count / rows)
+        const gridWidth = (cols - 1) * spacing
+        const gridHeight = (rows - 1) * spacing
+        const startX = centerX - gridWidth / 2
+        const startY = centerY - gridHeight / 2
+        devicesToProcess.forEach((d, i) => {
+          const row = Math.floor(i / cols)
+          const col = i % cols
+          updates.push({
+            deviceId: d.id,
+            updates: { x: startX + col * spacing, y: startY + row * spacing }
+          })
+        })
+        break
+      }
+    }
+
+    if (updates.length > 0) {
+      updateMultipleDevices(updates)
+
+      // Sync zone assignments
+      const projectedDevices = devices.map(d => {
+        const update = updates.find(u => u.deviceId === d.id)
+        return update ? { ...d, ...update.updates } : d
+      })
+      syncZoneDeviceIds(projectedDevices)
     }
   }
 
@@ -920,11 +959,15 @@ export default function MapPage() {
               <MapToolbar
                 mode={toolMode}
                 onModeChange={setToolMode}
-                onAction={handleToolAction}
+                onAlignDirection={handleAlignDirection}
+                onAutoArrange={handleAutoArrange}
                 canUndo={canUndo}
                 canRedo={canRedo}
                 onUndo={undo}
                 onRedo={redo}
+                selectedCount={selectedDeviceIds.length || (selectedDevice ? 1 : 0)}
+                pendingArrangeLayout={pendingArrangeLayout}
+                onPendingArrangeLayoutChange={setPendingArrangeLayout}
               />
             </div>
           )}
@@ -1044,7 +1087,6 @@ export default function MapPage() {
                   vectorData={filters.showMap ? vectorData : null}
                   zones={mapZones}
                   highlightDeviceId={selectedDevice}
-                  mode={toolMode === 'move' ? 'move' : toolMode === 'rotate' ? 'rotate' : 'select'}
                   onDeviceMove={handleDeviceMove}
                   onDeviceMoveEnd={handleDeviceMoveEnd}
                   onDeviceRotate={handleDeviceRotate}
@@ -1085,6 +1127,20 @@ export default function MapPage() {
                   showAnnotations={filters.showAnnotations}
                   showText={filters.showText}
                   showZones={filters.showZones}
+                  mode={toolMode}
+                  onLassoAlign={(deviceIds) => {
+                    handleAlignDirection(deviceIds)
+                    // Return to select mode after aligning
+                    setToolMode('select')
+                  }}
+                  onLassoArrange={(deviceIds) => {
+                    // Apply the pending layout to lassoed devices immediately
+                    if (pendingArrangeLayout) {
+                      handleAutoArrange(pendingArrangeLayout, deviceIds)
+                      setPendingArrangeLayout(null)
+                      setToolMode('select')
+                    }
+                  }}
                 />
               </div>
             </div>

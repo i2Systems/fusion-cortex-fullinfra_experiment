@@ -68,10 +68,12 @@ interface MapCanvasProps {
   devices?: DevicePoint[]
   zones?: Zone[]
   highlightDeviceId?: string | null
-  mode?: 'select' | 'move' | 'rotate'
+  mode?: 'select' | 'move' | 'rotate' | 'align-direction' | 'auto-arrange'
   onDeviceMove?: (deviceId: string, x: number, y: number) => void
   onDeviceMoveEnd?: (deviceId: string, x: number, y: number) => void
   onDeviceRotate?: (deviceId: string) => void
+  onLassoAlign?: (deviceIds: string[]) => void
+  onLassoArrange?: (deviceIds: string[]) => void
   onComponentExpand?: (deviceId: string, expanded: boolean) => void
   expandedComponents?: Set<string>
   onComponentClick?: (component: Component, parentDevice: any) => void
@@ -105,6 +107,8 @@ export function MapCanvas({
   onDeviceMove,
   onDeviceMoveEnd,
   onDeviceRotate,
+  onLassoAlign,
+  onLassoArrange,
   onComponentExpand,
   expandedComponents = new Set(),
   onComponentClick,
@@ -686,19 +690,22 @@ export function MapCanvas({
             // Don't return - allow normal drag behavior
           }
 
-          if (mode === 'select' && e.evt.button === 0 && !draggedDevice && !spaceHeld) {
-            // Check if shift is actually held (use both state and event)
+          // Check for lasso modes (align or arrange) - these always allow lasso drawing
+          const isLassoMode = mode === 'align-direction' || mode === 'auto-arrange'
+
+          if ((mode === 'select' || isLassoMode) && e.evt.button === 0 && !draggedDevice && !spaceHeld) {
+            // Check if shift is actually held (use both state and event) - OR if we're in lasso mode
             const shiftHeld = isShiftHeld || e.evt.shiftKey
             const clickedOnEmpty = e.target === stage || e.target === stage.findOne('Layer')
 
-            // Start lasso selection if Shift is held
-            if (shiftHeld) {
+            // Start lasso selection if Shift is held OR we're in a lasso mode
+            if (shiftHeld || isLassoMode) {
               if (pointerPos) {
                 // Convert pointer position to content coordinates
                 const transform = stage.getAbsoluteTransform().copy().invert()
                 const pos = transform.point(pointerPos)
 
-                console.log('Starting selection at:', pos)
+                console.log('Starting selection at:', pos, 'mode:', mode)
                 setIsSelecting(true)
                 setSelectionStart({ x: pos.x, y: pos.y })
                 setSelectionEnd({ x: pos.x, y: pos.y })
@@ -790,10 +797,17 @@ export function MapCanvas({
               })
 
               console.log(`Selection box: (${minX.toFixed(0)}, ${minY.toFixed(0)}) to (${maxX.toFixed(0)}, ${maxY.toFixed(0)})`)
-              console.log(`Found ${selectedIds.length} devices in selection`)
+              console.log(`Found ${selectedIds.length} devices in selection, mode: ${mode}`)
 
               if (selectedIds.length > 0) {
-                if (e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey) {
+                // Check if we're in a lasso action mode
+                if (mode === 'align-direction') {
+                  // Call the align callback with lassoed device IDs
+                  onLassoAlign?.(selectedIds)
+                } else if (mode === 'auto-arrange') {
+                  // Call the arrange callback with lassoed device IDs
+                  onLassoArrange?.(selectedIds)
+                } else if (e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey) {
                   // Add to selection
                   const newSelection = [...new Set([...selectedDeviceIds, ...selectedIds])]
                   onDevicesSelect?.(newSelection)
@@ -2082,19 +2096,6 @@ export function MapCanvas({
                 listening={false}
                 dash={[8, 4]}
               />
-              {isShiftHeld && (
-                <Text
-                  x={dimensions.width / 2}
-                  y={47}
-                  text="Hold Shift + Drag to select devices"
-                  fontSize={14}
-                  fontFamily="system-ui, -apple-system, sans-serif"
-                  fontStyle="bold"
-                  fill="#ffffff"
-                  align="center"
-                  listening={false}
-                />
-              )}
               {isSpaceHeld && (
                 <>
                   <Text
