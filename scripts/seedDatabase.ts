@@ -45,6 +45,7 @@ const prisma = new PrismaClient()
 
 // Store configurations with unique characteristics
 // Store configurations with unique characteristics
+// Store configurations with unique characteristics
 const STORE_CONFIGS = [
   {
     id: 'store-1234',
@@ -58,12 +59,15 @@ const STORE_CONFIGS = [
     manager: 'Sarah Jenkins',
     squareFootage: 45000,
     openedDate: new Date('2015-04-12'),
-    theme: 'grocery-focused', // Large grocery section, smaller general merchandise
+    theme: 'grocery-focused',
     characteristics: {
       grocerySize: 'large',
       hasBakery: true,
       hasDeli: true,
       hasPharmacy: false,
+      hasGardenCenter: false,
+      hasElectronics: false,
+      hasDaylightHarvesting: false,
     },
   },
   {
@@ -78,76 +82,15 @@ const STORE_CONFIGS = [
     manager: 'David Rodriguez',
     squareFootage: 52000,
     openedDate: new Date('2018-09-23'),
-    theme: 'outdoor-focused', // Garden center emphasis, outdoor lighting
+    theme: 'outdoor-focused',
     characteristics: {
       grocerySize: 'medium',
       hasBakery: true,
       hasDeli: false,
       hasPharmacy: true,
       hasGardenCenter: true,
-    },
-  },
-  {
-    id: 'store-3089',
-    name: 'Commerce Tech Hub',
-    storeNumber: '3089',
-    address: '789 Commerce Boulevard',
-    city: 'Austin',
-    state: 'TX',
-    zipCode: '78701',
-    phone: '(512) 555-0189',
-    manager: 'Michael Chen',
-    squareFootage: 60000,
-    openedDate: new Date('2019-11-05'),
-    theme: 'high-tech', // Electronics section, modern fixtures
-    characteristics: {
-      grocerySize: 'medium',
-      hasBakery: false,
-      hasDeli: true,
-      hasPharmacy: true,
-      hasElectronics: true,
-    },
-  },
-  {
-    id: 'store-4421',
-    name: 'River Road Eco-Mart',
-    storeNumber: '4421',
-    address: '456 River Road',
-    city: 'Portland',
-    state: 'OR',
-    zipCode: '97201',
-    phone: '(503) 555-0144',
-    manager: 'Emily Wilson',
-    squareFootage: 48000,
-    openedDate: new Date('2016-07-30'),
-    theme: 'eco-friendly', // Energy-efficient zones, daylight harvesting
-    characteristics: {
-      grocerySize: 'large',
-      hasBakery: true,
-      hasDeli: true,
-      hasPharmacy: false,
-      hasDaylightHarvesting: true,
-    },
-  },
-  {
-    id: 'store-5567',
-    name: 'Park Plaza Superstore',
-    storeNumber: '5567',
-    address: '2100 Park Plaza Drive',
-    city: 'Denver',
-    state: 'CO',
-    zipCode: '80202',
-    phone: '(303) 555-0155',
-    manager: 'James Thompson',
-    squareFootage: 55000,
-    openedDate: new Date('2021-03-15'),
-    theme: 'mountain-store', // High-altitude considerations, robust fixtures
-    characteristics: {
-      grocerySize: 'large',
-      hasBakery: true,
-      hasDeli: true,
-      hasPharmacy: true,
-      hasOutdoorStorage: true,
+      hasElectronics: false,
+      hasDaylightHarvesting: false,
     },
   },
 ]
@@ -407,7 +350,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
     storeConfig.id,
     groceryZone.name,
     groceryZone.polygon,
-    storeConfig.characteristics.grocerySize === 'large' ? 45 : 30,
+    storeConfig.characteristics.grocerySize === 'large' ? 15 : 10,
     getRandomFixtureType(),
     deviceCounter
   )
@@ -420,7 +363,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
     storeConfig.id,
     produceZone.name,
     produceZone.polygon,
-    12,
+    4,
     getRandomFixtureType(),
     deviceCounter
   )
@@ -433,7 +376,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
     storeConfig.id,
     meatZone.name,
     meatZone.polygon,
-    8,
+    3,
     getRandomFixtureType(),
     deviceCounter
   )
@@ -447,7 +390,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
       storeConfig.id,
       deliZone.name,
       deliZone.polygon,
-      6,
+      3,
       getRandomFixtureType(),
       deviceCounter
     )
@@ -462,7 +405,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
       storeConfig.id,
       bakeryZone.name,
       bakeryZone.polygon,
-      6,
+      3,
       getRandomFixtureType(),
       deviceCounter
     )
@@ -476,7 +419,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
     storeConfig.id,
     apparelZone.name,
     apparelZone.polygon,
-    25,
+    8,
     getRandomFixtureType(),
     deviceCounter
   )
@@ -489,7 +432,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
     storeConfig.id,
     homeZone.name,
     homeZone.polygon,
-    20,
+    8,
     getRandomFixtureType(),
     deviceCounter
   )
@@ -502,7 +445,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
     storeConfig.id,
     electronicsZone.name,
     electronicsZone.polygon,
-    18,
+    6,
     getRandomFixtureType(),
     deviceCounter
   )
@@ -515,7 +458,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
     storeConfig.id,
     toysZone.name,
     toysZone.polygon,
-    22,
+    6,
     getRandomFixtureType(),
     deviceCounter
   )
@@ -528,7 +471,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
     storeConfig.id,
     lobbyZone.name,
     lobbyZone.polygon,
-    8,
+    4,
     getRandomFixtureType(),
     deviceCounter
   )
@@ -542,7 +485,7 @@ function generateZonesForStore(storeConfig: typeof STORE_CONFIGS[0]): Array<{
       storeConfig.id,
       motionZone.name,
       motionZone.polygon,
-      3,
+      1,
       DeviceType.MOTION_SENSOR,
       deviceCounter
     )
@@ -727,6 +670,13 @@ export async function seedDatabase() {
   console.log('🌱 Starting database seeding...\n')
 
   try {
+    // Check if database is already seeded
+    const siteCount = await prisma.site.count()
+    if (siteCount > 0) {
+      console.log('✨ Database already seeded with sites. Skipping seed process.')
+      return
+    }
+
     // Clear existing data (optional - comment out if you want to keep existing data)
     console.log('🧹 Clearing existing data...')
     await prisma.rule.deleteMany()

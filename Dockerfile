@@ -34,6 +34,9 @@ ENV NEXT_TELEMETRY_DISABLED 1
 ENV DATABASE_URL "postgresql://dummy:dummy@localhost:5432/dummy"
 RUN npm run build
 
+# Compile seed script
+RUN npx esbuild scripts/seedDatabase.ts --bundle --platform=node --outfile=seed.js --external:@prisma/client
+
 # ================================
 # Stage 3: Runner (Production)
 # ================================
@@ -55,7 +58,8 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/seed.js ./
+COPY --from=builder /app/node_modules ./node_modules
 
 USER nextjs
 
@@ -64,4 +68,4 @@ EXPOSE 3000
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node seed.js && node server.js"]

@@ -308,6 +308,48 @@ The `docker-compose.yml` defines:
 
 See [LOCAL_DB_SETUP.md](./LOCAL_DB_SETUP.md) for detailed setup and troubleshooting.
 
+## 🛠️ Operations & Maintenance
+
+### System Health
+Check if the system is running correctly:
+```bash
+npm run cortex:health
+```
+(Runs `docker compose ps` to show running containers).
+
+### Log Management
+View real-time logs from the application and database:
+```bash
+npm run cortex:logs
+```
+Docker containers are configured with **Log Rotation** (max 10MB file size, 3 files max) to prevent them from consuming all disk space.
+
+### Command Reference
+For a quick list of all available commands:
+```bash
+npm run cortex help
+```
+(Or `npm run cortex`).
+
+### Backups (Remember)
+Data is critical. Save a snapshot of the database (memory):
+```bash
+npm run cortex:remember -- [optional-tag]
+```
+Example: `npm run cortex:remember -- pre-demo`
+Backups are saved to `./backups` with a timestamp and your tag. The script automatically rotates them (keeping the last 10).
+
+### LAN Access (Tablets/Mobile)
+To access the app from other devices on your local network (e.g., controlling lights from an iPad):
+1. Find your computer's IP address (e.g., `192.168.1.50`).
+2. Update `docker-compose.yml`:
+   ```yaml
+   environment:
+     NEXTAUTH_URL: http://192.168.1.50:3000
+   ```
+3. Restart the stack: `npm run cortex:wakeup`
+4. Open `http://192.168.1.50:3000` on your tablet.
+
 ## 🔧 Development
 
 ### Quick Start

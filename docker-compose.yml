@@ -21,6 +21,11 @@ services:
       retries: 5
     networks:
       - fusion-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # =================================
   # Next.js Application
@@ -43,6 +48,11 @@ services:
         condition: service_healthy
     networks:
       - fusion-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # =================================
   # Development Mode (hot reload)
@@ -68,6 +78,11 @@ services:
         condition: service_healthy
     networks:
       - fusion-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     profiles:
       - dev
 
