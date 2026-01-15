@@ -231,46 +231,82 @@ The app supports managing multiple sites with isolated data:
 
 ### Prerequisites
 
-- Node.js 18+ 
-- PostgreSQL database (optional, for future use)
-- Redis (optional, for future caching)
+- **Node.js 18+**
+- **Docker Desktop** ([download](https://www.docker.com/products/docker-desktop/))
 
-### Installation
+## 🚀 Getting Started
 
-1. **Install dependencies:**
+You can run the application in two ways: **Fully Dockerized** (easiest, best for demos) or **Local Development** (best for coding).
+
+### Option 1: Fully Dockerized (Recommended)
+
+Run the entire application stack in containers. Works on **Apple Silicon (M1/M2/M3)**, Intel Macs, Windows, and Linux.
+
+```bash
+# Start everything (App + Database)
+npm run cortex:wakeup
+```
+
+- Open [http://localhost:3000](http://localhost:3000)
+- The app comes pre-seeded with sample data.
+
+To stop:
+```bash
+npm run cortex:sleep
+```
+
+---
+
+### Option 2: Local Development (Hybrid)
+
+Run the database in Docker, but the Next.js app locally for hot-reloading and faster coding.
+
+1. **Start Database:**
    ```bash
-   npm install
+   npm run db:up
    ```
 
-2. **Set up environment variables:**
-   Create a `.env` file:
-   ```env
-   DATABASE_URL="postgresql://user:password@localhost:5432/fusion_cortex"
-   NEXTAUTH_SECRET="your-secret-here"
-   NEXTAUTH_URL="http://localhost:3000"
-   ```
-
-3. **Set up database (optional):**
+2. **Seed Data (First time only):**
    ```bash
-   npx prisma generate
    npx prisma db push
-   # Or use migrations:
-   npx prisma migrate dev
+   npm run db:seed
    ```
 
-4. **Run development server:**
+3. **Start App:**
    ```bash
-   npm run dev
+   npm run dev:local
    ```
 
-   Open [http://localhost:3000](http://localhost:3000)
+### Database Environment Switching
 
-### Database Management
+The app can switch between local Docker DB and Supabase Cloud DB:
 
-- **Generate Prisma Client**: `npm run db:generate`
-- **Push schema changes**: `npm run db:push`
-- **Open Prisma Studio**: `npm run db:studio`
-- **Create migration**: `npm run db:migrate`
+| Command | Database | Use Case |
+|---------|----------|----------|
+| `npm run dev:local` | 💻 Local Docker | Active development |
+| `npm run dev:cloud` | ☁️ Supabase | Presentations, shared demos |
+
+Check **Settings → Data** in the app to see which is active.
+
+### Database Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run db:up` | Start PostgreSQL container |
+| `npm run db:down` | Stop PostgreSQL container |
+| `npm run db:seed` | Seed sample data |
+| `npm run db:studio` | Open Prisma Studio (database GUI) |
+| `npm run db:push` | Push schema changes |
+| `npm run db:migrate` | Run migrations |
+
+### Docker Compose
+
+The `docker-compose.yml` defines:
+- **PostgreSQL 15** on port 5433 (avoids conflicts)
+- Persistent data volume
+- Credentials: `postgres` / `postgres`
+
+See [LOCAL_DB_SETUP.md](./LOCAL_DB_SETUP.md) for detailed setup and troubleshooting.
 
 ## 🔧 Development
 

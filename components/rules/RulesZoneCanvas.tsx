@@ -9,7 +9,7 @@
 import { Stage, Layer, Circle, Group, Text, Rect, Line } from 'react-konva'
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { FloorPlanImage, type ImageBounds } from '@/components/map/FloorPlanImage'
-import { VectorFloorPlan } from '@/components/map/VectorFloorPlan'
+
 import { Rule } from '@/lib/mockRules'
 import type { ExtractedVectorData } from '@/lib/pdfVectorExtractor'
 
@@ -58,7 +58,7 @@ export function RulesZoneCanvas({
   const [scale, setScale] = useState(1)
   const [hoveredZone, setHoveredZone] = useState<Zone | null>(null)
   const [imageBounds, setImageBounds] = useState<ImageBounds | null>(null)
-  
+
   // Convert normalized coordinates to canvas coordinates using actual image bounds
   const toCanvasCoords = useCallback((point: { x: number; y: number }) => {
     if (imageBounds) {
@@ -106,24 +106,24 @@ export function RulesZoneCanvas({
 
     updateDimensions()
     updateColors()
-    
+
     // Use ResizeObserver to respond to container size changes
     const resizeObserver = new ResizeObserver(() => {
       updateDimensions()
     })
-    
+
     if (containerRef.current) {
       resizeObserver.observe(containerRef.current)
     }
-    
+
     window.addEventListener('resize', updateDimensions)
-    
+
     const mutationObserver = new MutationObserver(updateColors)
     mutationObserver.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ['data-theme'],
     })
-    
+
     return () => {
       resizeObserver.disconnect()
       window.removeEventListener('resize', updateDimensions)
@@ -146,8 +146,8 @@ export function RulesZoneCanvas({
 
   // Get rules for a zone
   const getZoneRules = (zoneName: string) => {
-    return rules.filter(rule => 
-      rule.condition.zone === zoneName || 
+    return rules.filter(rule =>
+      rule.condition.zone === zoneName ||
       rule.targetName === zoneName ||
       rule.action.zones?.includes(zoneName) ||
       false
@@ -157,8 +157,8 @@ export function RulesZoneCanvas({
 
   return (
     <div ref={containerRef} className="w-full h-full overflow-hidden">
-      <Stage 
-        width={dimensions.width} 
+      <Stage
+        width={dimensions.width}
         height={dimensions.height}
         x={stagePosition.x}
         y={stagePosition.y}
@@ -171,48 +171,40 @@ export function RulesZoneCanvas({
         onWheel={(e) => {
           // Handle trackpad/mouse wheel zoom
           e.evt.preventDefault()
-          
+
           const stage = e.target.getStage()
           if (!stage) return
-          
+
           const pointerPos = stage.getPointerPosition()
           if (!pointerPos) return
-          
+
           // Get wheel delta (positive = zoom in, negative = zoom out)
           const deltaY = e.evt.deltaY
-          
+
           // Determine zoom direction (trackpad: negative deltaY = zoom in, positive = zoom out)
           // Mouse wheel: positive deltaY = scroll down = zoom out
           const zoomFactor = deltaY > 0 ? 0.9 : 1.1
           const newScale = Math.max(0.1, Math.min(10, scale * zoomFactor))
-          
+
           // Calculate mouse position relative to stage
           const mouseX = (pointerPos.x - stagePosition.x) / scale
           const mouseY = (pointerPos.y - stagePosition.y) / scale
-          
+
           // Calculate new position to zoom towards mouse point
           const newX = pointerPos.x - mouseX * newScale
           const newY = pointerPos.y - mouseY * newScale
-          
+
           setScale(newScale)
           setStagePosition({ x: newX, y: newY })
         }}
       >
         {/* Background Layer */}
         <Layer>
-          {/* Vector floor plan (preferred) */}
-          {vectorData && (
-            <VectorFloorPlan
-              vectorData={vectorData}
+          {/* Image floor plan */}
+          {mapImageUrl && (
+            <FloorPlanImage
+              url={mapImageUrl}
               width={dimensions.width}
-              height={dimensions.height}
-            />
-          )}
-          {/* Image floor plan (fallback) */}
-          {!vectorData && mapImageUrl && (
-            <FloorPlanImage 
-              url={mapImageUrl} 
-              width={dimensions.width} 
               height={dimensions.height}
               onImageBoundsChange={setImageBounds}
             />
@@ -227,11 +219,11 @@ export function RulesZoneCanvas({
             const points = zone.polygon.map(toCanvasCoords).flatMap(p => [p.x, p.y])
             const isSelected = selectedZoneName === zone.name
             const isHovered = hoveredZone?.id === zone.id
-            
+
             // Calculate center point for rule indicator
             const centerX = points.filter((_, i) => i % 2 === 0).reduce((a, b) => a + b, 0) / (points.length / 2)
             const centerY = points.filter((_, i) => i % 2 === 1).reduce((a, b) => a + b, 0) / (points.length / 2)
-            
+
             return (
               <Group key={zone.id}>
                 <Line
@@ -245,7 +237,7 @@ export function RulesZoneCanvas({
                   onMouseEnter={() => setHoveredZone(zone)}
                   onMouseLeave={() => setHoveredZone(null)}
                 />
-                
+
                 {/* Rule Count Indicator */}
                 {hasRules && (
                   <Group x={centerX} y={centerY - 25}>
@@ -273,7 +265,7 @@ export function RulesZoneCanvas({
                     />
                   </Group>
                 )}
-                
+
                 {/* Zone Label */}
                 {(isSelected || isHovered) && (
                   <Text
@@ -297,7 +289,7 @@ export function RulesZoneCanvas({
         <Layer>
           {devices.map((device) => {
             const deviceCoords = toCanvasCoords({ x: device.x, y: device.y })
-            
+
             return (
               <Group key={device.id}>
                 <Circle

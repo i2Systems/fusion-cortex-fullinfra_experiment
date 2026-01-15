@@ -14,7 +14,7 @@ import { Upload, Map as MapIcon, Loader2, AlertCircle } from 'lucide-react'
 import { useState, useRef } from 'react'
 import { useSite } from '@/lib/SiteContext'
 import { pdfToImage, isPdfFile } from '@/lib/pdfUtils'
-import { extractVectorData, isVectorPDF, type ExtractedVectorData } from '@/lib/pdfVectorExtractor'
+import type { ExtractedVectorData } from '@/lib/pdfVectorExtractor'
 import { storeVectorData, storeImage } from '@/lib/indexedDB'
 import { useAdvancedSettings } from '@/lib/AdvancedSettingsContext'
 import { Button } from '@/components/ui/Button'
@@ -71,97 +71,12 @@ export function MapUpload({ onMapUpload, onVectorDataUpload }: MapUploadProps) {
     try {
       let base64String: string | undefined = undefined
 
-      // Handle PDF files - try vector extraction first (if enabled in settings)
+      // Handle PDF files - convert to high-res image
       if (isPdfFile(file)) {
         try {
-          // Only attempt vector extraction if enabled in advanced settings
-          if (enableSVGExtraction) {
-            // Vector-first pipeline: Extract vector data if PDF is vector-based
-            setProcessingStatus('Checking if PDF contains vector graphics...')
-            const isVector = await isVectorPDF(file)
-
-            if (isVector && onVectorDataUpload) {
-              // Extract and store vector data with progress updates
-              setProcessingStatus('Extracting vector paths and lines from PDF...')
-              const vectorData = await extractVectorData(file, (status) => {
-                setProcessingStatus(status)
-              })
-
-              setProcessingStatus(`Found ${vectorData.paths.length.toLocaleString()} paths, processing...`)
-
-              // Check if extraction seems complete enough
-              // Architectural drawings should have many paths relative to text
-              const hasEnoughPaths = vectorData.paths.length >= 100 ||
-                (vectorData.paths.length >= 50 && vectorData.texts.length < 100) ||
-                (vectorData.paths.length > 0 && vectorData.texts.length < 10)
-
-              if (hasEnoughPaths) {
-                const storageKey = getStorageKey()
-                const vectorKey = `${storageKey}_vector`
-
-                // Store vector data in IndexedDB (handles large datasets that exceed localStorage limits)
-                setProcessingStatus('Saving vector data (this may take a moment for large files)...')
-                try {
-                  if (activeSiteId) {
-                    await storeVectorData(activeSiteId, vectorData, vectorKey)
-                  } else {
-                    // Fallback to localStorage for small datasets if no store ID
-                    const jsonString = JSON.stringify(vectorData)
-                    if (jsonString.length < 4 * 1024 * 1024) { // 4MB limit
-                      localStorage.setItem(vectorKey, jsonString)
-                    } else {
-                      throw new Error('Vector data too large for localStorage. Please select a site.')
-                    }
-                  }
-                } catch (storageError: unknown) {
-                  // If IndexedDB fails, try localStorage as fallback (might fail for large data)
-                  console.warn('IndexedDB storage failed, trying localStorage:', storageError)
-                  try {
-                    localStorage.setItem(vectorKey, JSON.stringify(vectorData))
-                  } catch (localError: unknown) {
-                    // If both fail, still use the data but warn user
-                    console.error('Both IndexedDB and localStorage failed:', localError)
-                    throw new Error('Failed to save vector data. The file may be too large. Try clearing browser storage and try again.')
-                  }
-                }
-
-                onVectorDataUpload(vectorData)
-
-                // Also create a fallback image for compatibility
-                try {
-                  setProcessingStatus('Creating preview image...')
-                  base64String = await pdfToImage(file, 3)
-                  localStorage.setItem(storageKey, base64String)
-                  onMapUpload(base64String)
-                } catch (imgError) {
-                  console.warn('Could not create fallback image, using vector data only:', imgError)
-                  // Continue with vector data only
-                }
-
-                setProcessingStatus('Complete!')
-
-                if (fileInputRef.current) {
-                  fileInputRef.current.value = ''
-                }
-                setIsProcessing(false)
-                return
-              } else {
-                // Vector extraction seems incomplete - use high-res image instead
-                console.warn(`Vector extraction incomplete (${vectorData.paths.length} paths, ${vectorData.texts.length} texts).`)
-                console.warn('This PDF likely uses Form XObjects (nested content) which PDF.js operator list cannot access.')
-                console.warn('Falling back to high-resolution image rendering (scale 4) for maximum accuracy...')
-                setProcessingStatus('Vector extraction incomplete, rendering high-resolution image...')
-                // Fall through to image conversion
-              }
-            }
-          }
-
-          // Convert PDF to high-res image (for non-vector PDFs, incomplete vector extraction, or when SVG disabled)
-          // Use scale 4 for architectural drawings to ensure all lines are crisp
-          if (!base64String) {
-            setProcessingStatus('Rendering PDF to high-resolution image (this may take a moment)...')
-            base64String = await pdfToImage(file, 6)
-          }
+          // Convert PDF to high-res image
+          setProcessingStatus('Rendering PDF to high-resolution image (this may take a moment)...')
+          base64String = await pdfToImage(file, 6)
         } catch (pdfError) {
           console.error('PDF processing error:', pdfError)
           throw new Error(
@@ -441,10 +356,10 @@ export function MapUpload({ onMapUpload, onVectorDataUpload }: MapUploadProps) {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           className={`mb-4 p-8 border-2 border-dashed rounded-xl transition-all ${isProcessing
-              ? 'border-[var(--color-primary)]/50 bg-[var(--color-primary-soft)]/30 opacity-60 cursor-wait'
-              : isDragging
-                ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)]'
-                : 'border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/50'
+            ? 'border-[var(--color-primary)]/50 bg-[var(--color-primary-soft)]/30 opacity-60 cursor-wait'
+            : isDragging
+              ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)]'
+              : 'border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/50'
             }`}
         >
           {isProcessing ? (

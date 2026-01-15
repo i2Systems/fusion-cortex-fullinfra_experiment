@@ -11,7 +11,7 @@
 
 import { Stage, Layer, Circle, Image as KonvaImage, Group, Text, Rect, Line } from 'react-konva'
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
-import { VectorFloorPlan } from './VectorFloorPlan'
+
 import { FloorPlanImage, type ImageBounds } from './FloorPlanImage'
 import type { ExtractedVectorData } from '@/lib/pdfVectorExtractor'
 import { DeviceType } from '@/lib/mockData'
@@ -188,32 +188,6 @@ export function ZoneCanvas({
       observer.disconnect()
     }
   }, [])
-
-  // Calculate image bounds for vector data
-  useEffect(() => {
-    if (vectorData) {
-      // Calculate scale to fit vector data into canvas (same logic as VectorFloorPlan)
-      const scaleX = dimensions.width / vectorData.bounds.width
-      const scaleY = dimensions.height / vectorData.bounds.height
-      const scale = Math.min(scaleX, scaleY)
-
-      // Center the drawing
-      const offsetX = (dimensions.width - vectorData.bounds.width * scale) / 2
-      const offsetY = (dimensions.height - vectorData.bounds.height * scale) / 2
-
-      setImageBounds({
-        x: offsetX,
-        y: offsetY,
-        width: vectorData.bounds.width * scale,
-        height: vectorData.bounds.height * scale,
-        naturalWidth: vectorData.bounds.width,
-        naturalHeight: vectorData.bounds.height,
-      })
-    } else if (!mapImageUrl) {
-      // Reset bounds when both vector data and image URL are removed
-      setImageBounds(null)
-    }
-  }, [vectorData, mapImageUrl, dimensions])
 
   const getDeviceColor = (type: DeviceType) => {
     if (type.startsWith('fixture-')) {
@@ -475,17 +449,8 @@ export function ZoneCanvas({
       >
         {/* Background Layer */}
         <Layer>
-          {/* Floor Plan Background - Vector-first, fallback to image */}
-          {vectorData ? (
-            <VectorFloorPlan
-              vectorData={vectorData}
-              width={dimensions.width}
-              height={dimensions.height}
-              showWalls={showWalls}
-              showAnnotations={showAnnotations}
-              showText={showText}
-            />
-          ) : mapImageUrl ? (
+          {/* Floor Plan Background - Image-based rendering */}
+          {mapImageUrl ? (
             <FloorPlanImage
               url={mapImageUrl}
               width={dimensions.width}

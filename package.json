@@ -4,6 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:local": "cp .env.local.template .env.local && next dev",
+    "dev:cloud": "cp .env.cloud .env.local && next dev",
+    "cortex:wakeup": "docker compose up --build -d && echo '🧠 Cortex is awake! Open http://localhost:3000'",
+    "cortex:sleep": "docker compose down && echo '🧠 Cortex is sleeping.'",
+    "db:up": "docker compose up postgres -d",
+    "db:down": "docker compose down",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",

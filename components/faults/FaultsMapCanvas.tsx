@@ -10,7 +10,7 @@ import { Stage, Layer, Circle, Group, Text, Line } from 'react-konva'
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { FaultCategory, faultCategories } from '@/lib/faultDefinitions'
 import { FloorPlanImage, type ImageBounds } from '@/components/map/FloorPlanImage'
-import { VectorFloorPlan } from '@/components/map/VectorFloorPlan'
+
 import type { ExtractedVectorData } from '@/lib/pdfVectorExtractor'
 
 interface DevicePoint {
@@ -114,24 +114,24 @@ export function FaultsMapCanvas({
 
     updateDimensions()
     updateColors()
-    
+
     // Use ResizeObserver to respond to container size changes
     const resizeObserver = new ResizeObserver(() => {
       updateDimensions()
     })
-    
+
     if (containerRef.current) {
       resizeObserver.observe(containerRef.current)
     }
-    
+
     window.addEventListener('resize', updateDimensions)
-    
+
     const mutationObserver = new MutationObserver(updateColors)
     mutationObserver.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ['data-theme'],
     })
-    
+
     return () => {
       resizeObserver.disconnect()
       window.removeEventListener('resize', updateDimensions)
@@ -185,7 +185,7 @@ export function FaultsMapCanvas({
     if (!faultType) return colors.muted
     const categoryInfo = faultCategories[faultType]
     if (!categoryInfo) return colors.muted
-    
+
     switch (categoryInfo.color) {
       case 'danger':
         return colors.danger
@@ -217,8 +217,8 @@ export function FaultsMapCanvas({
 
   return (
     <div ref={containerRef} className="w-full h-full overflow-hidden">
-      <Stage 
-        width={dimensions.width} 
+      <Stage
+        width={dimensions.width}
         height={dimensions.height}
         x={stagePosition.x}
         y={stagePosition.y}
@@ -231,48 +231,40 @@ export function FaultsMapCanvas({
         onWheel={(e) => {
           // Handle trackpad/mouse wheel zoom
           e.evt.preventDefault()
-          
+
           const stage = e.target.getStage()
           if (!stage) return
-          
+
           const pointerPos = stage.getPointerPosition()
           if (!pointerPos) return
-          
+
           // Get wheel delta (positive = zoom in, negative = zoom out)
           const deltaY = e.evt.deltaY
-          
+
           // Determine zoom direction (trackpad: negative deltaY = zoom in, positive = zoom out)
           // Mouse wheel: positive deltaY = scroll down = zoom out
           const zoomFactor = deltaY > 0 ? 0.9 : 1.1
           const newScale = Math.max(0.1, Math.min(10, scale * zoomFactor))
-          
+
           // Calculate mouse position relative to stage
           const mouseX = (pointerPos.x - stagePosition.x) / scale
           const mouseY = (pointerPos.y - stagePosition.y) / scale
-          
+
           // Calculate new position to zoom towards mouse point
           const newX = pointerPos.x - mouseX * newScale
           const newY = pointerPos.y - mouseY * newScale
-          
+
           setScale(newScale)
           setStagePosition({ x: newX, y: newY })
         }}
       >
         {/* Background Layer */}
         <Layer>
-          {/* Vector floor plan (preferred) */}
-          {vectorData && (
-            <VectorFloorPlan
-              vectorData={vectorData}
+          {/* Image floor plan */}
+          {mapImageUrl && (
+            <FloorPlanImage
+              url={mapImageUrl}
               width={dimensions.width}
-              height={dimensions.height}
-            />
-          )}
-          {/* Image floor plan (fallback) */}
-          {!vectorData && mapImageUrl && (
-            <FloorPlanImage 
-              url={mapImageUrl} 
-              width={dimensions.width} 
               height={dimensions.height}
               onImageBoundsChange={setImageBounds}
             />
@@ -283,7 +275,7 @@ export function FaultsMapCanvas({
         <Layer>
           {zones.map((zone) => {
             const points = zone.polygon.map(toCanvasCoords).flatMap(p => [p.x, p.y])
-            
+
             return (
               <Line
                 key={zone.id}
@@ -308,7 +300,7 @@ export function FaultsMapCanvas({
             const isSelected = selectedDeviceId === device.id
             const isHovered = hoveredDevice?.id === device.id
             const faultColor = device.hasFault ? getFaultColor(device.faultType) : getDeviceColor(device.type)
-            
+
             return (
               <Group key={device.id} x={deviceX} y={deviceY}>
                 {/* Device circle */}
@@ -327,7 +319,7 @@ export function FaultsMapCanvas({
                   onMouseEnter={() => setHoveredDevice(device)}
                   onMouseLeave={() => setHoveredDevice(null)}
                 />
-                
+
                 {/* Fault indicator badge */}
                 {device.hasFault && device.faultCount && device.faultCount > 0 && (
                   <Group x={8} y={-8}>

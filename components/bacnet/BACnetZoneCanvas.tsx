@@ -10,7 +10,7 @@ import { Stage, Layer, Circle, Image as KonvaImage, Group, Text, Rect, Line } fr
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { CheckCircle2, AlertCircle, XCircle } from 'lucide-react'
 import { FloorPlanImage, type ImageBounds } from '@/components/map/FloorPlanImage'
-import { VectorFloorPlan } from '@/components/map/VectorFloorPlan'
+
 import type { ExtractedVectorData } from '@/lib/pdfVectorExtractor'
 
 interface DevicePoint {
@@ -67,7 +67,7 @@ export function BACnetZoneCanvas({
   const [scale, setScale] = useState(1)
   const [hoveredZone, setHoveredZone] = useState<Zone | null>(null)
   const [imageBounds, setImageBounds] = useState<ImageBounds | null>(null)
-  
+
   // Convert normalized coordinates to canvas coordinates using actual image bounds
   const toCanvasCoords = useCallback((point: { x: number; y: number }) => {
     if (imageBounds) {
@@ -119,24 +119,24 @@ export function BACnetZoneCanvas({
 
     updateDimensions()
     updateColors()
-    
+
     // Use ResizeObserver to respond to container size changes
     const resizeObserver = new ResizeObserver(() => {
       updateDimensions()
     })
-    
+
     if (containerRef.current) {
       resizeObserver.observe(containerRef.current)
     }
-    
+
     window.addEventListener('resize', updateDimensions)
-    
+
     const mutationObserver = new MutationObserver(updateColors)
     mutationObserver.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ['data-theme'],
     })
-    
+
     return () => {
       resizeObserver.disconnect()
       window.removeEventListener('resize', updateDimensions)
@@ -171,8 +171,8 @@ export function BACnetZoneCanvas({
 
   return (
     <div ref={containerRef} className="w-full h-full overflow-hidden">
-      <Stage 
-        width={dimensions.width} 
+      <Stage
+        width={dimensions.width}
         height={dimensions.height}
         x={stagePosition.x}
         y={stagePosition.y}
@@ -185,48 +185,40 @@ export function BACnetZoneCanvas({
         onWheel={(e) => {
           // Handle trackpad/mouse wheel zoom
           e.evt.preventDefault()
-          
+
           const stage = e.target.getStage()
           if (!stage) return
-          
+
           const pointerPos = stage.getPointerPosition()
           if (!pointerPos) return
-          
+
           // Get wheel delta (positive = zoom in, negative = zoom out)
           const deltaY = e.evt.deltaY
-          
+
           // Determine zoom direction (trackpad: negative deltaY = zoom in, positive = zoom out)
           // Mouse wheel: positive deltaY = scroll down = zoom out
           const zoomFactor = deltaY > 0 ? 0.9 : 1.1
           const newScale = Math.max(0.1, Math.min(10, scale * zoomFactor))
-          
+
           // Calculate mouse position relative to stage
           const mouseX = (pointerPos.x - stagePosition.x) / scale
           const mouseY = (pointerPos.y - stagePosition.y) / scale
-          
+
           // Calculate new position to zoom towards mouse point
           const newX = pointerPos.x - mouseX * newScale
           const newY = pointerPos.y - mouseY * newScale
-          
+
           setScale(newScale)
           setStagePosition({ x: newX, y: newY })
         }}
       >
         {/* Background Layer */}
         <Layer>
-          {/* Vector floor plan (preferred) */}
-          {vectorData && (
-            <VectorFloorPlan
-              vectorData={vectorData}
+          {/* Image floor plan */}
+          {mapImageUrl && (
+            <FloorPlanImage
+              url={mapImageUrl}
               width={dimensions.width}
-              height={dimensions.height}
-            />
-          )}
-          {/* Image floor plan (fallback) */}
-          {!vectorData && mapImageUrl && (
-            <FloorPlanImage 
-              url={mapImageUrl} 
-              width={dimensions.width} 
               height={dimensions.height}
               onImageBoundsChange={setImageBounds}
             />
@@ -241,11 +233,11 @@ export function BACnetZoneCanvas({
             const isSelected = selectedZoneId === zone.id
             const isHovered = hoveredZone?.id === zone.id
             const statusColor = mapping ? getBACnetStatusColor(mapping.status) : colors.muted
-            
+
             // Calculate center point for status indicator
             const centerX = points.filter((_, i) => i % 2 === 0).reduce((a, b) => a + b, 0) / (points.length / 2)
             const centerY = points.filter((_, i) => i % 2 === 1).reduce((a, b) => a + b, 0) / (points.length / 2)
-            
+
             return (
               <Group key={zone.id}>
                 <Line
@@ -259,7 +251,7 @@ export function BACnetZoneCanvas({
                   onMouseEnter={() => setHoveredZone(zone)}
                   onMouseLeave={() => setHoveredZone(null)}
                 />
-                
+
                 {/* BACnet Status Indicator */}
                 {mapping && (
                   <Group x={centerX} y={centerY - 25}>
@@ -316,7 +308,7 @@ export function BACnetZoneCanvas({
                     )}
                   </Group>
                 )}
-                
+
                 {/* Zone Label */}
                 {(isSelected || isHovered) && (
                   <Text
@@ -340,7 +332,7 @@ export function BACnetZoneCanvas({
         <Layer>
           {devices.map((device) => {
             const deviceCoords = toCanvasCoords({ x: device.x, y: device.y })
-            
+
             return (
               <Group key={device.id}>
                 <Circle

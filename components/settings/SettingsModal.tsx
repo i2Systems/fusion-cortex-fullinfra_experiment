@@ -482,7 +482,36 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 )}
 
                 {activeSection === 'data' && (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
+                    {/* Database Environment Indicator */}
+                    <div className="p-4 bg-[var(--color-surface-subtle)] rounded-lg border border-[var(--color-border-subtle)]">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-sm font-medium text-[var(--color-text)]">Database Environment</div>
+                        <div className={`px-2 py-1 rounded text-xs font-medium ${process.env.NEXT_PUBLIC_DB_ENV === 'cloud'
+                            ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'
+                            : 'bg-[var(--color-success)]/20 text-[var(--color-success)]'
+                          }`}>
+                          {process.env.NEXT_PUBLIC_DB_ENV === 'cloud' ? '☁️ Cloud (Supabase)' : '💻 Local (Docker)'}
+                        </div>
+                      </div>
+                      <p className="text-xs text-[var(--color-text-muted)] mb-3">
+                        {process.env.NEXT_PUBLIC_DB_ENV === 'cloud'
+                          ? 'Connected to Supabase cloud database. Best for presentations and demos.'
+                          : 'Connected to local PostgreSQL via Docker. Best for development and testing.'}
+                      </p>
+                      <div className="p-3 bg-[var(--color-bg-elevated)] rounded border border-[var(--color-border-subtle)]">
+                        <div className="text-xs font-medium text-[var(--color-text-muted)] mb-2">To switch databases:</div>
+                        <div className="space-y-1 font-mono text-xs text-[var(--color-text-soft)]">
+                          <div>npm run dev:local  <span className="text-[var(--color-text-muted)]"># Switch to local DB</span></div>
+                          <div>npm run dev:cloud  <span className="text-[var(--color-text-muted)]"># Switch to cloud DB</span></div>
+                        </div>
+                        <p className="text-xs text-[var(--color-warning)] mt-2">
+                          ⚠️ Switching requires a server restart
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Storage Info */}
                     <div className="p-4 bg-[var(--color-surface-subtle)] rounded-lg">
                       <div className="text-sm font-medium text-[var(--color-text)] mb-1">Storage Used</div>
                       <div className="text-xs text-[var(--color-text-muted)]">2.4 GB of 10 GB</div>
@@ -490,6 +519,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         <div className="h-full bg-[var(--color-primary)] rounded-full" style={{ width: '24%' }}></div>
                       </div>
                     </div>
+
+                    {/* Cache Actions */}
                     <Button variant="secondary">
                       Clear Cache
                     </Button>

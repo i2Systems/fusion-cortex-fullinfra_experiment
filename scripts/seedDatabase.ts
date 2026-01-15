@@ -16,6 +16,7 @@
  */
 
 import { PrismaClient, DeviceType, DeviceStatus, BACnetStatus } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 // Helper to check if a DeviceType is a fixture (any of the 6 fixture types)
 function isFixtureDeviceType(type: DeviceType): boolean {
@@ -769,6 +770,7 @@ export async function seedDatabase() {
         // Create zone
         const zone = await prisma.zone.create({
           data: {
+            id: randomUUID(),
             name: zoneData.zone.name,
             color: zoneData.zone.color,
             description: zoneData.zone.description,
@@ -776,6 +778,7 @@ export async function seedDatabase() {
             siteId: site.id,
             daylightEnabled: storeConfig.characteristics.hasDaylightHarvesting || false,
             minDaylight: storeConfig.characteristics.hasDaylightHarvesting ? 50 : null,
+            updatedAt: new Date(),
           },
         })
 
@@ -785,8 +788,10 @@ export async function seedDatabase() {
         for (const deviceData of zoneData.devices) {
           const device = await prisma.device.create({
             data: {
+              id: randomUUID(),
               ...deviceData.device,
               siteId: site.id,
+              updatedAt: new Date(),
             },
           })
 
@@ -794,9 +799,11 @@ export async function seedDatabase() {
           for (const component of deviceData.components) {
             await prisma.device.create({
               data: {
+                id: randomUUID(),
                 ...component,
                 parentId: device.id,
                 siteId: site.id,
+                updatedAt: new Date(),
               },
             })
           }
@@ -804,6 +811,7 @@ export async function seedDatabase() {
           // Link device to zone
           await prisma.zoneDevice.create({
             data: {
+              id: randomUUID(),
               zoneId: zone.id,
               deviceId: device.id,
             },
@@ -822,10 +830,12 @@ export async function seedDatabase() {
       for (const mapping of bacnetMappings) {
         await prisma.bACnetMapping.create({
           data: {
+            id: randomUUID(),
             zoneId: mapping.zoneId,
             bacnetObjectId: mapping.bacnetObjectId,
             status: mapping.status,
             lastConnected: mapping.lastConnected,
+            updatedAt: new Date(),
           },
         })
       }
@@ -855,6 +865,7 @@ export async function seedDatabase() {
 
         await prisma.rule.create({
           data: {
+            id: randomUUID(),
             name: rule.name,
             description: rule.description,
             trigger: rule.trigger,
@@ -865,6 +876,7 @@ export async function seedDatabase() {
             siteId: site.id,
             zoneId: zone?.id,
             targetZones: targetZoneIds,
+            updatedAt: new Date(),
           },
         })
       }
@@ -880,12 +892,14 @@ export async function seedDatabase() {
       for (const fault of faults) {
         await prisma.fault.create({
           data: {
-            deviceId: fault.deviceId, // Ensure we are using the internal ID which we have in allDevices[x].device.id
+            id: randomUUID(),
+            deviceId: fault.deviceId,
             faultType: fault.faultType,
             description: fault.description,
             detectedAt: fault.detectedAt,
             resolved: fault.resolved,
             resolvedAt: fault.resolvedAt,
+            updatedAt: new Date(),
           }
         })
       }

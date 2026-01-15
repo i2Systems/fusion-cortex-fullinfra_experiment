@@ -1,89 +1,115 @@
 # Local Database Setup Guide
 
-**Troubleshooting guide for local PostgreSQL setup and permission issues.**
+This project uses **Docker** for local PostgreSQL development. This gives you an isolated, reproducible database without installing PostgreSQL directly on your machine.
 
-If you're seeing database permission errors like:
-```
-User `user` was denied access on the database `fusion_cortex.public`
-```
+## Quick Start
 
-## Quick Fix
+### Prerequisites
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
 
-Run the automated fix script:
+### 1. Start the Database
+
 ```bash
-./scripts/fix-local-db.sh
+npm run db:up
 ```
 
-This script will:
-1. Create the database if it doesn't exist
-2. Create the user if it doesn't exist
-3. Grant all necessary permissions
+This starts a PostgreSQL 15 container on port **5433** (to avoid conflicts with any existing PostgreSQL).
 
-## Manual Setup
+### 2. Push the Schema
 
-If the script doesn't work, follow these steps:
-
-### 1. Connect to PostgreSQL as superuser
-```bash
-psql -U postgres
-```
-
-### 2. Create database and user
-```sql
-CREATE DATABASE fusion_cortex;
-CREATE USER user WITH PASSWORD 'your_password';
-```
-
-### 3. Grant permissions
-```sql
-GRANT ALL PRIVILEGES ON DATABASE fusion_cortex TO user;
-\c fusion_cortex
-GRANT ALL ON SCHEMA public TO user;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO user;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO user;
-```
-
-### 4. Update your .env file
-Make sure your `.env` file has the correct `DATABASE_URL`:
-```env
-DATABASE_URL="postgresql://user:your_password@localhost:5432/fusion_cortex"
-```
-
-### 5. Push the schema
 ```bash
 npx prisma db push
 ```
 
-### 6. Test the connection
+### 3. Seed Sample Data (Optional)
+
 ```bash
-npx tsx scripts/test-db-connection.ts
+npm run db:seed
 ```
 
-## Alternative: Use Supabase for Local Development
+Creates 5 demo retail sites with ~850 devices, zones, rules, faults, and BACnet mappings.
 
-If you prefer not to set up a local PostgreSQL instance, you can use Supabase:
+### 4. Start Development
 
-1. Create a free Supabase project at https://supabase.com
-2. Get your connection string from the Supabase dashboard
-3. Update your `.env` file with the Supabase connection string
-4. Run `npx prisma db push` to sync the schema
+```bash
+npm run dev:local
+```
+
+Open [http://localhost:3000](http://localhost:3000)
+
+---
+
+## Environment Switching
+
+The project supports two database environments:
+
+| Command | Database | Use Case |
+|---------|----------|----------|
+| `npm run dev:local` | Local Docker PostgreSQL | Development, testing |
+| `npm run dev:cloud` | Supabase (cloud) | Presentations, demos |
+
+The Settings → Data section shows which environment is currently active.
+
+---
+
+## Docker Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run cortex:wakeup` | 🧠 Start entire stack (app + database) |
+| `npm run cortex:sleep` | 🧠 Stop entire stack |
+| `npm run db:up` | Start PostgreSQL container only |
+| `npm run db:down` | Stop PostgreSQL container |
+| `npm run db:seed` | Seed sample data |
+| `npm run db:studio` | Open Prisma Studio (database GUI) |
+| `docker compose down -v` | Stop container AND delete all data |
+
+---
+
+## Database Details
+
+| Property | Value |
+|----------|-------|
+| Host | `localhost` |
+| Port | `5433` |
+| Database | `fusion_cortex` |
+| User | `postgres` |
+| Password | `postgres` |
+
+Connection string:
+```
+postgresql://postgres:postgres@localhost:5433/fusion_cortex
+```
+
+---
 
 ## Troubleshooting
 
-**"psql: command not found"**
-- Install PostgreSQL: `brew install postgresql@14` (macOS) or use your system's package manager
+### "Port 5432 is already in use"
+The Docker container uses port **5433** to avoid conflicts. If you see this error, another PostgreSQL instance may be running. The current setup avoids this by using 5433.
 
-**"Password authentication failed"**
-- Check your `.env` file has the correct password
-- Try resetting the PostgreSQL user password
+### "Cannot connect to Docker daemon"
+Make sure Docker Desktop is running. Open Docker Desktop and wait for it to fully start.
 
-**"Database does not exist"**
-- Run the fix script or manually create the database as shown above
+### "Database does not exist"
+Run `npx prisma db push` to create the schema.
 
-**Still having issues?**
-- Check PostgreSQL is running: `pg_isready` or `brew services list` (macOS)
-- Check your `.env` file is in the project root
-- Make sure you're using the correct database URL format
+### Reset Everything
+To completely reset your local database:
+```bash
+docker compose down -v    # Removes container AND data volume
+npm run db:up             # Fresh container
+npx prisma db push        # Create schema
+npm run db:seed           # Optional: add sample data
+```
 
+---
+
+## Cloud Database (Supabase)
+
+For production or presentations, use Supabase:
+
+1. Create a project at [supabase.com](https://supabase.com)
+2. Get your connection string from Project Settings → Database
+3. Update `.env.cloud` with your connection string
+4. Run `npm run dev:cloud` to use the cloud database

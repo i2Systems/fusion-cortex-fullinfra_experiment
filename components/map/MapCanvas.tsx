@@ -18,7 +18,7 @@
 import { Stage, Layer, Circle, Image as KonvaImage, Group, Text, Rect, Line } from 'react-konva'
 import { useEffect, useState, useRef, useMemo, useCallback, useLayoutEffect } from 'react'
 import { Component, Device as DeviceType, DeviceType as DeviceTypeEnum } from '@/lib/mockData'
-import { VectorFloorPlan } from './VectorFloorPlan'
+
 import { FloorPlanImage, type ImageBounds } from './FloorPlanImage'
 import type { ExtractedVectorData } from '@/lib/pdfVectorExtractor'
 import type { Location } from '@/lib/locationStorage'
@@ -899,32 +899,8 @@ export function MapCanvas({
         }}
       >
         <Layer>
-          {/* Floor Plan Background - Vector-first, fallback to image */}
-          {vectorData ? (
-            <Group
-              onDblClick={(e) => {
-                if (mode === 'select') {
-                  e.cancelBubble = true
-                  onDevicesSelect?.([])
-                  onDeviceSelect?.(null)
-                  setDraggedDevice(null)
-                  setIsSelecting(false)
-                  setSelectionStart(null)
-                  setSelectionEnd(null)
-                }
-              }}
-            >
-              <VectorFloorPlan
-                vectorData={vectorData}
-                width={dimensions.width}
-                height={dimensions.height}
-                showWalls={showWalls}
-                showAnnotations={showAnnotations}
-                showText={showText}
-                zoomBounds={currentLocation?.type === 'zoom' ? currentLocation.zoomBounds : null}
-              />
-            </Group>
-          ) : mapImageUrl ? (
+          {/* Floor Plan Background - Image-based rendering */}
+          {mapImageUrl ? (
             <Group
               onDblClick={(e) => {
                 if (mode === 'select') {
