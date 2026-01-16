@@ -77,7 +77,7 @@ interface SiteSummary {
 }
 
 // Site Image Card Component (loads from database first, then client storage)
-function SiteImageCard({ siteId }: { siteId: string }) {
+function SiteImageCard({ siteId, sizeClass = "w-24 h-24" }: { siteId: string, sizeClass?: string }) {
   const [displayUrl, setDisplayUrl] = useState<string | null>(null)
   const [imageKey, setImageKey] = useState(0) // Force re-render on update
 
@@ -87,7 +87,7 @@ function SiteImageCard({ siteId }: { siteId: string }) {
   // Don't render if siteId is invalid
   if (!isValidSiteId) {
     return (
-      <div className="flex-shrink-0 w-24 h-24 rounded-lg bg-gradient-to-br from-[var(--color-primary-soft)]/20 to-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-center">
+      <div className={`flex-shrink-0 ${sizeClass} rounded-lg bg-gradient-to-br from-[var(--color-primary-soft)]/20 to-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-center`}>
         <div className="text-[var(--color-text-subtle)] text-xs">No Image</div>
       </div>
     )
@@ -98,7 +98,7 @@ function SiteImageCard({ siteId }: { siteId: string }) {
   // Also use enabled to prevent query execution if siteId is invalid
   // Ensure input is always a proper object, never undefined
   const queryInput = isValidSiteId && siteId ? { siteId: String(siteId).trim() } : skipToken
-  const { data: dbImage, isLoading: isDbLoading, isError: isDbError, error: dbError, refetch: refetchSiteImage } = trpc.image.getSiteImage.useQuery(
+  const { data: dbImage, isLoading: isDbLoading, isError: isDbError, refetch: refetchSiteImage } = trpc.image.getSiteImage.useQuery(
     queryInput,
     {
       // Double protection: enabled flag prevents query execution
@@ -113,70 +113,34 @@ function SiteImageCard({ siteId }: { siteId: string }) {
     }
   )
 
-  // Log query state for debugging (only when state actually changes)
-  const prevStateRef = useRef<{ isLoading: boolean; hasData: boolean; isError: boolean } | null>(null)
-  useEffect(() => {
-    if (isValidSiteId && siteId) {
-      const currentState = {
-        isLoading: isDbLoading,
-        hasData: !!dbImage,
-        isError: isDbError,
-      }
-      // Only log if state changed
-      if (!prevStateRef.current ||
-        prevStateRef.current.isLoading !== currentState.isLoading ||
-        prevStateRef.current.hasData !== currentState.hasData ||
-        prevStateRef.current.isError !== currentState.isError) {
-        console.log(`🔍 [CLIENT] Query state for ${siteId}:`, {
-          enabled: isValidSiteId && !!siteId && siteId.trim().length > 0,
-          isLoading: isDbLoading,
-          isError: isDbError,
-          hasData: !!dbImage,
-          dataLength: dbImage?.length,
-          error: dbError?.message,
-        })
-        prevStateRef.current = currentState
-      }
-    }
-  }, [siteId, isDbLoading, isDbError, dbImage, dbError, isValidSiteId])
+  // Log query state only when debugging needed
+  // ... (Removed excessive logging for cleaner code)
 
   useEffect(() => {
     const loadImage = async () => {
-      console.log(`🖼️ Loading image for site: ${siteId}`)
       try {
-        // Wait for database query to complete before checking
-        if (isDbLoading) {
-          console.log(`⏳ Database query still loading for site ${siteId}, waiting...`)
-          return
-        }
+        if (isDbLoading) return
+        if (isDbError) { } // Handle error silently
 
-        // Check for query errors
-        if (isDbError) {
-          console.warn(`⚠️ Database query error for site ${siteId}:`, dbError?.message)
-          // Fall through to client storage
-        }
-
-        // First try database (from tRPC query)
+        // First try database
         if (dbImage) {
-          console.log(`✅ Loaded image from database for site ${siteId}, length: ${dbImage.length}`)
           setDisplayUrl(dbImage)
           return
         }
 
-        // Only fallback to client storage if database query completed and returned null
-        // Note: dbImage being null/undefined means the query completed but found no image in database
-        console.log(`ℹ️ No database image found for site ${siteId} (query completed, returned null), checking client storage...`)
-        const { getSiteImage } = await import('@/lib/libraryUtils')
-        const image = await getSiteImage(siteId)
-        if (image) {
-          console.log(`✅ Loaded image from client storage for site ${siteId}`)
-          setDisplayUrl(image)
-        } else {
-          console.log(`📷 No image found for site ${siteId} (neither database nor client storage), using default`)
+        // Fallback to client storage
+        try {
+          const { getSiteImage } = await import('@/lib/libraryUtils')
+          const image = await getSiteImage(siteId)
+          if (image) {
+            setDisplayUrl(image)
+          } else {
+            setDisplayUrl(null)
+          }
+        } catch (e) {
           setDisplayUrl(null)
         }
       } catch (error) {
-        console.error(`❌ Failed to load site image for ${siteId}:`, error)
         setDisplayUrl(null)
       }
     }
@@ -186,34 +150,24 @@ function SiteImageCard({ siteId }: { siteId: string }) {
     // Listen for site image updates
     const handleSiteImageUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<{ siteId: string }>
-      // Handle both specific siteId events and general events
       if (!customEvent.detail || customEvent.detail?.siteId === siteId) {
-        console.log(`🔄 Site image updated event received for ${siteId}`)
-        setImageKey(prev => prev + 1) // Force re-render
-
-        // Only refetch if we have a valid, non-temporary site ID
+        setImageKey(prev => prev + 1)
         if (siteId) {
-          // Temporary IDs are: "site-" followed only by digits (timestamp), or "temp-"
           const isTempId = /^site-\d+$/.test(siteId) || siteId.startsWith('temp-')
-          // Also check that the query wasn't configured with skipToken by verifying we have a real database ID format
-          const isRealDbId = siteId.length > 15 && !isTempId // Database CUIDs are longer
-
+          const isRealDbId = siteId.length > 15 && !isTempId
           if (!isTempId && isRealDbId) {
-            console.log(`✅ Refetching image for valid site ID: ${siteId}`)
-            refetchSiteImage() // Refetch from database
-          } else {
-            console.log(`⏭️ Skipping refetch for temporary site ID: ${siteId}`)
+            refetchSiteImage()
           }
         }
-        loadImage() // Reload from client storage
+        loadImage()
       }
     }
     window.addEventListener('siteImageUpdated', handleSiteImageUpdate)
     return () => window.removeEventListener('siteImageUpdated', handleSiteImageUpdate)
-  }, [siteId, dbImage, isDbLoading, isDbError, dbError, refetchSiteImage])
+  }, [siteId, dbImage, isDbLoading, isDbError, refetchSiteImage])
 
   return (
-    <div className="flex-shrink-0 w-24 h-24 rounded-lg bg-gradient-to-br from-[var(--color-primary-soft)]/20 to-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-center relative overflow-hidden">
+    <div className={`flex-shrink-0 ${sizeClass} rounded-lg bg-gradient-to-br from-[var(--color-primary-soft)]/20 to-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-center relative overflow-hidden`}>
       {displayUrl ? (
         <img
           src={displayUrl}
@@ -870,10 +824,11 @@ export default function DashboardPage() {
               />
             </div>
           ) : (
-            /* Site Cards Grid - Responsive */
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-6">
+            /* Site Cards - Responsive Layout */
+            <div className="flex flex-col gap-3 xl:grid xl:grid-cols-2 2xl:grid-cols-3 xl:gap-4 xl:auto-rows-fr">
               {filteredSiteSummaries.map((summary) => {
                 const site = sites.find(s => s.id === summary.siteId)
+
                 return (
                   <Card
                     key={summary.siteId}
@@ -881,119 +836,183 @@ export default function DashboardPage() {
                       e.stopPropagation()
                       handleSiteClick(summary.siteId)
                     }}
-                    className={`fusion-card-tile cursor-pointer transition-all hover:border-[var(--color-primary)]/50 hover:shadow-[var(--shadow-strong)] ${summary.siteId === selectedSiteId
-                      ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)] shadow-[var(--shadow-glow-primary)] ring-1 ring-[var(--color-primary)]/20'
-                      : 'border-[var(--color-border-subtle)]'
-                      } ${summary.needsAttention && summary.siteId !== selectedSiteId ? 'ring-1 ring-[var(--color-warning)]/20' : ''}`}
+                    className={`cursor-pointer transition-all hover:border-[var(--color-primary)]/50 hover:shadow-[var(--shadow-strong)] 
+                      ${summary.siteId === selectedSiteId
+                        ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)] shadow-[var(--shadow-glow-primary)] ring-1 ring-[var(--color-primary)]/20'
+                        : 'border-[var(--color-border-subtle)]'
+                      } ${summary.needsAttention && summary.siteId !== selectedSiteId ? 'ring-1 ring-[var(--color-warning)]/20' : ''}
+                      
+                      /* Responsive Layout Classes */
+                      flex flex-row p-4 items-center gap-4 /* Base: List View (Row) */
+                      xl:flex-col xl:p-6 xl:gap-4 xl:fusion-card-tile /* Desktop: Card View (Tile) */
+                    `}
                   >
-                    {/* Card Header */}
-                    <div className="fusion-card-tile-header">
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
-                        {/* Site Image - Larger */}
+                    {/* === LIST VIEW (Mobile/Tablet < XL) === */}
+                    <div className="contents xl:hidden">
+                      {/* Identity Section: Image + Info */}
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className="flex-shrink-0">
-                          <SiteImageCard siteId={summary.siteId} />
+                          <SiteImageCard siteId={summary.siteId} sizeClass="w-16 h-16" />
                         </div>
-
-                        {/* Title & Subtitle - More space */}
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-lg font-bold text-[var(--color-text)] truncate leading-tight mb-1">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-lg font-bold text-[var(--color-text)] truncate mb-0.5" title={summary.siteName}>
                             {summary.siteName}
                           </h3>
                           {site && (
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-1 text-sm text-[var(--color-text-muted)]">
-                                <MapPin size={12} />
+                            <div className="space-y-0.5 text-xs text-[var(--color-text-muted)]">
+                              <div className="flex items-center gap-1">
+                                <MapPin size={11} />
                                 <span className="truncate">{site.city}, {site.state}</span>
                               </div>
-                              {site.manager && (
-                                <div className="text-sm text-[var(--color-text-muted)] truncate">
-                                  {site.manager}
-                                </div>
-                              )}
                             </div>
                           )}
                         </div>
                       </div>
 
-                      {/* Header Actions - Simplified, no menu */}
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        {getHealthIcon(summary.healthPercentage, 18)}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleSiteClick(summary.siteId, '/map')
-                          }}
-                          className="h-8 w-8"
-                          title="Explore Site"
-                        >
-                          <Search size={14} />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* KPIs - More Compact Grid */}
-                    <div className="grid grid-cols-4 gap-2 py-2">
-                      <div className="text-center">
-                        <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Health</div>
-                        <div className="text-sm font-semibold" style={{ color: getHealthColor(summary.healthPercentage) }}>
-                          {summary.healthPercentage}%
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Devices</div>
-                        <div className="text-sm font-semibold text-[var(--color-text)]">{summary.totalDevices}</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Online</div>
-                        <div className="text-sm font-semibold" style={{ color: 'var(--color-success)' }}>
-                          {summary.onlineDevices}
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Zones</div>
-                        <div className="text-sm font-semibold text-[var(--color-text)]">{summary.totalZones}</div>
-                      </div>
-                    </div>
-
-                    {/* Status Indicators - Inline with KPIs */}
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {/* Critical Issues */}
-                      {summary.criticalFaults.length > 0 && (
-                        <Badge
-                          variant="destructive"
-                          appearance="soft"
-                          className="cursor-pointer text-xs gap-1"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleSiteClick(summary.siteId, '/faults')
-                          }}
-                        >
-                          <AlertTriangle size={11} />
-                          <span>{summary.criticalFaults.length} Critical</span>
-                        </Badge>
-                      )}
-
-                      {/* Warranties */}
-                      {(summary.warrantiesExpiring > 0 || summary.warrantiesExpired > 0) && (
-                        <Badge variant="warning" appearance="soft" className="text-xs gap-1">
-                          <Shield size={11} />
-                          <span>
-                            {summary.warrantiesExpiring > 0 && `${summary.warrantiesExpiring} expiring`}
-                            {summary.warrantiesExpiring > 0 && summary.warrantiesExpired > 0 && ' • '}
-                            {summary.warrantiesExpired > 0 && `${summary.warrantiesExpired} expired`}
+                      {/* Mini Metrics (Hidden on very small screens, shown on tablet) */}
+                      <div className="hidden sm:flex items-center gap-4 px-4 border-l border-r border-[var(--color-border-subtle)] mx-2">
+                        <div className="flex flex-col items-center">
+                          <span className="text-[10px] uppercase text-[var(--color-text-muted)]">Health</span>
+                          <span className="font-bold text-sm" style={{ color: getHealthColor(summary.healthPercentage) }}>
+                            {summary.healthPercentage}%
                           </span>
-                        </Badge>
-                      )}
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-[10px] uppercase text-[var(--color-text-muted)]">Devs</span>
+                          <span className="font-bold text-sm">{summary.totalDevices}</span>
+                        </div>
+                      </div>
 
-                      {/* Map Status */}
-                      {!summary.mapUploaded && (
-                        <Badge variant="warning" appearance="soft" className="text-xs gap-1">
-                          <Map size={11} />
-                          <span>No map</span>
-                        </Badge>
-                      )}
+                      {/* Actions & Status Badge - Compact */}
+                      <div className="flex flex-col items-end gap-2 ml-auto min-w-[30px]">
+                        {/* Priority Badge Only */}
+                        {summary.criticalFaults.length > 0 ? (
+                          <Badge variant="destructive" appearance="soft" className="h-6 w-6 p-0 justify-center rounded-full" title={`${summary.criticalFaults.length} Critical Faults`}>
+                            <AlertTriangle size={12} />
+                          </Badge>
+                        ) : !summary.mapUploaded ? (
+                          <Badge variant="warning" appearance="soft" className="h-6 w-6 p-0 justify-center rounded-full" title="No Map">
+                            <Map size={12} />
+                          </Badge>
+                        ) : (
+                          <div className="h-6 w-6 flex items-center justify-center">
+                            {getHealthIcon(summary.healthPercentage, 18)}
+                          </div>
+                        )}
+
+                        <ChevronRight size={16} className="text-[var(--color-text-muted)]" />
+                      </div>
+                    </div>
+
+
+                    {/* === GRID VIEW (Desktop >= XL) === */}
+                    <div className="hidden xl:contents">
+                      {/* Card Header */}
+                      <div className="fusion-card-tile-header w-full">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          {/* Site Image */}
+                          <div className="flex-shrink-0">
+                            <SiteImageCard siteId={summary.siteId} />
+                          </div>
+
+                          {/* Title & Subtitle */}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-bold text-[var(--color-text)] truncate leading-tight mb-1" title={summary.siteName}>
+                              {summary.siteName}
+                            </h3>
+                            {site && (
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-1 text-sm text-[var(--color-text-muted)]">
+                                  <MapPin size={12} />
+                                  <span className="truncate">{site.city}, {site.state}</span>
+                                </div>
+                                {site.manager && (
+                                  <div className="text-sm text-[var(--color-text-muted)] truncate">
+                                    {site.manager}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Header Actions */}
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {getHealthIcon(summary.healthPercentage, 18)}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleSiteClick(summary.siteId, '/map')
+                            }}
+                            className="h-8 w-8"
+                            title="Explore Site"
+                          >
+                            <Search size={14} />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* KPIs */}
+                      <div className="grid grid-cols-4 gap-2 py-2 w-full">
+                        <div className="text-center">
+                          <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Health</div>
+                          <div className="text-sm font-semibold" style={{ color: getHealthColor(summary.healthPercentage) }}>
+                            {summary.healthPercentage}%
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Devices</div>
+                          <div className="text-sm font-semibold text-[var(--color-text)]">{summary.totalDevices}</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Online</div>
+                          <div className="text-sm font-semibold" style={{ color: 'var(--color-success)' }}>
+                            {summary.onlineDevices}
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Zones</div>
+                          <div className="text-sm font-semibold text-[var(--color-text)]">{summary.totalZones}</div>
+                        </div>
+                      </div>
+
+                      {/* Status Indicators */}
+                      <div className="flex flex-wrap items-center gap-1.5 w-full">
+                        {summary.criticalFaults.length > 0 && (
+                          <Badge
+                            variant="destructive"
+                            appearance="soft"
+                            className="cursor-pointer text-xs gap-1"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleSiteClick(summary.siteId, '/faults')
+                            }}
+                          >
+                            <AlertTriangle size={11} />
+                            <span>{summary.criticalFaults.length} Critical</span>
+                          </Badge>
+                        )}
+
+                        {(summary.warrantiesExpiring > 0 || summary.warrantiesExpired > 0) && (
+                          <Badge variant="warning" appearance="soft" className="text-xs gap-1">
+                            <Shield size={11} />
+                            <span>
+                              {summary.warrantiesExpiring > 0 && `${summary.warrantiesExpiring} expiring`}
+                              {summary.warrantiesExpiring > 0 && summary.warrantiesExpired > 0 && ' • '}
+                              {summary.warrantiesExpired > 0 && `${summary.warrantiesExpired} expired`}
+                            </span>
+                          </Badge>
+                        )}
+
+                        {!summary.mapUploaded && (
+                          <Badge variant="warning" appearance="soft" className="text-xs gap-1">
+                            <Map size={11} />
+                            <span>No map</span>
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </Card>
                 )
@@ -1048,6 +1067,6 @@ export default function DashboardPage() {
         onEdit={handleEditSiteSubmit}
         editingSite={editingSite}
       />
-    </div>
+    </div >
   )
 }
