@@ -112,8 +112,8 @@ export default function LookupPage() {
         signal: Math.floor(Math.random() * 40) + 50,
         status: 'online',
         location: 'Scanned via QR',
-        x: Math.random(),
-        y: Math.random(),
+        x: undefined,
+        y: undefined,
         // Generate components for fixtures
         components: generateComponentsForFixture(deviceId, mockSerial, warrantyExpiry),
         warrantyStatus: 'Active',
@@ -158,8 +158,8 @@ export default function LookupPage() {
                 signal: parseInt(values[3]) || Math.floor(Math.random() * 40) + 50,
                 status: (values[4] || 'online') as 'online' | 'offline' | 'missing',
                 location: values[5] || 'Imported',
-                x: Math.random(),
-                y: Math.random(),
+                x: undefined,
+                y: undefined,
                 // Generate components for fixtures
                 components: deviceType.startsWith('fixture-')
                   ? generateComponentsForFixture(deviceId, serialNumber, warrantyExpiry)
@@ -250,8 +250,8 @@ export default function LookupPage() {
       battery: !isFixtureType(deviceData.type) ? Math.floor(Math.random() * 40) + 60 : undefined,
       status: 'online',
       location: 'Manually Added',
-      x: Math.random(),
-      y: Math.random(),
+      x: undefined,
+      y: undefined,
       // Generate components for fixtures
       components: isFixtureType(deviceData.type)
         ? generateComponentsForFixture(deviceId, deviceData.serialNumber, warrantyExpiry)

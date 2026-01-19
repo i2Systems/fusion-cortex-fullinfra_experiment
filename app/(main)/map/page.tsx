@@ -28,6 +28,8 @@ import { ComponentModal } from '@/components/shared/ComponentModal'
 import type { Component, Device } from '@/lib/mockData'
 import { fuzzySearch } from '@/lib/fuzzySearch'
 import { EditDeviceModal } from '@/components/lookup/EditDeviceModal'
+import { ManualDeviceEntry } from '@/components/discovery/ManualDeviceEntry'
+import { generateComponentsForFixture, generateWarrantyExpiry } from '@/lib/deviceUtils'
 
 // Dynamically import MapCanvas to avoid SSR issues with Konva
 const MapCanvas = dynamic(() => import('@/components/map/MapCanvas').then(mod => ({ default: mod.MapCanvas })), {
@@ -81,6 +83,7 @@ import {
   arrangeDevicesInZone,
   calculateAlignmentUpdates
 } from '@/lib/map/arrangement'
+import { DevicePalette } from '@/components/map/DevicePalette'
 
 // Helper to find which zone contains a device
 // logic moved to @/lib/map/geometry
@@ -139,6 +142,7 @@ export default function MapPage() {
 
   const [currentLocationId, setCurrentLocationId] = useState<string | null>(null)
   const [showZoomCreator, setShowZoomCreator] = useState(false)
+  const [showManualEntry, setShowManualEntry] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [isUploadingMap, setIsUploadingMap] = useState(false)
   const [imageBounds, setImageBounds] = useState<{ x: number; y: number; width: number; height: number; naturalWidth: number; naturalHeight: number } | null>(null)
@@ -489,70 +493,67 @@ export default function MapPage() {
   const [detectedLightsCount, setDetectedLightsCount] = useState<number | null>(null)
 
   const handleDetectLights = async () => {
-    if (!mapImageUrl && !vectorData) {
-      alert('Please upload a map first')
-      return
-    }
+    // If we have no map, we can still add them to palette? 
+    // User said "on the locations / devices page... palette section of the recently added lights".
+    // Usually detect lights implies analyzing the map image.
+    // But for the palette feature, we might just want to "simulate" adding new lights that go to palette.
 
     setIsDetectingLights(true)
     setDetectedLightsCount(null)
 
     try {
-      // Simple auto-discover: place 10 lights in reasonable positions
+      // Create 10 unplaced devices for the palette
       const numLights = 10
-      const lights: { x: number; y: number }[] = []
-
-      // Try to find dark rectangles in the image if available
-      // For now, use a simple grid pattern with some randomization
-      const rows = 2
-      const cols = 5
-      const padding = 0.15 // 15% padding from edges
-
-      for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-          // Calculate normalized position (0-1 range)
-          const baseX = padding + (col / (cols - 1)) * (1 - 2 * padding)
-          const baseY = padding + (row / (rows - 1)) * (1 - 2 * padding)
-
-          // Add slight randomization to make it look more natural
-          const jitterX = (Math.random() - 0.5) * 0.03
-          const jitterY = (Math.random() - 0.5) * 0.03
-
-          lights.push({
-            x: Math.max(0.05, Math.min(0.95, baseX + jitterX)),
-            y: Math.max(0.05, Math.min(0.95, baseY + jitterY)),
-          })
-        }
-      }
+      const newDevices = []
 
       // Get next device ID
       const maxDeviceId = devices.length > 0
-        ? Math.max(...devices.map(d => parseInt(d.deviceId) || 0))
+        ? Math.max(...devices.map(d => parseInt(d.deviceId.split('-').pop() || '0') || 0))
         : 0
 
-      // Create devices from detected lights
-      lights.forEach((light, index) => {
-        const deviceId = maxDeviceId + index + 1
-        const newDevice = {
+      const maxIdCounter = devices.length > 0
+        ? Math.max(...devices.map(d => parseInt(d.id.replace('device-', '').replace('auto-', '')) || 0))
+        : 0
+
+      for (let i = 0; i < numLights; i++) {
+        const index = i
+        const deviceIdNum = 3534 + maxDeviceId + index + 1
+        const serialIdNum = 1768337143534 + maxDeviceId + index + 1
+
+        newDevices.push({
           id: `auto-${Date.now()}-${index}`,
-          deviceId: `DISC-${3534 + deviceId}`,
-          serialNumber: `SN-${1768337143534 + deviceId}`,
+          deviceId: `DISC-${deviceIdNum}`,
+          serialNumber: `SN-${serialIdNum}`,
           type: 'fixture-16ft-power-entry' as const,
           status: 'online' as const,
           signal: Math.round(85 + Math.random() * 15),
-          location: currentLocation?.name || 'Main Floor',
+          location: currentLocation?.name || 'Unassigned',
           zone: undefined,
-          x: light.x,
-          y: light.y,
-          orientation: Math.random() > 0.5 ? 0 : 90,
+          // No x/y ==> Palette
+          x: undefined,
+          y: undefined,
+          orientation: 0,
           components: [],
           metrics: {
             power: Math.round(45 + Math.random() * 10),
             temperature: Math.round(35 + Math.random() * 10),
             uptime: Math.round(95 + Math.random() * 5),
           },
-        }
-        addDevice(newDevice)
+        })
+      }
+
+      // Batch add
+      setDevices([...devices, ...newDevices])
+
+      // Also trigger mutations for persistence if needed, but for "detected" lights that might be 
+      // ephemeral until placed, we might just keep them in state?
+      // For now, let's try to persist them individually as well for consistency, 
+      // or assume setDevices triggers a sync if implemented that way.
+      // Given the context implementation, explicit add might be needed for backend.
+      // But setDevices updates the local view immediately.
+      newDevices.forEach(d => {
+        // Fire and forget mutations
+        addDevice(d)
       })
 
       setDetectedLightsCount(numLights)
@@ -561,6 +562,121 @@ export default function MapPage() {
       alert('Failed to add demo lights. Please try again.')
     } finally {
       setIsDetectingLights(false)
+    }
+  }
+
+  // Lifting MapCanvas state to track view transform for drop calculation
+  const [mapScale, setMapScale] = useState(1)
+  const [mapPosition, setMapPosition] = useState({ x: 0, y: 0 })
+  const [palettePlacementLayout, setPalettePlacementLayout] = useState<'grid' | 'line'>('grid')
+
+  const handleMapScaleChange = (newScale: number) => setMapScale(newScale)
+  const handleMapPositionChange = (newPos: { x: number; y: number }) => setMapPosition(newPos)
+
+  /* Manual Device Entry Handler */
+  const handleAddDevice = useCallback((deviceData: { deviceId: string; serialNumber: string; type: any }) => {
+    const deviceId = `device-${Date.now()}`
+    const warrantyExpiry = generateWarrantyExpiry()
+
+    const newDevice: Device = {
+      id: deviceId,
+      deviceId: deviceData.deviceId,
+      serialNumber: deviceData.serialNumber,
+      type: deviceData.type,
+      signal: 100,
+      status: 'online',
+      location: 'Unassigned',
+      // Unplaced for palette
+      x: undefined,
+      y: undefined,
+      components: isFixtureType(deviceData.type)
+        ? generateComponentsForFixture(deviceId, deviceData.serialNumber, warrantyExpiry)
+        : undefined,
+      warrantyStatus: 'Active',
+      warrantyExpiry,
+      orientation: 0
+    }
+
+    addDevice(newDevice)
+    setShowManualEntry(false)
+  }, [addDevice])
+  const handlePaletteDragStart = (e: React.DragEvent, deviceIds: string[]) => {
+    // e.dataTransfer.setData is handled in the component, but we also modify state if needed
+    // We already have the data in dataTransfer.
+    // We could set a global "dragging" state for cursor styles on the map?
+  }
+
+  const handleMapDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+
+    // Get dragged device IDs
+    try {
+      const json = e.dataTransfer.getData('application/json')
+      const deviceIds = JSON.parse(json) as string[]
+
+      if (!Array.isArray(deviceIds) || deviceIds.length === 0) return
+
+      // Calculate drop coordinates
+      // The event gives clientX/Y. We need to convert to map coordinates (normalized 0-1).
+      // We need the bounding rect of the map container.
+      const mapContainer = e.currentTarget.getBoundingClientRect()
+      const dropX = e.clientX - mapContainer.left
+      const dropY = e.clientY - mapContainer.top
+
+      // Convert to Stage coordinates: (Mouse - StagePos) / Scale
+      const stageX = (dropX - mapPosition.x) / mapScale
+      const stageY = (dropY - mapPosition.y) / mapScale
+
+      let finalX = 0
+      let finalY = 0
+
+      if (imageBounds) {
+        // Use effective image bounds for coordinate conversion
+        // normalizedX = (canvasX - imageX) / imageWidth
+        finalX = (stageX - imageBounds.x) / (imageBounds.width || mapContainer.width)
+        finalY = (stageY - imageBounds.y) / (imageBounds.height || mapContainer.height)
+      } else {
+        finalX = stageX / mapContainer.width
+        finalY = stageY / mapContainer.height
+      }
+
+      // Clamp 0-1
+      finalX = Math.max(0.01, Math.min(0.99, finalX))
+      finalY = Math.max(0.01, Math.min(0.99, finalY))
+
+      const updates = deviceIds.map((id, index) => {
+        // Simple offset for visibility
+        const offset = 0.02
+
+        let offsetX = 0
+        let offsetY = 0
+
+        if (palettePlacementLayout === 'grid') {
+          // Grid layout (3 cols) if multiple
+          const col = index % 3
+          const row = Math.floor(index / 3)
+          offsetX = col * offset
+          offsetY = row * offset
+        } else {
+          // Line layout (horizontal)
+          offsetX = index * offset
+          offsetY = 0
+        }
+
+        return {
+          deviceId: id,
+          updates: {
+            x: finalX + offsetX,
+            y: finalY + offsetY,
+            // Update location name to current map location
+            location: currentLocation?.name
+          }
+        }
+      })
+
+      updateMultipleDevices(updates)
+    } catch (err) {
+      console.error('Failed to parse dropped data', err)
     }
   }
 
@@ -939,46 +1055,46 @@ export default function MapPage() {
   const { convertParentToZoom } = require('@/lib/locationStorage')
   const devicesForCanvas = useMemo(() => {
     return filteredDevices
-      // Filter out devices without valid positions (they would render at 0,0 and then jump)
-      .filter(d => typeof d.x === 'number' && typeof d.y === 'number' && (d.x !== 0 || d.y !== 0))
       .map(d => {
         // Convert device coordinates for zoom views
-        let deviceX = d.x || 0
-        let deviceY = d.y || 0
+        let deviceX = d.x
+        let deviceY = d.y
 
-        if (currentLocation?.type === 'zoom' && currentLocation.zoomBounds) {
-          // Convert parent coordinates to zoom view coordinates
-          // Create compatible Location object for convertParentToZoom
-          const zoomBounds = typeof currentLocation.zoomBounds === 'object' &&
-            currentLocation.zoomBounds !== null &&
-            'minX' in currentLocation.zoomBounds &&
-            'minY' in currentLocation.zoomBounds &&
-            'maxX' in currentLocation.zoomBounds &&
-            'maxY' in currentLocation.zoomBounds
-            ? currentLocation.zoomBounds as { minX: number; minY: number; maxX: number; maxY: number }
-            : undefined
+        // Only process coordinates if they exist
+        if (typeof d.x === 'number' && typeof d.y === 'number' && (d.x !== 0 || d.y !== 0)) {
+          // Apply zoom view coordinate conversion if active
+          if (currentLocation?.type === 'zoom' && currentLocation.zoomBounds) {
+            const zoomBounds = typeof currentLocation.zoomBounds === 'object' &&
+              currentLocation.zoomBounds !== null &&
+              'minX' in currentLocation.zoomBounds &&
+              'minY' in currentLocation.zoomBounds &&
+              'maxX' in currentLocation.zoomBounds &&
+              'maxY' in currentLocation.zoomBounds
+              ? currentLocation.zoomBounds as { minX: number; minY: number; maxX: number; maxY: number }
+              : undefined
 
-          if (zoomBounds) {
-            const zoomLocation = {
-              id: currentLocation.id,
-              name: currentLocation.name,
-              type: currentLocation.type as 'base' | 'zoom',
-              zoomBounds,
-              createdAt: typeof currentLocation.createdAt === 'string'
-                ? new Date(currentLocation.createdAt).getTime()
-                : currentLocation.createdAt instanceof Date
-                  ? currentLocation.createdAt.getTime()
-                  : Date.now(),
-              updatedAt: typeof currentLocation.updatedAt === 'string'
-                ? new Date(currentLocation.updatedAt).getTime()
-                : currentLocation.updatedAt instanceof Date
-                  ? currentLocation.updatedAt.getTime()
-                  : Date.now(),
-            }
-            const zoomCoords = convertParentToZoom(zoomLocation, deviceX, deviceY)
-            if (zoomCoords) {
-              deviceX = zoomCoords.x
-              deviceY = zoomCoords.y
+            if (zoomBounds) {
+              const zoomLocation = {
+                id: currentLocation.id,
+                name: currentLocation.name,
+                type: currentLocation.type as 'base' | 'zoom',
+                zoomBounds,
+                createdAt: typeof currentLocation.createdAt === 'string'
+                  ? new Date(currentLocation.createdAt).getTime()
+                  : currentLocation.createdAt instanceof Date
+                    ? currentLocation.createdAt.getTime()
+                    : Date.now(),
+                updatedAt: typeof currentLocation.updatedAt === 'string'
+                  ? new Date(currentLocation.updatedAt).getTime()
+                  : currentLocation.updatedAt instanceof Date
+                    ? currentLocation.updatedAt.getTime()
+                    : Date.now(),
+              }
+              const zoomCoords = convertParentToZoom(zoomLocation, d.x, d.y)
+              if (zoomCoords) {
+                deviceX = zoomCoords.x
+                deviceY = zoomCoords.y
+              }
             }
           }
         }
@@ -989,6 +1105,7 @@ export default function MapPage() {
           y: deviceY,
           type: d.type,
           deviceId: d.deviceId,
+          serialNumber: d.serialNumber, // Required for Device type compatibility
           status: d.status,
           signal: d.signal,
           location: d.location,
@@ -996,7 +1113,7 @@ export default function MapPage() {
           orientation: d.orientation,
           components: d.components,
         }
-      }).filter((d): d is NonNullable<typeof d> => d !== null).filter(Boolean)
+      }).filter((d): d is NonNullable<typeof d> => d !== null)
   }, [filteredDevices, currentLocation])
 
   const handleComponentExpand = (deviceId: string, expanded: boolean) => {
@@ -1178,7 +1295,14 @@ export default function MapPage() {
                 onCreateZoomView={() => setShowZoomCreator(true)}
                 onDeleteLocation={handleDeleteLocation}
               />
-              <div className="w-full h-full rounded-2xl overflow-hidden">
+              <div
+                className="w-full h-full rounded-2xl overflow-hidden relative"
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                }}
+                onDrop={handleMapDrop}
+              >
                 <MapCanvas
                   onDeviceSelect={handleDeviceSelect}
                   onDevicesSelect={handleDevicesSelect}
@@ -1197,7 +1321,7 @@ export default function MapPage() {
                   onComponentClick={handleComponentClick as any}
                   devicesData={filteredDevices}
                   onZoneClick={handleZoneClick}
-                  devices={devicesForCanvas}
+                  devices={devicesForCanvas.filter(d => d.x !== undefined && d.y !== undefined) as any}
                   currentLocation={currentLocation ? {
                     id: currentLocation.id,
                     name: currentLocation.name,
@@ -1243,6 +1367,21 @@ export default function MapPage() {
                       setToolMode('select')
                     }
                   }}
+                  onScaleChange={handleMapScaleChange}
+                  onStagePositionChange={handleMapPositionChange}
+                  externalScale={mapScale}
+                  externalStagePosition={mapPosition}
+                />
+
+                {/* Device Palette - Always rendered to show empty state with Add button */}
+                <DevicePalette
+                  devices={devicesForCanvas.filter(d => d.x === undefined || d.y === undefined)}
+                  selectedDeviceIds={selectedDeviceIds}
+                  onSelectionChange={handleDevicesSelect}
+                  onDragStart={handlePaletteDragStart}
+                  placementLayout={palettePlacementLayout}
+                  onPlacementLayoutChange={setPalettePlacementLayout}
+                  onAdd={() => setShowManualEntry(true)}
                 />
               </div>
             </div>
@@ -1267,6 +1406,7 @@ export default function MapPage() {
               onComponentClick={handleComponentClick}
               onDevicesDelete={handleDevicesDelete}
               onEdit={setEditingDevice}
+              onAdd={() => setShowManualEntry(true)}
             />
           </ResizablePanel>
         )}
@@ -1304,6 +1444,13 @@ export default function MapPage() {
           }])
           setEditingDevice(null)
         }}
+      />
+
+      {/* Manual Entry Modal */}
+      <ManualDeviceEntry
+        isOpen={showManualEntry}
+        onClose={() => setShowManualEntry(false)}
+        onAdd={handleAddDevice}
       />
     </div>
   )

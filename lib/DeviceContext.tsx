@@ -131,14 +131,20 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     mutations.addDevice(device)
     undoableDevices.set(currentDevices => {
       // Check if already exists
-      const exists = currentDevices.some(
+      const devices = currentDevices || []
+      const existingIndex = devices.findIndex(
         d => d.id === device.id || d.serialNumber === device.serialNumber
       )
-      if (exists) {
-        console.warn('Device already exists:', device.id)
-        return currentDevices
+
+      if (existingIndex >= 0) {
+        console.log('Device already exists, updating:', device.id)
+        // Update existing device with new data (this moves it to palette if x/y become undefined)
+        const updatedDevices = [...devices]
+        updatedDevices[existingIndex] = { ...devices[existingIndex], ...device }
+        return updatedDevices
       }
-      return [...currentDevices, device]
+
+      return [...devices, device]
     })
   }, [mutations, undoableDevices])
 

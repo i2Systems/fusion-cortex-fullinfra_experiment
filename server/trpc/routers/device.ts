@@ -204,12 +204,12 @@ export const deviceRouter = router({
         where: { id: input.id },
         include: input.includeComponents
           ? {
-              other_Device: {
-                orderBy: {
-                  createdAt: 'asc',
-                },
+            other_Device: {
+              orderBy: {
+                createdAt: 'asc',
               },
-            }
+            },
+          }
           : undefined,
       })
 
@@ -399,7 +399,6 @@ export const deviceRouter = router({
 
                           return {
                             id: randomUUID(),
-                            siteId: input.siteId,
                             deviceId: `${input.deviceId}-${comp.componentType}`,
                             serialNumber: uniqueSerialNumber,
                             type: DeviceType.FIXTURE_16FT_POWER_ENTRY,
@@ -473,7 +472,6 @@ export const deviceRouter = router({
                   ? {
                     create: components.map(comp => ({
                       id: randomUUID(),
-                      siteId: deviceData.siteId,
                       deviceId: `${deviceData.deviceId}-${comp.componentType}`,
                       serialNumber: comp.componentSerialNumber,
                       type: DeviceType.FIXTURE_16FT_POWER_ENTRY,
@@ -484,6 +482,9 @@ export const deviceRouter = router({
                       warrantyExpiry: comp.warrantyExpiry,
                       buildDate: comp.buildDate,
                       updatedAt: new Date(),
+                      Site: {
+                        connect: { id: deviceData.siteId },
+                      },
                     })),
                   }
                   : undefined,

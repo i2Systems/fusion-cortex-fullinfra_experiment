@@ -284,6 +284,7 @@ interface DeviceTableProps {
   onComponentClick?: (component: Component, parentDevice: Device) => void
   onDevicesDelete?: (deviceIds: string[]) => void
   onEdit?: (device: Device) => void
+  onAdd?: () => void
 }
 
 export function DeviceTable({
@@ -294,7 +295,8 @@ export function DeviceTable({
   onDevicesSelect,
   onComponentClick,
   onDevicesDelete,
-  onEdit
+  onEdit,
+  onAdd
 }: DeviceTableProps) {
   const [sortField, setSortField] = useState<keyof Device>('deviceId')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
@@ -428,9 +430,18 @@ export function DeviceTable({
       {/* Panel Header - Always visible */}
       <div className="p-3 md:p-4 border-b border-[var(--color-border-subtle)]">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-base md:text-lg font-semibold text-[var(--color-text)]">
-            Devices
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-base md:text-lg font-semibold text-[var(--color-text)]">
+              Devices
+            </h3>
+            <button
+              onClick={onAdd}
+              className="p-1 rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 transition-colors"
+              title="Add Device"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
           {sortedDevices.length > 0 && (
             <div className="flex items-center gap-2">
               <button
