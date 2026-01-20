@@ -73,6 +73,14 @@
     --radius-lg: 12px;
     --radius-xl: 16px;
     --radius-2xl: 20px;
+
+    /* Glass effects */
+    --glass-blur: 20px;
+    --glass-blur-strong: 40px;
+
+    /* Light glass surfaces - frosted white for overlays */
+    --color-surface-glass: rgba(255, 255, 255, 0.8);
+    --color-surface-glass-elevated: rgba(255, 255, 255, 0.9);
 }
 
 [data-theme="light"] body {

@@ -47,7 +47,7 @@ export function SelectionToolbar({
 
   return (
     <div
-      className="pointer-events-auto flex items-center gap-2 bg-[var(--color-surface)] backdrop-blur-xl rounded-xl border border-[var(--color-primary)] p-2 shadow-[var(--shadow-strong)] z-50"
+      className="pointer-events-auto flex items-center gap-2 bg-[var(--color-surface-glass)] backdrop-blur-xl rounded-xl border border-[var(--color-primary)] p-2 shadow-[var(--shadow-strong)] z-50"
       style={toolbarStyle}
     >
       <div className="px-3 py-1 text-sm font-semibold text-[var(--color-text)] border-r border-[var(--color-border-subtle)]">

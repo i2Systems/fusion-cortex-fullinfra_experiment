@@ -849,21 +849,32 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault, onDelete
           </div>
         )}
 
-        {/* Delete Button - Only for database faults, at bottom of scroll */}
-        {fault.id && onDelete && (
+        {/* Delete Button - For both DB and Discovered faults */}
+        {onDelete && (
           <div className={`pt-4 ${fault.id && (fault.resolved ? onUnresolve : onResolve) ? '' : 'mt-4 border-t border-[var(--color-border-subtle)]'}`}>
             <Button
               onClick={() => {
-                if (confirm('Are you sure you want to permanently delete this fault? This cannot be undone.')) {
-                  onDelete(fault.id!)
+                const message = fault.id
+                  ? 'Are you sure you want to permanently delete this fault? This cannot be undone.'
+                  : 'Dismiss this fault from the list?'
+
+                if (confirm(message)) {
+                  // Pass fault ID if exists, otherwise pass a composite key or let parent handle it
+                  // Since the parent manages selection, passing the ID (if we have it) or the logic depends on parent
+                  // The parent passed the 'fault' object, so it knows what is selected.
+                  // But onDelete expects a string. We need to ensure we pass something valid.
+                  // Let's rely on the parent to handle the ID logic, but we need to pass a string ID.
+                  // If fault.id is missing, we should pass the generated ID if available, or just empty if handled by context.
+                  // See implementation plan: we will update FaultsPage to handle this.
+                  onDelete(fault.id || 'discovered')
                 }
               }}
               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20 rounded-lg text-sm font-medium text-[var(--color-danger)] hover:bg-[var(--color-danger)]/20 transition-colors shadow-none"
-              // Override variant to match custom red style
               variant="ghost"
+              title={fault.id ? "Permanently delete fault" : "Dismiss fault from list"}
             >
               <X size={14} />
-              Delete Fault
+              {fault.id ? 'Delete Fault' : 'Dismiss Fault'}
             </Button>
           </div>
         )}

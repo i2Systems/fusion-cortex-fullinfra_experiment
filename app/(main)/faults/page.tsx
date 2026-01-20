@@ -71,6 +71,7 @@ export default function FaultsPage() {
   const [viewMode, setViewMode] = useState<MapViewMode>('list')
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
   const [showResolved, setShowResolved] = useState(false) // Archive filter
+  const [dismissedFaultKeys, setDismissedFaultKeys] = useState<Set<string>>(new Set()) // Track dismissed discovered faults
 
   // Fetch faults from database
   const { data: dbFaults, refetch: refetchFaults } = trpc.fault.list.useQuery(
@@ -251,8 +252,18 @@ export default function FaultsPage() {
     }
 
     // Sort by detected time (most recent first)
-    return allFaults.sort((a, b) => b.detectedAt.getTime() - a.detectedAt.getTime())
-  }, [dbFaults, devices, deviceGeneratedFaults])
+    const sorted = allFaults.sort((a, b) => b.detectedAt.getTime() - a.detectedAt.getTime())
+
+    // Filter out dismissed faults
+    return sorted.filter(f => {
+      // For DB faults, they are removed via mutation refetch, but we can also filter if needed
+      if (f.id) return true
+
+      // For discovered faults, check if dismissed
+      const faultKey = `${f.device.id}-${f.faultType}-${f.detectedAt.getTime()}`
+      return !dismissedFaultKeys.has(faultKey)
+    })
+  }, [dbFaults, devices, deviceGeneratedFaults, dismissedFaultKeys])
 
   // Sync database faults to notifications
   // Use a ref to track which faults we've already created notifications for
@@ -851,7 +862,30 @@ export default function FaultsPage() {
             fault={selectedFault}
             devices={devices}
             onAddNewFault={handleAddNewFault}
-            onDelete={(faultId) => deleteFaultMutation.mutate({ id: faultId })}
+            onDelete={(faultId) => {
+              if (!selectedFault) return
+
+              // If it's a database fault (has ID and matches selected)
+              if (selectedFault.id && selectedFault.id === faultId) {
+                deleteFaultMutation.mutate({ id: faultId })
+              }
+              // If it's a discovered fault (no ID or passed 'discovered' flag)
+              else {
+                // Generate the key to dismiss
+                const faultKey = selectedFault.id || `${selectedFault.device.id}-${selectedFault.faultType}-${selectedFault.detectedAt.getTime()}`
+
+                // Add to dismissed set
+                setDismissedFaultKeys(prev => {
+                  const next = new Set(prev)
+                  next.add(faultKey)
+                  return next
+                })
+
+                // Clear selection
+                setSelectedFaultId(null)
+                setSelectedDeviceId(null)
+              }
+            }}
             onResolve={(faultId) => updateFaultMutation.mutate({ id: faultId, resolved: true })}
             onUnresolve={(faultId) => updateFaultMutation.mutate({ id: faultId, resolved: false })}
           />

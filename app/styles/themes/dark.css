@@ -163,6 +163,10 @@
         --glass-opacity: 0.65;
         --glass-opacity-strong: 0.85;
 
+        /* Dark glass surfaces - for overlays on busy backgrounds */
+        --color-surface-glass: rgba(5, 7, 12, 0.75);
+        --color-surface-glass-elevated: rgba(10, 14, 22, 0.82);
+
         --neumorphism-shadow-inset: inset 2px 2px 5px rgba(0, 0, 0, 0.1), inset -2px -2px 5px rgba(255, 255, 255, 0.1);
         --neumorphism-shadow-outset: 8px 8px 16px rgba(0, 0, 0, 0.1), -8px -8px 16px rgba(255, 255, 255, 0.1);
         --neumorphism-shadow-pressed: inset 4px 4px 8px rgba(0, 0, 0, 0.15), inset -4px -4px 8px rgba(255, 255, 255, 0.1);

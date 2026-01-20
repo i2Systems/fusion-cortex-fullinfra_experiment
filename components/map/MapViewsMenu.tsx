@@ -12,23 +12,23 @@
 'use client'
 
 import { useState } from 'react'
-import { 
-  Upload, 
-  Grid3x3, 
-  Radio, 
-  Layers, 
-  Users, 
+import {
+  Upload,
+  Grid3x3,
+  Radio,
+  Layers,
+  Users,
   Zap,
   Check,
   type LucideIcon
 } from 'lucide-react'
 
-export type MapViewType = 
-  | 'upload' 
-  | 'heat-zones' 
-  | 'signal-strength' 
-  | 'device-types' 
-  | 'occupancy' 
+export type MapViewType =
+  | 'upload'
+  | 'heat-zones'
+  | 'signal-strength'
+  | 'device-types'
+  | 'occupancy'
   | 'energy-usage'
 
 interface MapViewOption {
@@ -84,11 +84,11 @@ interface MapViewsMenuProps {
   showUpload?: boolean
 }
 
-export function MapViewsMenu({ 
-  activeView, 
+export function MapViewsMenu({
+  activeView,
   onViewChange,
   onUploadClick,
-  showUpload = true 
+  showUpload = true
 }: MapViewsMenuProps) {
   const [selectedView, setSelectedView] = useState<MapViewType | null>(activeView || null)
 
@@ -103,13 +103,13 @@ export function MapViewsMenu({
     onViewChange?.(newView || 'upload')
   }
 
-  const visibleOptions = showUpload 
-    ? mapViewOptions 
+  const visibleOptions = showUpload
+    ? mapViewOptions
     : mapViewOptions.filter(opt => opt.id !== 'upload')
 
   return (
     <div className="flex items-center justify-end gap-2 px-2 py-2">
-      <div className="flex items-center gap-1 bg-[var(--color-surface)] backdrop-blur-xl rounded-xl border border-[var(--color-border-subtle)] p-1 shadow-[var(--shadow-soft)]">
+      <div className="flex items-center gap-1 bg-[var(--color-surface-glass)] backdrop-blur-xl rounded-xl border border-[var(--color-border-subtle)] p-1 shadow-[var(--shadow-soft)]">
         {visibleOptions.map((option) => {
           const Icon = option.icon
           const isActive = selectedView === option.id
@@ -122,11 +122,11 @@ export function MapViewsMenu({
               className={`
                 flex items-center gap-2 px-4 py-2 rounded-lg
                 transition-all duration-200
-                ${isActive 
-                  ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)] shadow-[var(--shadow-glow-primary)]' 
+                ${isActive
+                  ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)] shadow-[var(--shadow-glow-primary)]'
                   : isUpload
-                  ? 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-text)]'
-                  : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-primary)]'
+                    ? 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-text)]'
+                    : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-primary)]'
                 }
               `}
               title={option.description}

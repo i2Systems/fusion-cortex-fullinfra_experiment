@@ -180,7 +180,7 @@ export function MapToolbar({
   const modeHint = getModeHint()
 
   return (
-    <div className="pointer-events-auto flex items-center gap-2 bg-[var(--color-surface)] backdrop-blur-xl rounded-xl border border-[var(--color-border-subtle)] p-2 shadow-[var(--shadow-strong)]">
+    <div className="pointer-events-auto flex items-center gap-2 bg-[var(--color-surface-glass)] backdrop-blur-xl rounded-xl border border-[var(--color-border-subtle)] p-2 shadow-[var(--shadow-strong)]">
       {/* Undo/Redo */}
       <div className="flex items-center gap-1 pr-2 border-r border-[var(--color-border-subtle)]">
         <Button
@@ -217,8 +217,8 @@ export function MapToolbar({
                 onClick={() => handleToolClick(tool)}
                 variant={isActive ? 'primary' : 'ghost'}
                 className={`gap-1.5 px-2 md:px-3 py-2 ${!isActive
-                    ? 'text-[var(--color-text-muted)] hover:text-[var(--color-primary)]'
-                    : ''
+                  ? 'text-[var(--color-text-muted)] hover:text-[var(--color-primary)]'
+                  : ''
                   }`}
                 title={tool.description}
               >
@@ -235,7 +235,7 @@ export function MapToolbar({
                   ref={dropdownRef}
                   className="absolute top-full left-0 mt-2 py-1 rounded-lg border border-[var(--color-border-subtle)] shadow-[var(--shadow-strong)] min-w-[160px]"
                   style={{
-                    background: 'rgba(9, 11, 17, 0.95)',
+                    background: 'var(--color-surface-glass-elevated)',
                     backdropFilter: 'blur(20px)',
                     zIndex: 100,
                   }}
@@ -251,8 +251,8 @@ export function MapToolbar({
                         key={layout.id}
                         onClick={() => handleArrangeLayoutSelect(layout.id)}
                         className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors ${isSelected
-                            ? 'bg-[var(--color-primary-soft)] text-[var(--color-text)]'
-                            : 'text-[var(--color-text)] hover:bg-[var(--color-primary-soft)]'
+                          ? 'bg-[var(--color-primary-soft)] text-[var(--color-text)]'
+                          : 'text-[var(--color-text)] hover:bg-[var(--color-primary-soft)]'
                           }`}
                       >
                         <LayoutIcon size={16} className="text-[var(--color-text-muted)]" />

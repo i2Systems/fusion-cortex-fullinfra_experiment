@@ -65,6 +65,16 @@
     --radius-lg: 16px;
     --radius-xl: 24px;
     --radius-2xl: 32px;
+
+    /* Glass effects */
+    --glass-blur: 24px;
+    --glass-blur-strong: 48px;
+    --glass-opacity: 0.85;
+    --glass-opacity-strong: 0.92;
+
+    /* Dark glass surfaces - deep purple-black for overlays */
+    --color-surface-glass: rgba(5, 3, 10, 0.75);
+    --color-surface-glass-elevated: rgba(12, 8, 20, 0.82);
 }
 
 [data-theme="on-brand"] body {

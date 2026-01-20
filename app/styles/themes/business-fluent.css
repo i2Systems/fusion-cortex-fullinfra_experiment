@@ -73,6 +73,10 @@
     --radius-lg: 8px;
     --radius-xl: 12px;
     --radius-2xl: 16px;
+
+    /* Dark glass surfaces - Mica acrylic */
+    --color-surface-glass: rgba(32, 32, 32, 0.75);
+    --color-surface-glass-elevated: rgba(40, 40, 40, 0.85);
 }
 
 [data-theme="business-fluent"] body {

@@ -171,7 +171,7 @@ export function DeviceProfilePanel({ device, onDeviceSelect, onComponentClick, o
   const { addToast } = useToast()
   const [isDiscovering, setIsDiscovering] = useState(false)
 
-  // Simulate device discovery
+  // Simulate device discovery with structured groups
   const handleSimulateDiscovery = async () => {
     setIsDiscovering(true)
 
@@ -179,37 +179,75 @@ export function DeviceProfilePanel({ device, onDeviceSelect, onComponentClick, o
     setTimeout(() => {
       const timestamp = Date.now()
       let addedCount = 0
+      let globalIndex = 0
 
-      // Generate 10 random devices
-      for (let i = 0; i < 10; i++) {
-        const isMotion = Math.random() > 0.7
-        const type: DeviceType = isMotion ? 'motion' : 'fixture-16ft-power-entry'
-        const serial = `SN-${timestamp}-${i}`
-        const id = `discovered-${timestamp}-${i}`
+      // Entry types to cycle through for different groups
+      const entryTypes: DeviceType[] = [
+        'fixture-16ft-power-entry',
+        'fixture-12ft-power-entry',
+        'fixture-8ft-power-entry',
+      ]
 
-        const newDevice: Device = {
-          id,
-          deviceId: `DISC-${String(timestamp).slice(-4)}-${i}`,
-          serialNumber: serial,
-          type,
-          signal: Math.floor(Math.random() * 40) + 60,
-          status: 'online',
-          location: 'Discovered Area',
-          zone: 'New Zone',
-          x: 0.5 + (Math.random() - 0.5) * 0.2, // Clustered near center
-          y: 0.5 + (Math.random() - 0.5) * 0.2,
-          warrantyStatus: 'Active',
-          warrantyExpiry: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365), // 1 year
+      // Follower types in descending size order (will cycle through)
+      const followerTypes: DeviceType[] = [
+        'fixture-16ft-follower',
+        'fixture-12ft-follower',
+        'fixture-8ft-follower',
+      ]
+
+      // Possible group sizes
+      const groupSizes = [8, 10, 12]
+
+      // Create 2 groups with different configurations
+      const numGroups = 2
+
+      for (let groupIndex = 0; groupIndex < numGroups; groupIndex++) {
+        // Pick a random size for this group (8, 10, or 12)
+        const groupSize = groupSizes[Math.floor(Math.random() * groupSizes.length)]
+
+        // Each group gets a different entry type
+        const entryType = entryTypes[groupIndex % entryTypes.length]
+
+        for (let deviceIndex = 0; deviceIndex < groupSize; deviceIndex++) {
+          let type: DeviceType
+
+          if (deviceIndex === 0) {
+            // First device in group is always an entry
+            type = entryType
+          } else {
+            // Remaining devices are followers, cycling through sizes (16→12→8→16→...)
+            const followerIndex = (deviceIndex - 1) % followerTypes.length
+            type = followerTypes[followerIndex]
+          }
+
+          const serial = `SN-${timestamp}-G${groupIndex + 1}-${deviceIndex}`
+          const id = `discovered-${timestamp}-${globalIndex}`
+
+          // Don't set x/y - this makes devices appear in the "New Devices" palette
+          const newDevice: Device = {
+            id,
+            deviceId: `DISC-G${groupIndex + 1}-${deviceIndex + 1}`,
+            serialNumber: serial,
+            type,
+            signal: Math.floor(Math.random() * 40) + 60,
+            status: 'online',
+            location: `Group ${groupIndex + 1}`,
+            zone: `Discovery Zone ${groupIndex + 1}`,
+            // x and y are undefined - device will appear in New Devices palette
+            warrantyStatus: 'Active',
+            warrantyExpiry: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365), // 1 year
+          }
+
+          addDevice(newDevice)
+          addedCount++
+          globalIndex++
         }
-
-        addDevice(newDevice)
-        addedCount++
       }
 
       setIsDiscovering(false)
       addToast({
         title: 'Discovery Complete',
-        message: `Successfully discovered ${addedCount} new devices.`,
+        message: `Discovered ${addedCount} devices in ${numGroups} groups (1 entry + followers each).`,
         type: 'success',
         duration: 5000
       })
@@ -643,13 +681,12 @@ export function DeviceProfilePanel({ device, onDeviceSelect, onComponentClick, o
               {device.firmwareStatus && (
                 <div className="flex justify-between items-center p-2 rounded-lg bg-[var(--color-surface-subtle)]">
                   <span className="text-sm text-[var(--color-text-muted)]">Status</span>
-                  <span className={`text-sm font-medium ${
-                    device.firmwareStatus === 'UP_TO_DATE' ? 'text-green-400' :
+                  <span className={`text-sm font-medium ${device.firmwareStatus === 'UP_TO_DATE' ? 'text-green-400' :
                     device.firmwareStatus === 'UPDATE_AVAILABLE' ? 'text-yellow-400' :
-                    device.firmwareStatus === 'UPDATE_IN_PROGRESS' ? 'text-blue-400' :
-                    device.firmwareStatus === 'UPDATE_FAILED' ? 'text-red-400' :
-                    'text-[var(--color-text-muted)]'
-                  }`}>
+                      device.firmwareStatus === 'UPDATE_IN_PROGRESS' ? 'text-blue-400' :
+                        device.firmwareStatus === 'UPDATE_FAILED' ? 'text-red-400' :
+                          'text-[var(--color-text-muted)]'
+                    }`}>
                     {device.firmwareStatus.replace(/_/g, ' ')}
                   </span>
                 </div>

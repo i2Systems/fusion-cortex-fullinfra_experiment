@@ -81,7 +81,7 @@ export function DevicePalette({
     }
 
     return (
-        <div className="absolute top-24 left-4 z-10 w-56 flex flex-col gap-2 bg-[var(--color-surface)]/95 backdrop-blur-md border border-[var(--color-border)] rounded-xl shadow-2xl overflow-hidden max-h-[60vh] transition-all duration-200">
+        <div className="absolute top-24 left-4 z-10 w-56 flex flex-col gap-2 bg-[var(--color-surface-glass)] backdrop-blur-xl border border-[var(--color-border-subtle)] rounded-xl shadow-2xl overflow-hidden max-h-[60vh] transition-all duration-200">
             {/* Header */}
             <div className="p-3 border-b border-[var(--color-border)] flex items-center justify-between bg-[var(--color-surface-hover)]">
                 <div className="flex items-center gap-2">

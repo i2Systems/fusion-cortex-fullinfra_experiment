@@ -100,7 +100,7 @@ export function ZoneToolbar({
   }
 
   return (
-    <div className="pointer-events-auto flex items-center gap-2 bg-[var(--color-surface)] backdrop-blur-xl rounded-xl border border-[var(--color-border-subtle)] p-2 shadow-[var(--shadow-strong)]">
+    <div className="pointer-events-auto flex items-center gap-2 bg-[var(--color-surface-glass)] backdrop-blur-xl rounded-xl border border-[var(--color-border-subtle)] p-2 shadow-[var(--shadow-strong)]">
       {/* Tool Buttons */}
       <div className="flex items-center gap-1">
         {toolOptions.map((tool) => {

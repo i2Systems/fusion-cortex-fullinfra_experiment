@@ -520,6 +520,8 @@ export default function MapPage() {
         const deviceIdNum = 3534 + maxDeviceId + index + 1
         const serialIdNum = 1768337143534 + maxDeviceId + index + 1
 
+        const warrantyExpiry = generateWarrantyExpiry()
+
         newDevices.push({
           id: `auto-${Date.now()}-${index}`,
           deviceId: `DISC-${deviceIdNum}`,
@@ -533,7 +535,7 @@ export default function MapPage() {
           x: undefined,
           y: undefined,
           orientation: 0,
-          components: [],
+          components: generateComponentsForFixture(`auto-${Date.now()}-${index}`, `SN-${serialIdNum}`, warrantyExpiry),
           metrics: {
             power: Math.round(45 + Math.random() * 10),
             temperature: Math.round(35 + Math.random() * 10),
@@ -1026,6 +1028,9 @@ export default function MapPage() {
     // Zone filter - check if device zone matches any selected zone name
     if (filters.selectedZones.length > 0) {
       filtered = filtered.filter(device => {
+        // Always include unplaced devices so they appear in the palette
+        if (device.x === undefined || device.y === undefined) return true
+
         if (!device.zone) return false
         // Direct match: device.zone is a string, filters.selectedZones is string[]
         return filters.selectedZones.includes(device.zone)

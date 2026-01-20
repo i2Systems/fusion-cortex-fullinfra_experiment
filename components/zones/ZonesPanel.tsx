@@ -49,7 +49,6 @@ interface ZoneListItemProps {
   zoneColor: string
   onSelect: () => void
   onToggleMultiSelect: () => void
-  onDelete: () => void
 }
 
 const ZoneListItem = memo(function ZoneListItem({
@@ -58,8 +57,7 @@ const ZoneListItem = memo(function ZoneListItem({
   isMultiSelected,
   zoneColor,
   onSelect,
-  onToggleMultiSelect,
-  onDelete
+  onToggleMultiSelect
 }: ZoneListItemProps) {
   const handleClick = useCallback((e: React.MouseEvent) => {
     // Don't toggle single selection if clicking on checkbox or buttons
@@ -80,10 +78,7 @@ const ZoneListItem = memo(function ZoneListItem({
     onSelect()
   }, [onSelect])
 
-  const handleDeleteClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    onDelete()
-  }, [onDelete])
+
 
   return (
     <div
@@ -126,13 +121,6 @@ const ZoneListItem = memo(function ZoneListItem({
             title="Select zone"
           >
             <MapPin size={14} className="text-[var(--color-text-muted)]" />
-          </button>
-          <button
-            onClick={handleDeleteClick}
-            className="p-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors"
-            title="Delete zone"
-          >
-            <Trash2 size={14} className="text-[var(--color-text-muted)]" />
           </button>
         </div>
       </div>
@@ -547,6 +535,23 @@ export function ZonesPanel({ zones, selectedZoneId, onZoneSelect, onCreateZone, 
                     </div>
                   )}
                 </div>
+
+                {/* Delete Zone Button */}
+                {onDeleteZone && (
+                  <div className="pt-3 mt-3 border-t border-[var(--color-border-subtle)]">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeleteSelectedZone()
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20 rounded-lg text-sm font-medium text-[var(--color-danger)] hover:bg-[var(--color-danger)]/20 transition-colors"
+                      title="Delete this zone"
+                    >
+                      <Trash2 size={14} />
+                      Delete Zone
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -584,16 +589,6 @@ export function ZonesPanel({ zones, selectedZoneId, onZoneSelect, onCreateZone, 
                   zoneColor={zoneColor}
                   onSelect={() => onZoneSelect?.(isSelected ? null : zone.id)}
                   onToggleMultiSelect={() => handleToggleZoneSelection(zone.id)}
-                  onDelete={() => {
-                    if (onDeleteZone) {
-                      if (confirm(`Are you sure you want to delete "${zone.name}"?`)) {
-                        onDeleteZone(zone.id)
-                        if (selectedZoneId === zone.id) {
-                          onZoneSelect?.(null)
-                        }
-                      }
-                    }
-                  }}
                 />
               )
             })}

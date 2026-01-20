@@ -75,7 +75,7 @@ export function MapFiltersPanel({
   if (!isOpen) return null
 
   return (
-    <div className="w-80 bg-[var(--color-surface)] backdrop-blur-xl rounded-xl border border-[var(--color-border-subtle)] shadow-[var(--shadow-strong)] overflow-hidden z-20">
+    <div className="w-80 bg-[var(--color-surface-glass)] backdrop-blur-xl rounded-xl border border-[var(--color-border-subtle)] shadow-[var(--shadow-strong)] overflow-hidden z-20">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-[var(--color-border-subtle)]">
         <h3 className="text-lg font-semibold text-[var(--color-text)]">Layers</h3>

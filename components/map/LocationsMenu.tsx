@@ -49,7 +49,7 @@ export function LocationsMenu({
         {/* Toggle button */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--color-surface)] backdrop-blur-xl border border-[var(--color-border-subtle)] text-[var(--color-text)] hover:bg-[var(--color-surface-subtle)] transition-all shadow-[var(--shadow-soft)]"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--color-surface-glass)] backdrop-blur-xl border border-[var(--color-border-subtle)] text-[var(--color-text)] hover:bg-[var(--color-surface-subtle)] transition-all shadow-[var(--shadow-soft)]"
         >
           <MapPin size={18} />
           <span className="text-sm font-medium">
@@ -60,7 +60,7 @@ export function LocationsMenu({
 
         {/* Expanded menu */}
         {isExpanded && (
-          <div className="bg-[var(--color-surface)] backdrop-blur-xl border border-[var(--color-border-subtle)] rounded-lg shadow-[var(--shadow-strong)] overflow-hidden min-w-[240px]">
+          <div className="bg-[var(--color-surface-glass)] backdrop-blur-xl border border-[var(--color-border-subtle)] rounded-lg shadow-[var(--shadow-strong)] overflow-hidden min-w-[240px]">
             {/* Location list */}
             <div className="max-h-[300px] overflow-y-auto">
               {/* Base locations */}
@@ -81,8 +81,8 @@ export function LocationsMenu({
                       <div key={location.id}>
                         <div
                           className={`w-full flex items-center justify-between px-2 py-1.5 rounded text-sm transition-all ${isActive
-                              ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]'
-                              : 'text-[var(--color-text)] hover:bg-[var(--color-surface-subtle)]'
+                            ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]'
+                            : 'text-[var(--color-text)] hover:bg-[var(--color-surface-subtle)]'
                             }`}
                         >
                           <button
@@ -149,7 +149,7 @@ export function LocationsMenu({
 
                 {/* Add menu dropdown */}
                 {showAddMenu && (
-                  <div className="absolute bottom-full left-0 mb-2 w-full bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-lg shadow-[var(--shadow-strong)] overflow-hidden">
+                  <div className="absolute bottom-full left-0 mb-2 w-full bg-[var(--color-surface-glass-elevated)] border border-[var(--color-border-subtle)] rounded-lg shadow-[var(--shadow-strong)] overflow-hidden">
                     <button
                       onClick={() => {
                         onAddLocation()

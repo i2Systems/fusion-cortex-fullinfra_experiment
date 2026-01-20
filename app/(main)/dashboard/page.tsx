@@ -843,8 +843,9 @@ export default function DashboardPage() {
                       } ${summary.needsAttention && summary.siteId !== selectedSiteId ? 'ring-1 ring-[var(--color-warning)]/20' : ''}
                       
                       /* Responsive Layout Classes */
-                      flex flex-row p-4 items-center gap-4 /* Base: List View (Row) */
-                      xl:flex-col xl:p-6 xl:gap-4 xl:fusion-card-tile /* Desktop: Card View (Tile) */
+                      relative overflow-visible /* For hanging tokens */
+                      flex flex-row p-4 pb-5 items-center gap-4 /* Base: List View (Row) - extra bottom padding for tokens */
+                      xl:flex-col xl:p-6 xl:pb-6 xl:gap-4 xl:fusion-card-tile xl:overflow-hidden /* Desktop: Card View (Tile) */
                     `}
                   >
                     {/* === LIST VIEW (Mobile/Tablet < XL) === */}
@@ -902,6 +903,52 @@ export default function DashboardPage() {
 
                         <ChevronRight size={16} className="text-[var(--color-text-muted)]" />
                       </div>
+
+                      {/* Token Strip - Right-aligned glass container on list view */}
+                      {(summary.criticalFaults.length > 0 || (summary.warrantiesExpiring > 0 || summary.warrantiesExpired > 0) || !summary.mapUploaded) && (
+                        <div className="absolute -bottom-2.5 right-3 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[var(--color-surface-glass-elevated)] backdrop-blur-md border border-[var(--color-border-subtle)]/50">
+                          {summary.criticalFaults.length > 0 && (
+                            <Badge
+                              variant="destructive"
+                              appearance="soft"
+                              className="token-link token-sm shrink-0"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleSiteClick(summary.siteId, '/faults')
+                              }}
+                            >
+                              <AlertTriangle size={10} />
+                              <span>{summary.criticalFaults.length} Critical</span>
+                            </Badge>
+                          )}
+
+                          {(summary.warrantiesExpiring > 0 || summary.warrantiesExpired > 0) && (
+                            <Badge variant="warning" appearance="soft" className="token-sm shrink-0">
+                              <Shield size={10} />
+                              <span>
+                                {summary.warrantiesExpiring > 0 && `${summary.warrantiesExpiring} exp`}
+                                {summary.warrantiesExpiring > 0 && summary.warrantiesExpired > 0 && '•'}
+                                {summary.warrantiesExpired > 0 && `${summary.warrantiesExpired} out`}
+                              </span>
+                            </Badge>
+                          )}
+
+                          {!summary.mapUploaded && (
+                            <Badge
+                              variant="warning"
+                              appearance="soft"
+                              className="token-link token-sm shrink-0"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleSiteClick(summary.siteId, '/map')
+                              }}
+                            >
+                              <Map size={10} />
+                              <span>No map</span>
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                     </div>
 
 
@@ -984,7 +1031,7 @@ export default function DashboardPage() {
                           <Badge
                             variant="destructive"
                             appearance="soft"
-                            className="cursor-pointer text-xs gap-1"
+                            className="token-link text-xs gap-1"
                             onClick={(e) => {
                               e.stopPropagation()
                               handleSiteClick(summary.siteId, '/faults')
@@ -1007,7 +1054,15 @@ export default function DashboardPage() {
                         )}
 
                         {!summary.mapUploaded && (
-                          <Badge variant="warning" appearance="soft" className="text-xs gap-1">
+                          <Badge
+                            variant="warning"
+                            appearance="soft"
+                            className="token-link text-xs gap-1"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleSiteClick(summary.siteId, '/map')
+                            }}
+                          >
                             <Map size={11} />
                             <span>No map</span>
                           </Badge>

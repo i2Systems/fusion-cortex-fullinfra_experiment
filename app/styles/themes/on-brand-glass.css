@@ -63,6 +63,10 @@
     --glass-opacity: 0.5;
     --glass-opacity-strong: 0.75;
 
+    /* Light glass surfaces - frosted violet-tinted white */
+    --color-surface-glass: rgba(255, 255, 255, 0.75);
+    --color-surface-glass-elevated: rgba(255, 255, 255, 0.85);
+
     /* Radius - Friendly & Rounded */
     --radius-xs: 8px;
     --radius-sm: 12px;
