@@ -195,59 +195,92 @@ export function DeviceProfilePanel({ device, onDeviceSelect, onComponentClick, o
         'fixture-8ft-follower',
       ]
 
-      // Possible group sizes
-      const groupSizes = [8, 10, 12]
+      // Sensor types to add at the end of each group
+      const sensorTypes: DeviceType[] = [
+        'motion',
+        'light-sensor',
+      ]
+
+      // Possible fixture counts per group (not including sensors)
+      const fixtureCountOptions = [6, 8, 10]
 
       // Create 2 groups with different configurations
       const numGroups = 2
 
       for (let groupIndex = 0; groupIndex < numGroups; groupIndex++) {
-        // Pick a random size for this group (8, 10, or 12)
-        const groupSize = groupSizes[Math.floor(Math.random() * groupSizes.length)]
+        // Pick a random fixture count for this group
+        const fixtureCount = fixtureCountOptions[Math.floor(Math.random() * fixtureCountOptions.length)]
 
         // Each group gets a different entry type
         const entryType = entryTypes[groupIndex % entryTypes.length]
 
-        for (let deviceIndex = 0; deviceIndex < groupSize; deviceIndex++) {
-          let type: DeviceType
+        let devicePositionInGroup = 1 // Start at 1 for user-friendly numbering
 
-          if (deviceIndex === 0) {
-            // First device in group is always an entry
-            type = entryType
-          } else {
-            // Remaining devices are followers, cycling through sizes (16→12→8→16→...)
-            const followerIndex = (deviceIndex - 1) % followerTypes.length
-            type = followerTypes[followerIndex]
-          }
+        // 1. First device: Entry light
+        const entryDevice: Device = {
+          id: `discovered-${timestamp}-${globalIndex}`,
+          deviceId: `G${groupIndex + 1}-${devicePositionInGroup}`,
+          serialNumber: `SN-${timestamp}-G${groupIndex + 1}-${devicePositionInGroup}`,
+          type: entryType,
+          signal: Math.floor(Math.random() * 40) + 60,
+          status: 'online',
+          location: `Group ${groupIndex + 1}`,
+          zone: `Discovery Zone ${groupIndex + 1}`,
+          warrantyStatus: 'Active',
+          warrantyExpiry: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
+        }
+        addDevice(entryDevice)
+        addedCount++
+        globalIndex++
+        devicePositionInGroup++
 
-          const serial = `SN-${timestamp}-G${groupIndex + 1}-${deviceIndex}`
-          const id = `discovered-${timestamp}-${globalIndex}`
+        // 2. Remaining fixtures: Followers (cycling through sizes 16→12→8)
+        for (let i = 0; i < fixtureCount - 1; i++) {
+          const followerType = followerTypes[i % followerTypes.length]
 
-          // Don't set x/y - this makes devices appear in the "New Devices" palette
-          const newDevice: Device = {
-            id,
-            deviceId: `DISC-G${groupIndex + 1}-${deviceIndex + 1}`,
-            serialNumber: serial,
-            type,
+          const followerDevice: Device = {
+            id: `discovered-${timestamp}-${globalIndex}`,
+            deviceId: `G${groupIndex + 1}-${devicePositionInGroup}`,
+            serialNumber: `SN-${timestamp}-G${groupIndex + 1}-${devicePositionInGroup}`,
+            type: followerType,
             signal: Math.floor(Math.random() * 40) + 60,
             status: 'online',
             location: `Group ${groupIndex + 1}`,
             zone: `Discovery Zone ${groupIndex + 1}`,
-            // x and y are undefined - device will appear in New Devices palette
             warrantyStatus: 'Active',
-            warrantyExpiry: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365), // 1 year
+            warrantyExpiry: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
           }
-
-          addDevice(newDevice)
+          addDevice(followerDevice)
           addedCount++
           globalIndex++
+          devicePositionInGroup++
+        }
+
+        // 3. Add sensors at the end of the group (1 motion, 1 light-sensor)
+        for (const sensorType of sensorTypes) {
+          const sensorDevice: Device = {
+            id: `discovered-${timestamp}-${globalIndex}`,
+            deviceId: `G${groupIndex + 1}-${devicePositionInGroup}`,
+            serialNumber: `SN-${timestamp}-G${groupIndex + 1}-${devicePositionInGroup}`,
+            type: sensorType,
+            signal: Math.floor(Math.random() * 40) + 60,
+            status: 'online',
+            location: `Group ${groupIndex + 1}`,
+            zone: `Discovery Zone ${groupIndex + 1}`,
+            warrantyStatus: 'Active',
+            warrantyExpiry: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
+          }
+          addDevice(sensorDevice)
+          addedCount++
+          globalIndex++
+          devicePositionInGroup++
         }
       }
 
       setIsDiscovering(false)
       addToast({
         title: 'Discovery Complete',
-        message: `Discovered ${addedCount} devices in ${numGroups} groups (1 entry + followers each).`,
+        message: `Discovered ${addedCount} devices in ${numGroups} groups (fixtures + sensors).`,
         type: 'success',
         duration: 5000
       })

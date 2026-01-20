@@ -137,47 +137,101 @@ export function DevicePalette({
                     </div>
                 ) : (
                     <div className="flex flex-col gap-1">
-                        {devices.map(device => {
-                            const isSelected = selectedDeviceIds.includes(device.id)
-                            return (
-                                <div
-                                    key={device.id}
-                                    draggable
-                                    onDragStart={(e) => handleDragStartInternal(e, device.id)}
-                                    onDragEnd={handleDragEndInternal}
-                                    onClick={(e) => handleDeviceClick(e, device.id)}
-                                    className={`
-                      relative group cursor-grab active:cursor-grabbing
-                      border rounded-lg transition-all duration-200 select-none
-                      flex items-center gap-3 p-2
-                      ${isSelected
-                                            ? 'bg-blue-500/20 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)]'
-                                            : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] hover:border-[var(--color-primary)] hover:bg-[var(--color-surface-hover)]'
-                                        }
-                    `}
-                                >
-                                    {/* Selection Check (visible on hover or selected) */}
-                                    <div className={`absolute top-1 right-1 w-3 h-3 rounded-full border border-current flex items-center justify-center transition-opacity ${isSelected ? 'text-blue-500 opacity-100' : 'text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100'}`}>
-                                        {isSelected && <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />}
+                        {(() => {
+                            // Group devices by their location (e.g., "Group 1", "Group 2")
+                            const devicesByGroup = new Map<string, typeof devices>()
+                            devices.forEach(device => {
+                                const groupKey = device.location || 'Ungrouped'
+                                if (!devicesByGroup.has(groupKey)) {
+                                    devicesByGroup.set(groupKey, [])
+                                }
+                                devicesByGroup.get(groupKey)!.push(device)
+                            })
+
+                            // Helper to determine device role for styling
+                            const getDeviceRole = (device: typeof devices[0]) => {
+                                if (device.type.includes('power-entry')) return 'entry'
+                                if (device.type.includes('follower')) return 'follower'
+                                if (device.type === 'motion' || device.type === 'light-sensor') return 'sensor'
+                                return 'unknown'
+                            }
+
+                            const getRoleColor = (role: string) => {
+                                switch (role) {
+                                    case 'entry': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                                    case 'follower': return 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                                    case 'sensor': return 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+                                    default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+                                }
+                            }
+
+                            return Array.from(devicesByGroup.entries()).map(([groupName, groupDevices]) => (
+                                <div key={groupName} className="mb-2 last:mb-0">
+                                    {/* Group Header */}
+                                    <div className="flex items-center gap-2 px-1 py-1 mb-1">
+                                        <div className="w-4 h-4 rounded-full bg-[var(--color-primary)]/20 flex items-center justify-center">
+                                            <span className="text-[8px] font-bold text-[var(--color-primary)]">
+                                                {groupName.replace('Group ', '')}
+                                            </span>
+                                        </div>
+                                        <span className="text-[9px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
+                                            {groupName} ({groupDevices.length})
+                                        </span>
                                     </div>
 
-                                    {/* Icon */}
-                                    <div className="text-[var(--color-text-muted)] group-hover:text-[var(--color-primary)] transition-colors">
-                                        {device.type === 'motion' ? <Monitor size={16} /> : <Lightbulb size={16} />}
-                                    </div>
+                                    {/* Group Devices */}
+                                    {groupDevices.map((device, idx) => {
+                                        const isSelected = selectedDeviceIds.includes(device.id)
+                                        const role = getDeviceRole(device)
+                                        const roleColor = getRoleColor(role)
+                                        const positionNum = device.deviceId.split('-')[1] || (idx + 1)
 
-                                    {/* Label */}
-                                    <div className="text-left overflow-hidden">
-                                        <div className="text-[10px] font-medium text-[var(--color-text)] truncate w-full">
-                                            {device.deviceId}
-                                        </div>
-                                        <div className="text-[9px] text-[var(--color-text-muted)] truncate">
-                                            {device.type}
-                                        </div>
-                                    </div>
+                                        return (
+                                            <div
+                                                key={device.id}
+                                                draggable
+                                                onDragStart={(e) => handleDragStartInternal(e, device.id)}
+                                                onDragEnd={handleDragEndInternal}
+                                                onClick={(e) => handleDeviceClick(e, device.id)}
+                                                className={`
+                                                    relative group cursor-grab active:cursor-grabbing
+                                                    border rounded-lg transition-all duration-200 select-none
+                                                    flex items-center gap-2 p-1.5 mb-0.5
+                                                    ${isSelected
+                                                        ? 'bg-blue-500/20 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)]'
+                                                        : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] hover:border-[var(--color-primary)] hover:bg-[var(--color-surface-hover)]'
+                                                    }
+                                                `}
+                                            >
+                                                {/* Position Number Badge */}
+                                                <div className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold border ${roleColor}`}>
+                                                    {positionNum}
+                                                </div>
+
+                                                {/* Icon */}
+                                                <div className="text-[var(--color-text-muted)] group-hover:text-[var(--color-primary)] transition-colors">
+                                                    {device.type === 'motion' || device.type === 'light-sensor'
+                                                        ? <Monitor size={14} />
+                                                        : <Lightbulb size={14} />}
+                                                </div>
+
+                                                {/* Label */}
+                                                <div className="text-left overflow-hidden flex-1 min-w-0">
+                                                    <div className="text-[9px] font-medium text-[var(--color-text)] truncate">
+                                                        {device.type.replace('fixture-', '').replace('-power-entry', ' Entry').replace('-follower', ' Follow')}
+                                                    </div>
+                                                </div>
+
+                                                {/* Selection Check (visible on hover or selected) */}
+                                                <div className={`w-3 h-3 rounded-full border border-current flex items-center justify-center transition-opacity ${isSelected ? 'text-blue-500 opacity-100' : 'text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100'}`}>
+                                                    {isSelected && <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />}
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
-                            )
-                        })}
+                            ))
+                        })()}
                     </div>
                 )}
             </div>
