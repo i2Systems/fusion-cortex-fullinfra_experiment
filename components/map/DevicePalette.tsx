@@ -174,6 +174,9 @@ export function DevicePalette({
         setIsReorderMode(false)
     }
 
+    // Grouping state
+    const [groupBy, setGroupBy] = useState<'location' | 'type'>('location')
+
     // Helper functions for device styling
     const getDeviceRole = (device: Device) => {
         if (device.type.includes('power-entry')) return 'entry'
@@ -191,26 +194,52 @@ export function DevicePalette({
         }
     }
 
-    // Group devices by location
-    const devicesByGroup = new Map<string, Device[]>()
-    displayDevices.forEach(device => {
-        const groupKey = device.location || 'Ungrouped'
-        if (!devicesByGroup.has(groupKey)) {
-            devicesByGroup.set(groupKey, [])
+    // Group devices
+    const devicesByGroup = useMemo(() => {
+        const groups = new Map<string, Device[]>()
+
+        displayDevices.forEach(device => {
+            let groupKey = 'Ungrouped'
+
+            if (groupBy === 'location') {
+                groupKey = device.location || 'Ungrouped'
+            } else {
+                // Group by Type
+                if (device.type.includes('fixture')) groupKey = 'Fixtures'
+                else if (device.type === 'motion') groupKey = 'Motion Sensors'
+                else if (device.type === 'light-sensor') groupKey = 'Light Sensors'
+                else groupKey = 'Other Devices' // Fallback
+            }
+
+            if (!groups.has(groupKey)) {
+                groups.set(groupKey, [])
+            }
+            groups.get(groupKey)!.push(device)
+        })
+
+        // Sort keys to ensure consistent order (e.g. Fixtures first or alphabetical)
+        // For Type: Fixtures -> Sensors -> Other
+        if (groupBy === 'type') {
+            const priority = ['Fixtures', 'Motion Sensors', 'Light Sensors', 'Other Devices']
+            const sortedMap = new Map([...groups.entries()].sort((a, b) => {
+                const idxA = priority.indexOf(a[0])
+                const idxB = priority.indexOf(b[0])
+                return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB)
+            }))
+            return sortedMap
         }
-        devicesByGroup.get(groupKey)!.push(device)
-    })
+
+        return groups
+    }, [displayDevices, groupBy])
 
     return (
         <div
             className="absolute top-24 left-4 z-10 w-56 flex flex-col gap-2 bg-[var(--color-surface-glass)] backdrop-blur-xl border border-[var(--color-border-subtle)] rounded-xl shadow-2xl overflow-hidden max-h-[60vh] transition-all duration-200"
             onDragOver={(e) => {
-                // Prevent map from receiving dragOver when hovering palette
                 e.preventDefault()
                 e.stopPropagation()
             }}
             onDrop={(e) => {
-                // Prevent map from receiving drop when dropping in palette
                 e.preventDefault()
                 e.stopPropagation()
             }}
@@ -234,6 +263,20 @@ export function DevicePalette({
                         title="Add Device"
                     >
                         <Plus size={14} />
+                    </button>
+
+                    {/* Group By Toggle */}
+                    <button
+                        onClick={() => setGroupBy(prev => prev === 'location' ? 'type' : 'location')}
+                        className={`p-1 rounded-md transition-colors ${groupBy === 'type' ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'}`}
+                        title={`Group by ${groupBy === 'location' ? 'Type' : 'Location'}`}
+                    >
+                        {/* Use a Filter icon or similar */}
+                        <div className="flex flex-col gap-[1.5px] items-center justify-center w-3.5 h-3.5">
+                            <div className="w-full h-[1.5px] bg-current rounded-full" />
+                            <div className="w-[80%] h-[1.5px] bg-current rounded-full" />
+                            <div className="w-[60%] h-[1.5px] bg-current rounded-full" />
+                        </div>
                     </button>
 
                     {displayDevices.length > 0 && (
@@ -274,16 +317,29 @@ export function DevicePalette({
                         {Array.from(devicesByGroup.entries()).map(([groupName, groupDevices]) => (
                             <div key={groupName} className="mb-2 last:mb-0">
                                 {/* Group Header */}
-                                <div className="flex items-center gap-2 px-1 py-1 mb-1">
-                                    <div className="w-4 h-4 rounded-full bg-[var(--color-primary)]/20 flex items-center justify-center">
-                                        <span className="text-[8px] font-bold text-[var(--color-primary)]">
-                                            {groupName.replace('Group ', '')}
-                                        </span>
+                                {(groupBy === 'type' || (devicesByGroup.size > 1 && !['Unknown', 'Ungrouped', 'unknown', 'ungrouped'].includes(groupName))) && (
+                                    <div className={`flex items-center gap-2 px-1 py-1 mb-1 ${groupBy === 'type' ? 'bg-[var(--color-surface-subtle)]/30 rounded' : ''}`}>
+                                        {groupBy === 'location' ? (
+                                            <>
+                                                <div className="w-4 h-4 rounded-full bg-[var(--color-primary)]/20 flex items-center justify-center">
+                                                    <span className="text-[8px] font-bold text-[var(--color-primary)]">
+                                                        {groupName.replace('Group ', '').slice(0, 2)}
+                                                    </span>
+                                                </div>
+                                                <span className="text-[9px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
+                                                    {groupName} ({groupDevices.length})
+                                                </span>
+                                            </>
+                                        ) : (
+                                            /* Type Header - Surreptitious / Tertiary */
+                                            <div className="w-full pl-1 border-l-2 border-[var(--color-text-soft)]/20">
+                                                <span className="text-[10px] font-medium text-[var(--color-text-soft)] tracking-wider">
+                                                    {groupName} <span className="opacity-50 text-[8px] ml-1">({groupDevices.length})</span>
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
-                                    <span className="text-[9px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
-                                        {groupName} ({groupDevices.length})
-                                    </span>
-                                </div>
+                                )}
 
                                 {/* Group Devices */}
                                 {groupDevices.map((device, idx) => {
@@ -299,7 +355,6 @@ export function DevicePalette({
                                             key={device.id}
                                             draggable
                                             onDragStart={(e) => {
-                                                // Use ref to determine if reorder was initiated
                                                 if (pendingReorderRef.current) {
                                                     handleReorderDragStart(e, device.id)
                                                     pendingReorderRef.current = false
@@ -329,7 +384,6 @@ export function DevicePalette({
                                                 transitionDuration: 'var(--drag-hover-transition)',
                                             }}
                                         >
-                                            {/* Reorder Grip Handle - mouseDown sets ref to trigger reorder mode */}
                                             <div
                                                 className="reorder-grip p-0.5 rounded cursor-move text-[var(--color-text-soft)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 transition-colors"
                                                 title="Drag to reorder"
@@ -339,26 +393,22 @@ export function DevicePalette({
                                                 <GripVertical size={12} />
                                             </div>
 
-                                            {/* Position Number Badge */}
                                             <div className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold border ${roleColor}`}>
                                                 {positionNum}
                                             </div>
 
-                                            {/* Icon */}
                                             <div className="text-[var(--color-text-muted)] group-hover:text-[var(--color-primary)] transition-colors">
                                                 {device.type === 'motion' || device.type === 'light-sensor'
                                                     ? <Monitor size={14} />
                                                     : <Lightbulb size={14} />}
                                             </div>
 
-                                            {/* Label */}
                                             <div className="text-left overflow-hidden flex-1 min-w-0">
                                                 <div className="text-[9px] font-medium text-[var(--color-text)] truncate">
                                                     {device.type.replace('fixture-', '').replace('-power-entry', ' Entry').replace('-follower', ' Follow')}
                                                 </div>
                                             </div>
 
-                                            {/* Selection Check */}
                                             <div className={`w-3 h-3 rounded-full border border-current flex items-center justify-center transition-opacity ${isSelected ? 'text-blue-500 opacity-100' : 'text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100'}`}>
                                                 {isSelected && <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />}
                                             </div>

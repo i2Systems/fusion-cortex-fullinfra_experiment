@@ -13,6 +13,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback,
 import { Device } from './mockData'
 import { useSite } from './SiteContext'
 import { trpc } from './trpc/client'
+import { useErrorHandler } from './hooks/useErrorHandler'
 
 export interface Zone {
   id: string
@@ -58,6 +59,7 @@ function pointInPolygon(point: { x: number; y: number }, polygon: Array<{ x: num
 export function ZoneProvider({ children }: { children: ReactNode }) {
   const { activeSiteId, activeSite } = useSite()
   const [zones, setZones] = useState<Zone[]>([])
+  const { handleError } = useErrorHandler()
 
   // Ensure site exists in database
   const ensureSiteMutation = trpc.site.ensureExists.useMutation()
@@ -184,12 +186,12 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
       setZones(prev => prev.map(z => z.id === tempZone.id ? newZone : z))
       return newZone
     } catch (error) {
-      console.error('Failed to create zone:', error)
+      handleError(error, { title: 'Failed to create zone' })
       // Remove temp zone on error
       setZones(prev => prev.filter(z => z.id !== tempZone.id))
       throw error
     }
-  }, [activeSiteId, createZoneMutation])
+  }, [activeSiteId, createZoneMutation, handleError])
 
   const updateZone = useCallback(async (zoneId: string, updates: Partial<Zone>) => {
     // Optimistically update UI
@@ -214,11 +216,11 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
         ...dbUpdates,
       })
     } catch (error) {
-      console.error('Failed to update zone:', error)
+      handleError(error, { title: 'Failed to update zone' })
       // Revert by invalidating
       utils.zone.list.invalidate({ siteId: activeSiteId || '' })
     }
-  }, [updateZoneMutation, utils, activeSiteId])
+  }, [updateZoneMutation, utils, activeSiteId, handleError])
 
   const deleteZone = useCallback(async (zoneId: string) => {
     // Optimistically update UI
@@ -228,11 +230,11 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
     try {
       await deleteZoneMutation.mutateAsync({ id: zoneId })
     } catch (error) {
-      console.error('Failed to delete zone:', error)
+      handleError(error, { title: 'Failed to delete zone' })
       // Revert by invalidating
       utils.zone.list.invalidate({ siteId: activeSiteId || '' })
     }
-  }, [deleteZoneMutation, utils, activeSiteId])
+  }, [deleteZoneMutation, utils, activeSiteId, handleError])
 
   const getDevicesInZone = useCallback((zoneId: string, allDevices: Device[]): Device[] => {
     const zone = zones.find(z => z.id === zoneId)
@@ -270,9 +272,9 @@ export function ZoneProvider({ children }: { children: ReactNode }) {
         )
       )
     } catch (error) {
-      console.error('Failed to sync zone device IDs:', error)
+      handleError(error, { title: 'Failed to sync zone devices' })
     }
-  }, [zones, updateZoneMutation])
+  }, [zones, updateZoneMutation, handleError])
 
   const getZoneForDevice = useCallback((deviceId: string): Zone | null => {
     // Find the first zone that contains this device

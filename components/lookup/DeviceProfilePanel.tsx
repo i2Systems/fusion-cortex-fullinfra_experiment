@@ -10,7 +10,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Image, Calendar, Thermometer, Shield, Package, MapPin, Radio, Battery, Wifi, WifiOff, CheckCircle2, AlertCircle, XCircle, QrCode, AlertTriangle, ExternalLink, Plus, Upload, Download, Info, Trash2, Loader2, Download as DownloadIcon } from 'lucide-react'
+import { Image, Calendar, Thermometer, Shield, Package, MapPin, Radio, Battery, Wifi, WifiOff, CheckCircle2, AlertCircle, XCircle, QrCode, AlertTriangle, ExternalLink, Plus, Upload, Download, Info, Trash2, Loader2, Download as DownloadIcon, Maximize2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Device, Component, DeviceType } from '@/lib/mockData'
@@ -25,6 +25,7 @@ import { SelectSwitcher } from '@/components/shared/SelectSwitcher'
 import { getStatusTokenClass, getSignalTokenClass, getBatteryTokenClass } from '@/lib/styleUtils'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/lib/ToastContext'
+import { DeviceFocusedModal } from './DeviceFocusedContent'
 
 interface DeviceProfilePanelProps {
   device: Device | null
@@ -170,6 +171,7 @@ export function DeviceProfilePanel({ device, onDeviceSelect, onComponentClick, o
   const { devices, addDevice } = useDevices()
   const { addToast } = useToast()
   const [isDiscovering, setIsDiscovering] = useState(false)
+  const [showFocusedModal, setShowFocusedModal] = useState(false)
 
   // Simulate device discovery with structured groups
   const handleSimulateDiscovery = async () => {
@@ -460,6 +462,13 @@ export function DeviceProfilePanel({ device, onDeviceSelect, onComponentClick, o
                 </div>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
+                <button
+                  onClick={() => setShowFocusedModal(true)}
+                  className="p-1.5 rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-surface)] transition-all"
+                  title="Open focused view"
+                >
+                  <Maximize2 size={14} />
+                </button>
                 <span className={getStatusTokenClass(device.status)}>
                   {getStatusIcon(device.status)}
                   {device.status}
@@ -865,6 +874,15 @@ export function DeviceProfilePanel({ device, onDeviceSelect, onComponentClick, o
           </div>
         )}
       </div>
+
+      {/* Focused Modal */}
+      <DeviceFocusedModal
+        isOpen={showFocusedModal}
+        onClose={() => setShowFocusedModal(false)}
+        device={device}
+        allDevices={devices}
+        onComponentClick={onComponentClick}
+      />
     </div>
   )
 }

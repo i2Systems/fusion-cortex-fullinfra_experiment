@@ -21,7 +21,18 @@ function getBaseUrl() {
 }
 
 export function TRPCProvider({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient())
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: 1,
+        networkMode: 'always',
+      },
+      mutations: {
+        retry: false,
+        networkMode: 'always',
+      },
+    },
+  }))
 
   const [trpcClient] = useState(() =>
     trpc.createClient({

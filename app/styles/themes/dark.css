@@ -191,7 +191,7 @@
         --z-dropdown: 350;
         --z-drawer: 300;
         --z-modal: 400;
-        --z-toast: 500;
+        --z-toast: 9999;
 
         /* ============================================
        GLASS & MATERIALITY EFFECTS

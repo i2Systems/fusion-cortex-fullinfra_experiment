@@ -11,7 +11,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { AlertCircle, Droplets, Zap, Thermometer, Plug, Settings, Package, Wrench, Lightbulb, MapPin, Radio, RefreshCw, CheckCircle2, Clock, TrendingDown, XCircle, Battery, Shield, ExternalLink, Plus, X, ChevronDown, Info, Image } from 'lucide-react'
+import { AlertCircle, Droplets, Zap, Thermometer, Plug, Settings, Package, Wrench, Lightbulb, MapPin, Radio, RefreshCw, CheckCircle2, Clock, TrendingDown, XCircle, Battery, Shield, ExternalLink, Plus, X, ChevronDown, Info, Image, Maximize2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Device, DeviceType } from '@/lib/mockData'
 import { PanelEmptyState } from '@/components/shared/PanelEmptyState'
@@ -20,6 +20,7 @@ import { calculateWarrantyStatus, getWarrantyStatusLabel, getWarrantyStatusToken
 import { getDeviceLibraryUrl, getDeviceImage, getDeviceImageAsync } from '@/lib/libraryUtils'
 import { isFixtureType } from '@/lib/deviceUtils'
 import { Button } from '@/components/ui/Button'
+import { FaultFocusedModal } from './FaultFocusedContent'
 
 interface Fault {
   id?: string // Database fault ID (if from database)
@@ -33,15 +34,17 @@ interface Fault {
 interface FaultDetailsPanelProps {
   fault: Fault | null
   devices?: Device[]
+  allFaults?: Fault[]
   onAddNewFault?: (fault: { device: Device; faultType: FaultCategory; description: string }) => void
   onDelete?: (faultId: string) => void
   onResolve?: (faultId: string) => void
   onUnresolve?: (faultId: string) => void
 }
 
-export function FaultDetailsPanel({ fault, devices = [], onAddNewFault, onDelete, onResolve, onUnresolve }: FaultDetailsPanelProps) {
+export function FaultDetailsPanel({ fault, devices = [], allFaults = [], onAddNewFault, onDelete, onResolve, onUnresolve }: FaultDetailsPanelProps) {
   const router = useRouter()
   const [showAddForm, setShowAddForm] = useState(false)
+  const [showFocusedModal, setShowFocusedModal] = useState(false)
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('')
   const [selectedCategory, setSelectedCategory] = useState<FaultCategory | ''>('')
   const [customDescription, setCustomDescription] = useState<string>('')
@@ -597,6 +600,13 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault, onDelete
                     <Info size={10} className="text-[var(--color-primary)]" />
                   </Link>
                 )}
+                <button
+                  onClick={() => setShowFocusedModal(true)}
+                  className="p-0.5 rounded hover:bg-[var(--color-surface-subtle)] transition-colors text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
+                  title="Open focused view"
+                >
+                  <Maximize2 size={10} />
+                </button>
               </div>
             </div>
             {/* Quick Stats */}
@@ -903,6 +913,15 @@ export function FaultDetailsPanel({ fault, devices = [], onAddNewFault, onDelete
           </Button>
         )}
       </div>
+
+      {/* Focused Modal */}
+      <FaultFocusedModal
+        isOpen={showFocusedModal}
+        onClose={() => setShowFocusedModal(false)}
+        fault={fault}
+        allFaults={allFaults}
+        allDevices={devices}
+      />
     </div>
   )
 }

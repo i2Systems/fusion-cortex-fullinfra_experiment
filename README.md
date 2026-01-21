@@ -364,7 +364,7 @@ To access the app from other devices on your local network (e.g., controlling li
 
 ### Quick Start
 
-See [SETUP.md](./SETUP.md) for detailed setup instructions.
+See the [Getting Started](#-getting-started) section above for setup instructions.
 
 ### Code Style
 
@@ -401,15 +401,12 @@ See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for complete deployment guide to Vercel
 
 ## 📚 Additional Documentation
 
-- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Complete deployment guide (Vercel, GitHub)
-- **[DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)** - Pre/post-deployment checklist
-- **[SETUP.md](./SETUP.md)** - Quick setup guide and common tasks
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Complete deployment guide (Vercel, GitHub, checklists)
 - **[AI_NOTES.md](./AI_NOTES.md)** - Comprehensive guide for AI assistants
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)** - System architecture and data flow
 - **[LOCAL_DB_SETUP.md](./LOCAL_DB_SETUP.md)** - Local PostgreSQL setup
 - **[SEEDING.md](./SEEDING.md)** - Database seeding guide
-- **[SUPABASE_STORAGE_SETUP.md](./SUPABASE_STORAGE_SETUP.md)** - Supabase image storage setup
-
+- **[SUPABASE_SETUP.md](./SUPABASE_SETUP.md)** - Supabase storage and database setup
 - **[EXPORT_DATA.md](./EXPORT_DATA.md)** - Exporting zones and device positions
 
 ## 🎯 Non-Goals

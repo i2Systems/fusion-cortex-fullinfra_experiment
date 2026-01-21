@@ -22,10 +22,12 @@ import { useSite } from './SiteContext'
 import { trpc } from './trpc/client'
 import { useUndoable } from './hooks/useUndoable'
 import { useDeviceMutations } from './hooks/useDeviceMutations'
+import { useErrorHandler } from './hooks/useErrorHandler'
 
 interface DeviceContextType {
   devices: Device[]
   isLoading: boolean
+  error: unknown
   addDevice: (device: Device) => void
   updateDevice: (deviceId: string, updates: Partial<Device>) => void
   updateDevicePosition: (deviceId: string, x: number, y: number) => void
@@ -46,6 +48,7 @@ const DeviceContext = createContext<DeviceContextType | undefined>(undefined)
 
 export function DeviceProvider({ children }: { children: ReactNode }) {
   const { activeSiteId, activeSite } = useSite()
+  const { handleError } = useErrorHandler()
 
   // Undo/redo state management via extracted hook
   const undoableDevices = useUndoable<Device[]>([])
@@ -68,12 +71,12 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     }
   )
 
-  // Log errors but don't block UI
+  // Show error toast but don't block UI
   useEffect(() => {
     if (error) {
-      console.error('Error loading devices:', error)
+      handleError(error, { title: 'Failed to load devices' })
     }
-  }, [error])
+  }, [error, handleError])
 
   // Mutations via extracted hook with optimistic update callback
   const mutations = useDeviceMutations((updater) => {
@@ -201,6 +204,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       value={{
         devices: undoableDevices.current ?? [],
         isLoading,
+        error: error ?? null,
         addDevice,
         updateDevice,
         updateDevicePosition,

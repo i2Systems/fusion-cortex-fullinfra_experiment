@@ -17,6 +17,7 @@
 import { createContext, useContext, ReactNode, useCallback } from 'react'
 import { useSite } from './SiteContext'
 import { trpc } from './trpc/client'
+import { useErrorHandler } from './hooks/useErrorHandler'
 
 // Re-export types from mockRules for compatibility
 export type { RuleType, TargetType, TriggerType, ScheduleFrequency, Rule } from './mockRules'
@@ -36,6 +37,7 @@ const RuleContext = createContext<RuleContextType | undefined>(undefined)
 
 export function RuleProvider({ children }: { children: ReactNode }) {
   const { activeSiteId } = useSite()
+  const { handleError } = useErrorHandler()
 
   // Fetch rules from database
   const {
@@ -64,11 +66,17 @@ export function RuleProvider({ children }: { children: ReactNode }) {
     onSuccess: () => {
       refetchRules()
     },
+    onError: (error) => {
+      handleError(error, { title: 'Failed to create rule' })
+    },
   })
 
   const updateMutation = trpc.rule.update.useMutation({
     onSuccess: () => {
       refetchRules()
+    },
+    onError: (error) => {
+      handleError(error, { title: 'Failed to update rule' })
     },
   })
 
@@ -76,11 +84,17 @@ export function RuleProvider({ children }: { children: ReactNode }) {
     onSuccess: () => {
       refetchRules()
     },
+    onError: (error) => {
+      handleError(error, { title: 'Failed to toggle rule' })
+    },
   })
 
   const deleteMutation = trpc.rule.delete.useMutation({
     onSuccess: () => {
       refetchRules()
+    },
+    onError: (error) => {
+      handleError(error, { title: 'Failed to delete rule' })
     },
   })
 

@@ -50,6 +50,7 @@ import { useRole } from '@/lib/role'
 import { detectAllLights, createDevicesFromLights } from '@/lib/lightDetection'
 import { trpc } from '@/lib/trpc/client'
 import { supabaseAdmin, STORAGE_BUCKETS } from '@/lib/supabase'
+import { useErrorHandler } from '@/lib/hooks/useErrorHandler'
 
 // Define Location interface matching the DB schema (plus optional local props if needed)
 export interface Location {
@@ -108,6 +109,7 @@ export default function MapPage() {
   const { role } = useRole()
   const { activeSiteId } = useSite()
   const { zones, syncZoneDeviceIds, getDevicesInZone } = useZones()
+  const { handleError, handleSuccess } = useErrorHandler()
 
   // TRPC Hooks
   const utils = trpc.useContext()
@@ -563,8 +565,7 @@ export default function MapPage() {
 
       setDetectedLightsCount(numLights)
     } catch (error) {
-      console.error('Error detecting lights:', error)
-      alert('Failed to add demo lights. Please try again.')
+      handleError(error, { title: 'Light detection failed' })
     } finally {
       setIsDetectingLights(false)
     }

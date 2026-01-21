@@ -7,6 +7,17 @@ This project uses **Docker** for local PostgreSQL development. This gives you an
 ### Prerequisites
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
 
+### 0. Set Up Environment Files (First Time Only)
+
+```bash
+# Create local env file from template
+cp env.example .env.local.template
+
+# Edit with your local Docker settings (defaults should work):
+# DATABASE_URL="postgresql://postgres:postgres@localhost:5433/fusion_cortex"
+# NEXT_PUBLIC_DB_ENV="local"
+```
+
 ### 1. Start the Database
 
 ```bash

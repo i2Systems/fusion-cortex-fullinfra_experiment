@@ -3,6 +3,7 @@
 import { useCallback, useRef } from 'react'
 import { trpc } from '@/lib/trpc/client'
 import { useSite } from '@/lib/SiteContext'
+import { useErrorHandler } from '@/lib/hooks/useErrorHandler'
 import type { Device } from '@/lib/mockData'
 
 /**
@@ -10,6 +11,7 @@ import type { Device } from '@/lib/mockData'
  * 
  * Provides optimistic update functions for CRUD operations on devices.
  * All mutations automatically invalidate the device list query on success.
+ * Errors are shown via toast notifications for user feedback.
  */
 export interface DeviceMutations {
     /** Add a new device */
@@ -34,6 +36,7 @@ export function useDeviceMutations(
 ): DeviceMutations {
     const { activeSiteId } = useSite()
     const utils = trpc.useContext()
+    const { handleError } = useErrorHandler()
 
     // Debounce timer for position updates
     const positionUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -109,11 +112,11 @@ export function useDeviceMutations(
                 })),
             })
         } catch (error) {
-            console.error('Failed to create device:', error)
+            handleError(error, { title: 'Failed to add device' })
             // Revert optimistic update
             onOptimisticUpdate?.(devices => devices.filter(d => d.id !== device.id))
         }
-    }, [activeSiteId, createDeviceMutation, onOptimisticUpdate])
+    }, [activeSiteId, createDeviceMutation, onOptimisticUpdate, handleError])
 
     const updateDevice = useCallback(async (deviceId: string, updates: Partial<Device>) => {
         // Optimistic update
@@ -142,11 +145,11 @@ export function useDeviceMutations(
                 ...dbUpdates,
             })
         } catch (error) {
-            console.error('Failed to update device:', error)
+            handleError(error, { title: 'Failed to update device' })
             // Revert by refetching
             utils.device.list.invalidate({ siteId: activeSiteId || '' })
         }
-    }, [updateDeviceMutation, utils, activeSiteId, onOptimisticUpdate])
+    }, [updateDeviceMutation, utils, activeSiteId, onOptimisticUpdate, handleError])
 
     const updateDevicePosition = useCallback((deviceId: string, x: number, y: number) => {
         // Optimistic update (immediate UI feedback)
@@ -169,11 +172,11 @@ export function useDeviceMutations(
                     y,
                 })
             } catch (error) {
-                console.error('Failed to update device position:', error)
+                handleError(error, { title: 'Failed to save position' })
                 utils.device.list.invalidate({ siteId: activeSiteId || '' })
             }
         }, 1000)
-    }, [updateDeviceMutation, utils, activeSiteId, onOptimisticUpdate])
+    }, [updateDeviceMutation, utils, activeSiteId, onOptimisticUpdate, handleError])
 
     const updateMultipleDevices = useCallback(async (updates: Array<{ deviceId: string; updates: Partial<Device> }>) => {
         // Optimistic update
@@ -202,10 +205,10 @@ export function useDeviceMutations(
                 })
             )
         } catch (error) {
-            console.error('Failed to update multiple devices:', error)
+            handleError(error, { title: 'Failed to update devices' })
             utils.device.list.invalidate({ siteId: activeSiteId || '' })
         }
-    }, [updateDeviceMutation, utils, activeSiteId, onOptimisticUpdate])
+    }, [updateDeviceMutation, utils, activeSiteId, onOptimisticUpdate, handleError])
 
     const removeDevice = useCallback(async (deviceId: string) => {
         // Optimistic update
@@ -214,10 +217,10 @@ export function useDeviceMutations(
         try {
             await deleteDeviceMutation.mutateAsync({ id: deviceId })
         } catch (error) {
-            console.error('Failed to delete device:', error)
+            handleError(error, { title: 'Failed to delete device' })
             utils.device.list.invalidate({ siteId: activeSiteId || '' })
         }
-    }, [deleteDeviceMutation, utils, activeSiteId, onOptimisticUpdate])
+    }, [deleteDeviceMutation, utils, activeSiteId, onOptimisticUpdate, handleError])
 
     const removeMultipleDevices = useCallback(async (deviceIds: string[]) => {
         if (!deviceIds.length) return
@@ -228,10 +231,10 @@ export function useDeviceMutations(
         try {
             await deleteManyDeviceMutation.mutateAsync({ ids: deviceIds })
         } catch (error) {
-            console.error('Failed to delete multiple devices:', error)
+            handleError(error, { title: 'Failed to delete devices' })
             utils.device.list.invalidate({ siteId: activeSiteId || '' })
         }
-    }, [deleteManyDeviceMutation, utils, activeSiteId, onOptimisticUpdate])
+    }, [deleteManyDeviceMutation, utils, activeSiteId, onOptimisticUpdate, handleError])
 
     return {
         addDevice,

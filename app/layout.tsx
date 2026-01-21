@@ -64,9 +64,9 @@ export default function RootLayout({
             SiteProvider,
             MapProvider,
             ZoomProvider,
+            ToastProvider,        // Must be before DomainProvider for error handling
             DomainProvider,
             NotificationProvider,
-            ToastProvider,
           ]}
         >
           {children}

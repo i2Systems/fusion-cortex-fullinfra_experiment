@@ -15,11 +15,14 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, memo } from 'react'
-import { Layers, Edit2, Trash2, MapPin, X, Save, CheckSquare, Square } from 'lucide-react'
+import { Layers, Edit2, Trash2, MapPin, X, Save, CheckSquare, Square, Maximize2 } from 'lucide-react'
 import { SelectSwitcher } from '@/components/shared/SelectSwitcher'
 import { PanelEmptyState } from '@/components/shared/PanelEmptyState'
 import { ZONE_COLORS, DEFAULT_ZONE_COLOR } from '@/lib/zoneColors'
 import { Button } from '@/components/ui/Button'
+import { ZoneFocusedModal } from './ZoneFocusedContent'
+import { Device } from '@/lib/mockData'
+import { Rule } from '@/lib/mockRules'
 
 interface Zone {
   id: string
@@ -39,6 +42,8 @@ interface ZonesPanelProps {
   onDeleteZones?: (zoneIds: string[]) => void // Bulk delete
   onEditZone?: (zoneId: string, updates: { name?: string; description?: string; color?: string }) => void
   selectionMode?: boolean // When true, hide details and show only zone list
+  devices?: Device[] // For focused modal
+  rules?: Rule[] // For focused modal
 }
 
 // Memoized zone list item component
@@ -134,9 +139,10 @@ const ZoneListItem = memo(function ZoneListItem({
   )
 })
 
-export function ZonesPanel({ zones, selectedZoneId, onZoneSelect, onCreateZone, onDeleteZone, onDeleteZones, onEditZone, selectionMode = false }: ZonesPanelProps) {
+export function ZonesPanel({ zones, selectedZoneId, onZoneSelect, onCreateZone, onDeleteZone, onDeleteZones, onEditZone, selectionMode = false, devices = [], rules = [] }: ZonesPanelProps) {
   const [colors, setColors] = useState<Record<string, string>>({})
   const [isEditing, setIsEditing] = useState(false)
+  const [showFocusedModal, setShowFocusedModal] = useState(false)
   const [editFormData, setEditFormData] = useState<{ name: string; description: string; color: string }>({
     name: '',
     description: '',
@@ -498,6 +504,16 @@ export function ZonesPanel({ zones, selectedZoneId, onZoneSelect, onCreateZone, 
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
+                        setShowFocusedModal(true)
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
+                      title="Open focused view"
+                    >
+                      <Maximize2 size={14} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
                         handleStartEdit()
                       }}
                       className="p-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors"
@@ -609,6 +625,18 @@ export function ZonesPanel({ zones, selectedZoneId, onZoneSelect, onCreateZone, 
           <span className="md:hidden">Create Zone</span>
         </Button>
       </div>
+
+      {/* Focused Modal */}
+      {selectedZone && (
+        <ZoneFocusedModal
+          isOpen={showFocusedModal}
+          onClose={() => setShowFocusedModal(false)}
+          zone={selectedZone}
+          devices={devices}
+          rules={rules}
+          allZones={zones}
+        />
+      )}
     </div>
   )
 }

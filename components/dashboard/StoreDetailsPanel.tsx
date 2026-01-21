@@ -44,9 +44,11 @@ import {
   Building2,
   Trash2,
   Edit2,
-  ChevronDown
+  ChevronDown,
+  Maximize2
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { SiteFocusedModal } from './SiteFocusedContent'
 
 interface SiteDetailsPanelProps {
   site: Site | null
@@ -98,6 +100,7 @@ export function SiteDetailsPanel({
   const [isSiteDropdownOpen, setIsSiteDropdownOpen] = useState(false)
   const [siteImageUrl, setSiteImageUrl] = useState<string | null>(null)
   const [imageKey, setImageKey] = useState(0) // Force re-render on update
+  const [showFocusedModal, setShowFocusedModal] = useState(false)
 
   // Close dropdown when activeSiteId changes (synced from top-right selector)
   useEffect(() => {
@@ -375,6 +378,13 @@ export function SiteDetailsPanel({
             </div>
 
             <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                onClick={() => setShowFocusedModal(true)}
+                className="p-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
+                title="Open focused view"
+              >
+                <Maximize2 size={14} />
+              </button>
               <button
                 onClick={() => onEditSite?.(site)}
                 className="p-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors"
@@ -679,6 +689,25 @@ export function SiteDetailsPanel({
           </Button>
         </div>
       </div>
+
+      {/* Focused Modal */}
+      <SiteFocusedModal
+        isOpen={showFocusedModal}
+        onClose={() => setShowFocusedModal(false)}
+        site={site}
+        devices={devices}
+        zones={zones}
+        rules={rules}
+        criticalFaults={criticalFaults}
+        healthPercentage={healthPercentage}
+        onlineDevices={onlineDevices}
+        offlineDevices={offlineDevices}
+        missingDevices={missingDevices}
+        mapUploaded={mapUploaded}
+        warrantiesExpiring={warrantiesExpiring}
+        warrantiesExpired={warrantiesExpired}
+        allSites={sites}
+      />
     </div >
   )
 }
