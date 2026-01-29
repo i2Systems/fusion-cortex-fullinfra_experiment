@@ -19,6 +19,7 @@ export function useSiteSync() {
     const { addToast } = useToast()
     const searchParams = useSearchParams()
     const pendingTempIds = useRef<Set<string>>(new Set())
+    const lastSyncedSitesRef = useRef<string>('')
 
     // Fetch sites from database
     const { data: sitesData, refetch, isLoading, error } = trpc.site.list.useQuery(undefined, {
@@ -29,6 +30,18 @@ export function useSiteSync() {
         retryDelay: 1000,
     })
 
+    // Sync managers to people mutation
+    const syncManagersMutation = trpc.site.syncManagersToPeople.useMutation({
+        onError: (error: { message?: string }) => {
+            // Log but don't show error toast - this is a background sync
+            console.warn('Failed to sync managers to people:', error.message)
+        },
+        onSuccess: () => {
+            // Invalidate people list to refresh with new manager persons
+            utils.person.list.invalidate()
+        }
+    })
+
     // Mutations
     const createSiteMutation = trpc.site.create.useMutation({
         onSuccess: (newSite) => {
@@ -37,6 +50,10 @@ export function useSiteSync() {
             // Remove optimistic site if it exists (handled by refetch typically, but good for cleanup)
             pendingTempIds.current.clear()
             refetch()
+            // Sync managers after site creation (in case manager was set)
+            if (!syncManagersMutation.isPending) {
+                syncManagersMutation.mutate()
+            }
         },
         onError: (error) => {
             console.error(`❌ [SiteSync] Site creation failed:`, error)
@@ -52,7 +69,13 @@ export function useSiteSync() {
     })
 
     const updateSiteMutation = trpc.site.update.useMutation({
-        onSuccess: () => refetch(),
+        onSuccess: () => {
+            refetch()
+            // Sync managers after site update (in case manager changed)
+            if (!syncManagersMutation.isPending) {
+                syncManagersMutation.mutate()
+            }
+        },
     })
 
     const deleteSiteMutation = trpc.site.delete.useMutation({
@@ -120,7 +143,21 @@ export function useSiteSync() {
             queueMicrotask(() => {
                 useSiteStore.getState().setSites(mappedSites)
             })
+
+            // Sync managers to people when sites are loaded
+            // Create a signature of current sites to detect changes
+            const sitesSignature = mappedSites.map(s => `${s.id}:${s.manager || ''}`).join('|')
+            if (mappedSites.length > 0 && sitesSignature !== lastSyncedSitesRef.current) {
+                lastSyncedSitesRef.current = sitesSignature
+                // Debounce sync slightly to avoid multiple rapid calls
+                setTimeout(() => {
+                    if (!syncManagersMutation.isPending) {
+                        syncManagersMutation.mutate()
+                    }
+                }, 1000)
+            }
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [mappedSites, isLoading])
 
     // Handle URL deep linking - use selectors for stability
@@ -162,9 +199,10 @@ export function useSiteSync() {
         })
     }, [addToast])
 
-    const addSite = useCallback((siteData: Omit<Site, 'id'>) => {
+    const addSite = useCallback((siteData: Omit<Site, 'id'> & { personRole?: string }) => {
         const tempId = `site-${Date.now()}`
-        const newSite: Site = { ...siteData, id: tempId }
+        const { personRole, ...siteDataWithoutRole } = siteData
+        const newSite: Site = { ...siteDataWithoutRole, id: tempId }
 
         pendingTempIds.current.add(tempId)
         useSiteStore.getState().addSite(newSite) // Optimistic update
@@ -180,15 +218,17 @@ export function useSiteSync() {
             manager: siteData.manager,
             squareFootage: siteData.squareFootage,
             openedDate: siteData.openedDate,
+            personRole: personRole,
         })
 
         return newSite
     }, [createSiteMutation])
 
-    const updateSite = useCallback((id: string, updates: Partial<Site>) => {
-        useSiteStore.getState().updateSite(id, updates) // Optimistic
+    const updateSite = useCallback((id: string, updates: Partial<Site> & { personRole?: string }) => {
+        const { personRole, imageUrl, ...siteUpdates } = updates
+        useSiteStore.getState().updateSite(id, siteUpdates) // Optimistic
 
-        const { imageUrl, ...dbUpdates } = updates
+        const { ...dbUpdates } = siteUpdates
         updateSiteMutation.mutate({
             id,
             name: dbUpdates.name,
@@ -201,6 +241,7 @@ export function useSiteSync() {
             manager: dbUpdates.manager,
             squareFootage: dbUpdates.squareFootage,
             openedDate: dbUpdates.openedDate,
+            personRole: personRole, // Pass personRole to mutation
         })
     }, [updateSiteMutation])
 

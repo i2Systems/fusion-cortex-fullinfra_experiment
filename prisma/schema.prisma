@@ -43,11 +43,13 @@ model Device {
   firmwareStatus        FirmwareStatus         @default(UP_TO_DATE)
   lastFirmwareUpdate    DateTime?
   siteId                String
+  assignedToPersonId    String?
   createdAt             DateTime               @default(now())
   updatedAt             DateTime
   Device                Device?                @relation("DeviceToDevice", fields: [parentId], references: [id], onDelete: Cascade)
   other_Device          Device[]               @relation("DeviceToDevice")
   Site                  Site                   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  AssignedToPerson      Person?                @relation("DeviceAssignment", fields: [assignedToPersonId], references: [id], onDelete: SetNull)
   Fault                 Fault[]
   FirmwareDeviceUpdate  FirmwareDeviceUpdate[]
   GroupDevice           GroupDevice[]
@@ -55,6 +57,7 @@ model Device {
   ZoneDevice            ZoneDevice[]
 
   @@index([deviceId])
+  @@index([assignedToPersonId])
   @@index([firmwareStatus])
   @@index([firmwareVersion])
   @@index([parentId])
@@ -303,6 +306,7 @@ model Person {
   updatedAt   DateTime
   Site        Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
   GroupPerson GroupPerson[]
+  AssignedDevices Device[] @relation("DeviceAssignment")
 
   @@index([siteId])
 }

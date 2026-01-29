@@ -16,7 +16,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback, memo } from 'react'
-import { Clock, Zap, Sun, Radio, Calendar, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import { Clock, Zap, Sun, Radio, Calendar, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import { Rule } from '@/lib/mockRules'
 
 interface RulesListProps {
@@ -32,6 +32,7 @@ const triggerIcons: Record<Rule['trigger'], any> = {
   daylight: Sun,
   bms: Zap,
   schedule: Calendar,
+  fault: AlertTriangle,
 }
 
 // Helper functions moved outside component
@@ -61,28 +62,32 @@ const formatRuleCondition = (rule: Rule) => {
         return `scheduled at ${rule.condition.scheduleTime}${rule.condition.scheduleDays ? ` on ${rule.condition.scheduleDays.length} day(s)` : ''}`
       }
       return `scheduled time reached`
+    case 'fault':
+      return 'a fault is detected'
     default:
       return 'condition met'
   }
 }
 
 const formatRuleAction = (rule: Rule) => {
-  const parts: string[] = []
-  if (rule.action.brightness !== undefined) {
-    parts.push(`set to ${rule.action.brightness}%`)
-  }
-  if (rule.action.duration) {
-    parts.push(`for ${rule.action.duration} minutes`)
-  }
-  if (rule.action.returnToBMS) {
-    parts.push('then return to BMS')
-  }
+  const lightingParts: string[] = []
+  if (rule.action.brightness !== undefined) lightingParts.push(`set to ${rule.action.brightness}%`)
+  if (rule.action.duration) lightingParts.push(`for ${rule.action.duration} minutes`)
+  if (rule.action.returnToBMS) lightingParts.push('then return to BMS')
   const targets = (rule.action.zones && rule.action.zones.length > 0)
     ? rule.action.zones.join(', ')
     : (rule.action.devices && rule.action.devices.length > 0)
       ? `${rule.action.devices.length} device(s)`
       : 'targets'
-  return `set ${targets} ${parts.join(', ')}`
+  const hasLighting = (rule.action.zones?.length ?? 0) > 0 || (rule.action.devices?.length ?? 0) > 0
+  const emailPart = rule.action.emailManager ? 'email store manager' : ''
+  if (emailPart && !hasLighting) return emailPart
+  if (hasLighting && lightingParts.length > 0) {
+    const lightingStr = `set ${targets} ${lightingParts.join(', ')}`
+    return emailPart ? `${lightingStr}, and ${emailPart}` : lightingStr
+  }
+  if (emailPart) return emailPart
+  return 'No action set'
 }
 
 // Memoized RuleListItem component
@@ -148,7 +153,7 @@ const RuleListItem = memo(function RuleListItem({ rule, isSelected, onSelect }: 
           </div>
         </div>
         <div className="flex flex-col items-end gap-2 flex-shrink-0 ml-3">
-          {!rule.targetId ? (
+          {!rule.targetId && rule.trigger !== 'fault' ? (
             <span className="token token-status-warning" title="Target missing - please edit">
               <AlertTriangle size={12} />
               Invalid

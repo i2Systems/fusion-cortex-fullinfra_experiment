@@ -8,7 +8,7 @@
 
 export type RuleType = 'rule' | 'override' | 'schedule'
 export type TargetType = 'zone' | 'device'
-export type TriggerType = 'motion' | 'no_motion' | 'daylight' | 'bms' | 'schedule'
+export type TriggerType = 'motion' | 'no_motion' | 'daylight' | 'bms' | 'schedule' | 'fault'
 export type ScheduleFrequency = 'daily' | 'weekly' | 'custom'
 
 export interface Rule {
@@ -38,6 +38,8 @@ export interface Rule {
     brightness?: number // percentage
     duration?: number // minutes
     returnToBMS?: boolean
+    /** When true, email the store manager (e.g. on fault) */
+    emailManager?: boolean
   }
   overrideBMS: boolean
   enabled: boolean

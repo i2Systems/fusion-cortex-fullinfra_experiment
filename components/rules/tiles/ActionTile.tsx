@@ -22,31 +22,32 @@ interface ActionTileProps {
 
 export function ActionTile({ action, ruleType, isEditing, onClick, onChange, readOnly = false }: ActionTileProps) {
   const formatAction = () => {
-    if (!action || (!action.zones?.length && !action.devices?.length)) {
+    const hasLighting = (action?.zones?.length ?? 0) > 0 || (action?.devices?.length ?? 0) > 0
+    if (action?.emailManager && !hasLighting) {
+      return 'Email store manager'
+    }
+    if (!action || (!action.zones?.length && !action.devices?.length && !action.emailManager)) {
       return 'No action set'
     }
 
     const parts: string[] = []
-    
-    if (action.brightness !== undefined) {
-      parts.push(`set to ${action.brightness}%`)
-    }
-    
-    if (action.duration) {
-      parts.push(`for ${action.duration} min`)
-    }
-    
-    if (action.returnToBMS) {
-      parts.push('then return to BMS')
-    }
+    if (action.emailManager) parts.push('email store manager')
+    if (action.brightness !== undefined) parts.push(`set to ${action.brightness}%`)
+    if (action.duration) parts.push(`for ${action.duration} min`)
+    if (action.returnToBMS) parts.push('then return to BMS')
 
-    const targets = action.zones?.length 
+    const targets = action.zones?.length
       ? `${action.zones.length} zone(s): ${action.zones.slice(0, 2).join(', ')}${action.zones.length > 2 ? '...' : ''}`
       : action.devices?.length
       ? `${action.devices.length} device(s)`
       : 'targets'
 
-    return `Set ${targets} ${parts.join(', ')}`
+    const lightingParts = parts.filter(p => p !== 'email store manager')
+    if (lightingParts.length > 0 && hasLighting) {
+      const lightingStr = `Set ${targets} ${lightingParts.join(', ')}`
+      return action.emailManager ? `${lightingStr}, and email store manager` : lightingStr
+    }
+    return parts.join(', ')
   }
 
   if (isEditing && !readOnly) {
@@ -83,6 +84,7 @@ export function ActionTile({ action, ruleType, isEditing, onClick, onChange, rea
             <div className="flex items-center gap-1 mt-1">
               <Target size={12} className="text-[var(--color-text-soft)]" />
               <div className="text-xs text-[var(--color-text-soft)]">
+                {action.emailManager ? 'Email manager' : ''}
                 {action.zones?.length ? `${action.zones.length} zone(s)` : ''}
                 {action.devices?.length ? `${action.devices.length} device(s)` : ''}
               </div>

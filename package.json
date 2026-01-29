@@ -63,6 +63,7 @@
     "react-konva": "^18.2.10",
     "redis": "^4.6.0",
     "superjson": "^2.2.1",
+    "use-image": "^1.1.4",
     "zod": "^3.22.4",
     "zustand": "^5.0.10"
   },

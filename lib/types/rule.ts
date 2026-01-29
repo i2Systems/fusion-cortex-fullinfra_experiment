@@ -16,7 +16,7 @@ import type { Prisma } from '@prisma/client'
 
 export type RuleType = 'rule' | 'override' | 'schedule'
 export type TargetType = 'zone' | 'device'
-export type TriggerType = 'motion' | 'no_motion' | 'daylight' | 'bms' | 'schedule'
+export type TriggerType = 'motion' | 'no_motion' | 'daylight' | 'bms' | 'schedule' | 'fault'
 export type ScheduleFrequency = 'daily' | 'weekly' | 'custom'
 
 // ============================================================================
@@ -54,6 +54,7 @@ export const RuleActionSchema = z.object({
   brightness: z.number().optional(), // percentage
   duration: z.number().optional(), // minutes
   returnToBMS: z.boolean().optional(),
+  emailManager: z.boolean().optional(), // email store manager (e.g. on fault)
 })
 
 export type RuleAction = z.infer<typeof RuleActionSchema>

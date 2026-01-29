@@ -574,15 +574,9 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
 
     try {
       if (editingSite && onEdit) {
-        // For updates, use the mutation directly if we have a role
+        // Pass personRole through onEdit which will handle the mutation
         if (finalRole && personName) {
-          await updateSiteMutation.mutateAsync({
-            id: editingSite.id,
-            ...siteData,
-            personRole: finalRole,
-          })
-          // Also call onEdit for optimistic update
-          await onEdit(editingSite.id, siteData)
+          await onEdit(editingSite.id, { ...siteData, personRole: finalRole } as any)
         } else {
           await onEdit(editingSite.id, siteData)
         }
@@ -592,14 +586,11 @@ export function AddSiteModal({ isOpen, onClose, onAdd, onEdit, editingSite }: Ad
           message: `${siteData.name} has been successfully updated.`
         })
       } else {
-        // For creates, use the mutation directly if we have a role
+        // For creates, pass personRole through onAdd which will handle the mutation
+        // Don't call createSiteMutation directly here to avoid duplicate creation
         if (finalRole && personName) {
-          await createSiteMutation.mutateAsync({
-            ...siteData,
-            personRole: finalRole,
-          })
-          // Still call onAdd for optimistic update
-          await onAdd(siteData)
+          // Create a modified siteData with personRole for the mutation
+          await onAdd({ ...siteData, personRole: finalRole } as any)
         } else {
           await onAdd(siteData)
         }

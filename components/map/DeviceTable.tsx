@@ -326,7 +326,7 @@ export function DeviceTable({
     return [...devices].sort((a, b) => {
       const aVal = a[sortField]
       const bVal = b[sortField]
-      if (aVal === undefined || bVal === undefined) return 0
+      if (aVal == null || bVal == null) return 0
       const comparison = aVal > bVal ? 1 : aVal < bVal ? -1 : 0
       return sortDirection === 'asc' ? comparison : -comparison
     })

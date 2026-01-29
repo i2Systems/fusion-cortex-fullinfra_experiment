@@ -259,6 +259,18 @@ export function ActionEditor({ action, ruleType, onChange, onCancel }: ActionEdi
             Return to BMS after duration
           </label>
         )}
+
+        {/* Email store manager (e.g. on fault) */}
+        <label htmlFor="action-email-manager" className="flex items-center gap-2 cursor-pointer text-sm text-[var(--color-text)]">
+          <input
+            id="action-email-manager"
+            type="checkbox"
+            checked={localAction.emailManager || false}
+            onChange={(e) => setLocalAction({ ...localAction, emailManager: e.target.checked })}
+            className="fusion-checkbox"
+          />
+          Email store manager
+        </label>
       </div>
 
       <div className="flex gap-2 mt-4">

@@ -50,6 +50,7 @@ import {
 import { Button } from '@/components/ui/Button'
 import { SiteFocusedModal } from './SiteFocusedContent'
 import { ConfirmationModal } from '@/components/shared/ConfirmationModal'
+import { PersonToken } from '@/components/people/PersonToken'
 
 interface SiteDetailsPanelProps {
   site: Site | null
@@ -98,11 +99,30 @@ export function SiteDetailsPanel({
 }: SiteDetailsPanelProps) {
   const router = useRouter()
   const { setActiveSite, sites, activeSiteId } = useSite()
+  
+  const handlePersonClick = (personId: string) => {
+    router.push(`/people?personId=${personId}`)
+  }
   const [isSiteDropdownOpen, setIsSiteDropdownOpen] = useState(false)
   const [siteImageUrl, setSiteImageUrl] = useState<string | null>(null)
   const [imageKey, setImageKey] = useState(0) // Force re-render on update
   const [showFocusedModal, setShowFocusedModal] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+
+  // Fetch people to get manager role
+  const { data: sitePeople = [] } = trpc.person.list.useQuery(
+    { siteId: site?.id || '' },
+    { enabled: !!site?.id }
+  )
+
+  // Find person matching manager name to get their role
+  const managerPerson = site?.manager && sitePeople.length > 0
+    ? sitePeople.find(p => {
+        const fullName = `${p.firstName} ${p.lastName}`.trim()
+        return fullName === site.manager || p.firstName === site.manager || p.lastName === site.manager
+      })
+    : null
+  const managerRole = managerPerson?.role || 'Manager'
 
   // Close dropdown when activeSiteId changes (synced from top-right selector)
   useEffect(() => {
@@ -415,7 +435,22 @@ export function SiteDetailsPanel({
             {site.manager && (
               <div className="flex items-center gap-1.5 md:gap-2">
                 <User size={12} className="md:w-3.5 md:h-3.5 flex-shrink-0" />
-                <span>Manager: {site.manager}</span>
+                {managerPerson ? (
+                  <div className="flex items-center gap-2">
+                    <span>{managerRole}:</span>
+                    <PersonToken
+                      person={managerPerson}
+                      size="sm"
+                      showName={true}
+                      layout="chip"
+                      onClick={handlePersonClick}
+                      variant="subtle"
+                      tooltipDetailLevel="none"
+                    />
+                  </div>
+                ) : (
+                  <span>{managerRole}: {site.manager}</span>
+                )}
               </div>
             )}
             {site.squareFootage && (

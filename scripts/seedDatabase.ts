@@ -627,6 +627,19 @@ function generateRules(siteId: string, zones: Array<{ zone: any; devices: any[] 
     targetZones: zones.map(z => z.zone.name),
   })
 
+  // Email store manager when a fault is detected (site-level notification rule)
+  rules.push({
+    name: 'Email store manager on fault',
+    description: 'When a device or system fault is detected, email the store manager.',
+    trigger: 'fault',
+    condition: {},
+    action: { emailManager: true },
+    overrideBMS: false,
+    enabled: true,
+    zoneId: null,
+    targetZones: [],
+  })
+
   return rules
 }
 

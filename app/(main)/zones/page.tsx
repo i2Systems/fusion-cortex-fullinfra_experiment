@@ -11,6 +11,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import dynamic from 'next/dynamic'
 import { SearchIsland } from '@/components/layout/SearchIsland'
@@ -30,6 +31,7 @@ import { ResizablePanel } from '@/components/layout/ResizablePanel'
 import { useMap } from '@/lib/MapContext'
 import { useMapUpload } from '@/lib/useMapUpload'
 import { useToast } from '@/lib/ToastContext'
+import { usePeople } from '@/lib/hooks/usePeople'
 
 // Dynamically import ZoneCanvas to avoid SSR issues with Konva
 const ZoneCanvas = dynamic(() => import('@/components/map/ZoneCanvas').then(mod => ({ default: mod.ZoneCanvas })), {
@@ -44,11 +46,13 @@ const ZoneCanvas = dynamic(() => import('@/components/map/ZoneCanvas').then(mod 
 import { ZONE_COLORS } from '@/lib/zoneColors'
 
 export default function ZonesPage() {
+  const router = useRouter()
   const { devices, updateMultipleDevices, saveDevices } = useDevices()
   const { zones, addZone, updateZone, deleteZone, getDevicesInZone, syncZoneDeviceIds, saveZones, isZonesSaved } = useZones()
   const { activeSiteId } = useSite()
   const { role } = useRole()
   const { addToast } = useToast()
+  const { people } = usePeople()
 
   // tRPC mutations for database persistence
   const saveZonesMutation = trpc.zone.saveAll.useMutation()
@@ -245,6 +249,22 @@ export default function ZonesPage() {
     console.log('Zones:', zones.map(z => ({ id: z.id, name: z.name, deviceCount: z.deviceIds.length })))
   }, [zones])
 
+  // Format people for ZoneCanvas (include role/email for tier-2 tooltip)
+  const zonePeople = useMemo(() => {
+    return people
+      .filter(person => person.x !== null && person.x !== undefined && person.y !== null && person.y !== undefined)
+      .map(person => ({
+        id: person.id,
+        firstName: person.firstName,
+        lastName: person.lastName,
+        x: person.x!,
+        y: person.y!,
+        imageUrl: person.imageUrl || null,
+        role: person.role ?? null,
+        email: person.email ?? null,
+      }))
+  }, [people])
+
   // Get unique zones from devices for filter panel
   const availableZones = useMemo(() => {
     const zoneSet = new Set<string>()
@@ -254,18 +274,17 @@ export default function ZonesPage() {
     return Array.from(zoneSet).sort()
   }, [devices])
 
-  // Get devices for the selected zone, or all devices if no zone selected
+  // Get all devices with indication of whether they're in the selected zone
   // Make devices more subtle on zones page (smaller, more transparent)
   // Also apply layer filters
   const zoneDevices = useMemo(() => {
     const selectedZoneObj = zones.find(z => z.id === selectedZone)
-    let filteredDevices = selectedZoneObj
-      ? devices.filter(d => {
-        // Check if device is in the selected zone by position
-        if (d.x === undefined || d.y === undefined) return false
-        return getDevicesInZone(selectedZoneObj.id, devices).some(zoneDevice => zoneDevice.id === d.id)
-      })
-      : devices
+    const devicesInSelectedZone = selectedZoneObj 
+      ? new Set(getDevicesInZone(selectedZoneObj.id, devices).map(d => d.id))
+      : null
+
+    // Always show all devices, but mark which are in the selected zone
+    let filteredDevices = devices
 
     // Apply layer visibility filters
     filteredDevices = filteredDevices.filter(device => {
@@ -284,8 +303,9 @@ export default function ZonesPage() {
       status: d.status,
       signal: d.signal,
       location: d.location,
+      inSelectedZone: selectedZone ? (devicesInSelectedZone?.has(d.id) ?? false) : true,
     }))
-  }, [selectedZone, devices, filters])
+  }, [selectedZone, devices, filters, zones, getDevicesInZone])
 
   // Handle clicking outside the map and panel to deselect
   const handleMainContentClick = (e: React.MouseEvent) => {
@@ -562,6 +582,7 @@ export default function ZonesPage() {
                     mapImageUrl={filters.showMap ? mapImageUrl : null}
                     vectorData={filters.showMap ? vectorData : null}
                     devices={zoneDevices}
+                    people={zonePeople}
                     zones={zones.map(z => ({
                       id: z.id,
                       name: z.name,
@@ -573,6 +594,9 @@ export default function ZonesPage() {
                     onModeChange={setToolMode}
                     mode={toolMode}
                     onZoneCreated={handleZoneCreated}
+                    showPeople={true}
+                    tooltipDetailLevel="minimal"
+                    onPersonSelect={(personId) => personId && router.push(`/people?personId=${personId}`)}
                     onZoneUpdated={async (zoneId, polygon) => {
                       try {
                         await updateZone(zoneId, { polygon })

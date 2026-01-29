@@ -18,6 +18,7 @@ import { SearchIsland } from '@/components/layout/SearchIsland'
 import { ResizablePanel } from '@/components/layout/ResizablePanel'
 import { SiteDetailsPanel } from '@/components/dashboard/StoreDetailsPanel'
 import { AddSiteModal } from '@/components/dashboard/AddSiteModal'
+import { SiteManagerDisplay } from '@/components/dashboard/SiteManagerDisplay'
 import { useSite, Site } from '@/lib/SiteContext'
 import { useDevices } from '@/lib/DomainContext'
 import { useZones } from '@/lib/DomainContext'
@@ -200,6 +201,7 @@ export default function DashboardPage() {
   const { rules } = useRules()
   const trpcUtils = trpc.useUtils()
   const { addToast } = useToast()
+
   const [siteSummaries, setSiteSummaries] = useState<SiteSummary[]>([])
   const [showAddSiteModal, setShowAddSiteModal] = useState(false)
   const [editingSite, setEditingSite] = useState<Site | null>(null)
@@ -1000,9 +1002,7 @@ export default function DashboardPage() {
                                   <span className="truncate">{site.city}, {site.state}</span>
                                 </div>
                                 {site.manager && (
-                                  <div className="text-sm text-[var(--color-text-muted)] truncate">
-                                    {site.manager}
-                                  </div>
+                                  <SiteManagerDisplay site={site} />
                                 )}
                               </div>
                             )}

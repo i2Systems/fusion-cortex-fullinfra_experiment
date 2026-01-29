@@ -21,6 +21,7 @@ import { Component, Device as DeviceType, DeviceType as DeviceTypeEnum } from '@
 import { useZoomContext } from '@/lib/MapContext'
 
 import { FloorPlanImage, type ImageBounds } from './FloorPlanImage'
+import { MapPersonToken } from './MapPersonToken'
 import type { ExtractedVectorData } from '@/lib/pdfVectorExtractor'
 import type { Location } from '@/lib/locationStorage'
 import { isFixtureType } from '@/lib/deviceUtils'
@@ -67,6 +68,8 @@ interface PersonPoint {
   x: number
   y: number
   imageUrl?: string | null
+  role?: string | null
+  email?: string | null
 }
 
 interface MapCanvasProps {
@@ -97,6 +100,10 @@ interface MapCanvasProps {
   showText?: boolean
   showZones?: boolean
   showPeople?: boolean
+  /** When minimal, person tooltip shows basic info only; detailed = full info */
+  tooltipDetailLevel?: 'minimal' | 'detailed'
+  /** Called when a person token is clicked (e.g. navigate to People page) */
+  onPersonSelect?: (personId: string | null) => void
   currentLocation?: Location | null
   onImageBoundsChange?: (bounds: ImageBounds) => void
   // Shared zoom state props
@@ -134,6 +141,8 @@ export function MapCanvas({
   showText = true,
   showZones = true,
   showPeople = true,
+  tooltipDetailLevel = 'detailed',
+  onPersonSelect,
   currentLocation,
   onImageBoundsChange,
   externalScale,
@@ -283,9 +292,36 @@ export function MapCanvas({
     }
   }, [getEffectiveImageBounds, dimensions])
   const [hoveredDevice, setHoveredDevice] = useState<DevicePoint | null>(null)
+  const [hoveredPerson, setHoveredPerson] = useState<PersonPoint | null>(null)
+  const [personTooltipTier, setPersonTooltipTier] = useState<1 | 2>(1)
+  const personTooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
+  const [personTooltipPosition, setPersonTooltipPosition] = useState({ x: 0, y: 0 })
   const tooltipPositionRef = useRef({ x: 0, y: 0 })
   const tooltipUpdateFrameRef = useRef<number | null>(null)
+
+  // Two-tier person tooltip: tier 1 on hover, tier 2 after sustained hover
+  useEffect(() => {
+    if (!hoveredPerson) {
+      setPersonTooltipTier(1)
+      if (personTooltipTimerRef.current) {
+        clearTimeout(personTooltipTimerRef.current)
+        personTooltipTimerRef.current = null
+      }
+      return
+    }
+    setPersonTooltipTier(1)
+    personTooltipTimerRef.current = setTimeout(() => {
+      setPersonTooltipTier(2)
+      personTooltipTimerRef.current = null
+    }, 700)
+    return () => {
+      if (personTooltipTimerRef.current) {
+        clearTimeout(personTooltipTimerRef.current)
+        personTooltipTimerRef.current = null
+      }
+    }
+  }, [hoveredPerson])
   const [draggedDevice, setDraggedDevice] = useState<{
     id: string;
     startX: number;
@@ -1599,35 +1635,50 @@ export function MapCanvas({
           })}
         </Layer>
 
-        {/* People Layer - After devices */}
+        {/* People Layer - token style (pill + icon + name) */}
         {showPeople && imageBounds && (
           <Layer>
             {people
               .filter(person => person.x !== null && person.x !== undefined && person.y !== null && person.y !== undefined)
               .map((person) => {
                 const personCoords = toCanvasCoords({ x: person.x, y: person.y })
-                
+                const isHovered = hoveredPerson?.id === person.id
+                const handlePersonMouseEnter = (e: any) => {
+                  const container = e.target.getStage()?.container()
+                  if (container) container.style.cursor = onPersonSelect ? 'pointer' : 'default'
+                  setHoveredPerson(person)
+                  const stage = e.target.getStage()
+                  if (stage) {
+                    const pointerPos = stage.getPointerPosition()
+                    if (pointerPos) setPersonTooltipPosition({ x: pointerPos.x, y: pointerPos.y })
+                  }
+                }
+                const handlePersonMouseLeave = () => setHoveredPerson(null)
+                const handlePersonMouseMove = (e: any) => {
+                  const stage = e.target.getStage()
+                  if (stage) {
+                    const pointerPos = stage.getPointerPosition()
+                    if (pointerPos) setPersonTooltipPosition({ x: pointerPos.x, y: pointerPos.y })
+                  }
+                }
+                const handlePersonClick = () => onPersonSelect?.(person.id)
                 return (
-                  <Group key={person.id} x={personCoords.x} y={personCoords.y}>
-                    {/* Person icon circle */}
-                    <Circle
-                      radius={6}
-                      fill={getRgbaVariable('--color-primary', 0.7)}
-                      stroke={getRgbaVariable('--color-border-subtle', 0.5)}
-                      strokeWidth={1.5}
-                      shadowBlur={4}
-                      shadowColor={getRgbaVariable('--color-primary', 0.5)}
-                      shadowOpacity={0.3}
-                      listening={false}
-                    />
-                    {/* Person icon (simplified - using emoji) */}
-                    <Text
-                      text="👤"
-                      fontSize={10}
-                      x={-5}
-                      y={-5}
-                      fill={getRgbaVariable('--color-text', 1)}
-                      listening={false}
+                  <Group
+                    key={person.id}
+                    x={personCoords.x}
+                    y={personCoords.y}
+                    listening={true}
+                    onClick={handlePersonClick}
+                    onTap={handlePersonClick}
+                    onMouseEnter={handlePersonMouseEnter}
+                    onMouseLeave={handlePersonMouseLeave}
+                    onMouseMove={handlePersonMouseMove}
+                  >
+                    <MapPersonToken
+                      person={person}
+                      isHovered={isHovered}
+                      radius={7}
+                      scale={1 / effectiveScale}
                     />
                   </Group>
                 )
@@ -1637,6 +1688,34 @@ export function MapCanvas({
 
         {/* Tooltip Layer - Always on top */}
         <Layer>
+          {/* Person tooltip - tier 1 (some info) immediately, tier 2 (more info) after ~700ms */}
+          {hoveredPerson && (() => {
+            const tier2 = personTooltipTier === 2
+            const pad = 12
+            const lineH = 16
+            const nameH = 16
+            const roleH = (tier2 && hoveredPerson.role) ? lineH : 0
+            const emailH = (tier2 && hoveredPerson.email) ? lineH : 0
+            const placedH = tier2 ? lineH : 0
+            const hintH = 14
+            const th = pad * 2 + nameH + (roleH ? roleH + 2 : 0) + (emailH ? emailH + 2 : 0) + (placedH ? placedH + 2 : 0) + 6 + hintH
+            const tw = tier2 ? 240 : 200
+            const x = Math.max(pad, Math.min(personTooltipPosition.x + 14, dimensions.width - tw - pad))
+            const y = Math.max(pad, Math.min(personTooltipPosition.y - 8, dimensions.height - th - pad))
+            const name = [hoveredPerson.firstName, hoveredPerson.lastName].filter(Boolean).join(' ') || 'Person'
+            return (
+              <Group key="person-tooltip" x={x} y={y}>
+                <Rect width={tw} height={th} fill={colors.tooltipBg} cornerRadius={10} listening={false} shadowBlur={20} shadowColor={colors.tooltipShadow} opacity={0.98} />
+                <Rect width={tw} height={th} fill="transparent" stroke={colors.tooltipBorder} strokeWidth={1.5} cornerRadius={10} listening={false} />
+                <Text x={pad + 32} y={pad} text={name} fontSize={13} fontFamily="system-ui, -apple-system, sans-serif" fontStyle="bold" fill={colors.tooltipText} width={tw - pad * 2 - 32} wrap="none" ellipsis={true} listening={false} />
+                <Text x={pad + 32} y={th - pad - hintH} text="Click to view profile" fontSize={10} fontFamily="system-ui, -apple-system, sans-serif" fill={colors.muted} listening={false} />
+                {tier2 && hoveredPerson.role && <Text x={pad + 32} y={pad + nameH + 2} text={hoveredPerson.role} fontSize={11} fontFamily="system-ui, -apple-system, sans-serif" fill={colors.muted} width={tw - pad * 2 - 32} wrap="none" ellipsis={true} listening={false} />}
+                {tier2 && hoveredPerson.email && <Text x={pad + 32} y={pad + nameH + 2 + roleH + 2} text={hoveredPerson.email} fontSize={10} fontFamily="system-ui, -apple-system, sans-serif" fill={colors.muted} width={tw - pad * 2 - 32} wrap="none" ellipsis={true} listening={false} />}
+                {tier2 && <Text x={pad + 32} y={pad + nameH + 2 + roleH + 2 + emailH + 2} text="Placed on map" fontSize={10} fontFamily="system-ui, -apple-system, sans-serif" fill={colors.muted} listening={false} />}
+                <Circle x={pad + 14} y={pad + (tier2 ? 28 : 18)} radius={12} fill={getRgbaVariable('--color-primary', 0.35)} stroke={colors.tooltipBorder} strokeWidth={1} listening={false} />
+              </Group>
+            )
+          })()}
           {hoveredDevice && hoveredDeviceData && !draggedDevice && mode !== 'move' && (() => {
             // Calculate tooltip dimensions based on content
             const componentsCount = hoveredDeviceData.components?.length || 0

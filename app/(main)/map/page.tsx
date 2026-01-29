@@ -14,6 +14,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import dynamic from 'next/dynamic'
 import { X, Lightbulb, Loader2 } from 'lucide-react'
@@ -93,6 +94,7 @@ import { DevicePalette } from '@/components/map/DevicePalette'
 // logic moved to @/lib/map/geometry
 
 export default function MapPage() {
+  const router = useRouter()
   const {
     devices,
     isLoading: devicesLoading,
@@ -113,15 +115,7 @@ export default function MapPage() {
   const { zones, syncZoneDeviceIds, getDevicesInZone } = useZones()
   const { handleError, handleSuccess } = useErrorHandler()
   const { addToast } = useToast()
-  const { people, fetchPeople } = usePeople()
-
-  // Fetch people when site changes
-  useEffect(() => {
-    if (activeSiteId) {
-      fetchPeople(activeSiteId).catch(console.error)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSiteId])
+  const { people } = usePeople()
 
   // TRPC Hooks
   const utils = trpc.useContext()
@@ -1380,8 +1374,12 @@ export default function MapPage() {
                       x: p.x!,
                       y: p.y!,
                       imageUrl: p.imageUrl || undefined,
+                      role: p.role ?? undefined,
+                      email: p.email ?? undefined,
                     }))}
                   showPeople={filters.showMap}
+                  tooltipDetailLevel="minimal"
+                  onPersonSelect={(personId) => personId && router.push(`/people?personId=${personId}`)}
                   currentLocation={currentLocation ? {
                     id: currentLocation.id,
                     name: currentLocation.name,

@@ -39,13 +39,14 @@ const toPrismaDeviceType = fromDisplayType
 const toFrontendDeviceStatus = toDisplayStatus
 const toPrismaDeviceStatus = fromDisplayStatus
 
-// Type for Device with child devices (components) included
-type DeviceWithComponents = Device & {
+// Type for Device with child devices and optional assigned person
+type DeviceWithRelations = Device & {
   other_Device?: Device[]
+  AssignedToPerson?: { id: string; firstName: string; lastName: string } | null
 }
 
 // Helper to transform database device to frontend format
-function transformDevice(dbDevice: DeviceWithComponents) {
+function transformDevice(dbDevice: DeviceWithRelations) {
   const components = dbDevice.other_Device?.map((comp) => ({
     id: comp.id,
     componentType: comp.componentType || '',
@@ -77,6 +78,10 @@ function transformDevice(dbDevice: DeviceWithComponents) {
     firmwareTarget: dbDevice.firmwareTarget || undefined,
     firmwareStatus: dbDevice.firmwareStatus || undefined,
     lastFirmwareUpdate: dbDevice.lastFirmwareUpdate ? new Date(dbDevice.lastFirmwareUpdate) : undefined,
+    assignedToPersonId: dbDevice.assignedToPersonId ?? undefined,
+    assignedToPerson: dbDevice.AssignedToPerson
+      ? { id: dbDevice.AssignedToPerson.id, firstName: dbDevice.AssignedToPerson.firstName, lastName: dbDevice.AssignedToPerson.lastName }
+      : undefined,
   }
 }
 
@@ -102,6 +107,7 @@ export const deviceRouter = router({
               other_Device: input.includeComponents ? {
                 orderBy: { createdAt: 'asc' },
               } : false,
+              AssignedToPerson: { select: { id: true, firstName: true, lastName: true } },
             },
             orderBy: { createdAt: 'asc' },
           })
@@ -144,6 +150,7 @@ export const deviceRouter = router({
               createdAt: 'asc',
             },
           },
+          AssignedToPerson: { select: { id: true, firstName: true, lastName: true } },
         },
         orderBy: {
           createdAt: 'asc',
@@ -161,15 +168,18 @@ export const deviceRouter = router({
     .query(async ({ input }) => {
       const device = await prisma.device.findUnique({
         where: { id: input.id },
-        include: input.includeComponents
-          ? {
-            other_Device: {
-              orderBy: {
-                createdAt: 'asc',
+        include: {
+          ...(input.includeComponents
+            ? {
+              other_Device: {
+                orderBy: {
+                  createdAt: 'asc',
+                },
               },
-            },
-          }
-          : undefined,
+            }
+            : {}),
+          AssignedToPerson: { select: { id: true, firstName: true, lastName: true } },
+        },
       })
 
       if (!device) {
@@ -193,6 +203,7 @@ export const deviceRouter = router({
       orientation: z.number().optional(),
       warrantyStatus: z.string().optional(),
       warrantyExpiry: z.date().optional(),
+      assignedToPersonId: z.string().nullable().optional(),
       components: z.array(z.object({
         componentType: z.string(),
         componentSerialNumber: z.string(),
@@ -236,6 +247,7 @@ export const deviceRouter = router({
           orientation: deviceData.orientation,
           warrantyStatus: deviceData.warrantyStatus,
           warrantyExpiry: deviceData.warrantyExpiry,
+          assignedToPersonId: deviceData.assignedToPersonId ?? null,
           updatedAt: new Date(),
         }
 
@@ -273,6 +285,7 @@ export const deviceRouter = router({
           },
           include: {
             other_Device: true,
+            AssignedToPerson: { select: { id: true, firstName: true, lastName: true } },
           },
         })
 
@@ -342,6 +355,7 @@ export const deviceRouter = router({
                     y: input.y,
                     warrantyStatus: input.warrantyStatus,
                     warrantyExpiry: input.warrantyExpiry,
+                    assignedToPersonId: input.assignedToPersonId ?? null,
                     // Update components if provided
                     ...(input.components && input.components.length > 0 ? {
                       other_Device: {
@@ -375,6 +389,7 @@ export const deviceRouter = router({
                   },
                   include: {
                     other_Device: true,
+                    AssignedToPerson: { select: { id: true, firstName: true, lastName: true } },
                   },
                 })
 
@@ -423,6 +438,7 @@ export const deviceRouter = router({
                 y: deviceData.y,
                 warrantyStatus: deviceData.warrantyStatus,
                 warrantyExpiry: deviceData.warrantyExpiry,
+                assignedToPersonId: deviceData.assignedToPersonId ?? null,
                 updatedAt: new Date(),
                 other_Device: components
                   ? {
@@ -447,6 +463,7 @@ export const deviceRouter = router({
               },
               include: {
                 other_Device: true,
+                AssignedToPerson: { select: { id: true, firstName: true, lastName: true } },
               },
             })
             return transformDevice(device)
@@ -477,6 +494,7 @@ export const deviceRouter = router({
       zone: z.string().optional(),
       warrantyStatus: z.string().optional(),
       warrantyExpiry: z.date().optional(),
+      assignedToPersonId: z.string().nullable().optional(),
     }))
     .mutation(async ({ input }) => {
       const { id, ...updates } = input
@@ -506,11 +524,14 @@ export const deviceRouter = router({
         if (updates.orientation !== undefined) updateData.orientation = updates.orientation
         if (updates.warrantyStatus !== undefined) updateData.warrantyStatus = updates.warrantyStatus
         if (updates.warrantyExpiry !== undefined) updateData.warrantyExpiry = updates.warrantyExpiry
+        if (updates.assignedToPersonId !== undefined) {
+          updateData.AssignedToPerson = updates.assignedToPersonId === null ? { disconnect: true } : { connect: { id: updates.assignedToPersonId } }
+        }
 
         const device = await prisma.device.update({
           where: { id },
           data: updateData,
-          include: { other_Device: true },
+          include: { other_Device: true, AssignedToPerson: { select: { id: true, firstName: true, lastName: true } } },
         })
 
         return transformDevice(device)

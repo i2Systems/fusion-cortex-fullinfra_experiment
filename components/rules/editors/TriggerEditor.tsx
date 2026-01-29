@@ -6,7 +6,7 @@
 
 'use client'
 
-import { Radio, Clock, Sun, Zap, Calendar, X } from 'lucide-react'
+import { Radio, Clock, Sun, Zap, Calendar, AlertTriangle, X } from 'lucide-react'
 import { TriggerType, RuleType } from '@/lib/mockRules'
 
 interface TriggerEditorProps {
@@ -22,6 +22,7 @@ const triggerOptions: Array<{ value: TriggerType; label: string; icon: any; desc
   { value: 'daylight', label: 'Daylight level', icon: Sun, description: 'Trigger based on natural light levels' },
   { value: 'bms', label: 'BMS command', icon: Zap, description: 'Trigger on building management system command' },
   { value: 'schedule', label: 'Time schedule', icon: Calendar, description: 'Trigger at specific times' },
+  { value: 'fault', label: 'Fault detected', icon: AlertTriangle, description: 'Trigger when a device or system fault occurs' },
 ]
 
 export function TriggerEditor({ currentTrigger, ruleType, onSelect, onCancel }: TriggerEditorProps) {
@@ -31,7 +32,6 @@ export function TriggerEditor({ currentTrigger, ruleType, onSelect, onCancel }: 
       return option.value === 'schedule'
     }
     if (ruleType === 'override') {
-      // Overrides typically use BMS but allow others
       return true
     }
     // Rules can use any trigger except schedule (schedules use schedule trigger)

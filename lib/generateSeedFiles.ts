@@ -16,50 +16,50 @@ import * as path from 'path'
 
 function generateSeedFiles(jsonPath: string) {
   const jsonData = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'))
-  
-  // Generate seedZones.ts
-  const zonesContent = `/**
- * Seed Zones Data
- * 
- * This file contains the saved zones configuration.
- * Auto-generated from exported data.
- * 
- * Last updated: ${new Date().toISOString()}
- */
 
-import { Zone } from './ZoneContext'
+  const tsHeader = (title: string) =>
+    `/**
+ * Seed ${title}
+ * Auto-generated from exported data. Last updated: ${new Date().toISOString()}
+ */\n\n`
 
-export const seedZones: Zone[] | null = ${JSON.stringify(jsonData.zones, null, 2)}
-`
-  
-  // Generate seedDevices.ts
-  const devicesContent = `/**
- * Seed Devices Data
- * 
- * This file contains the saved devices configuration with positions.
- * Auto-generated from exported data.
- * 
- * Last updated: ${new Date().toISOString()}
- */
+  const zonesContent =
+    tsHeader('Zones Data') +
+    `import { Zone } from './ZoneContext'\n\nexport const seedZones: Zone[] | null = ${JSON.stringify(jsonData.zones, null, 2)}\n`
 
-import { Device } from './mockData'
+  const devicesContent =
+    tsHeader('Devices Data') +
+    `import { Device } from './mockData'\n\nexport const seedDevices: Device[] | null = ${JSON.stringify(jsonData.devices, null, 2)}\n`
 
-export const seedDevices: Device[] | null = ${JSON.stringify(jsonData.devices, null, 2)}
-`
-  
   const zonesPath = path.join(__dirname, 'seedZones.ts')
   const devicesPath = path.join(__dirname, 'seedDevices.ts')
-  
   fs.writeFileSync(zonesPath, zonesContent)
   fs.writeFileSync(devicesPath, devicesContent)
-  
   console.log('✅ Generated seedZones.ts')
   console.log('✅ Generated seedDevices.ts')
-  console.log(`\n📦 Zones: ${jsonData.zones?.length || 0}`)
-  console.log(`📦 Devices: ${jsonData.devices?.length || 0}`)
+
+  if (jsonData.people != null && Array.isArray(jsonData.people)) {
+    const peopleContent =
+      tsHeader('People Data') + `export const seedPeople: unknown[] | null = ${JSON.stringify(jsonData.people, null, 2)}\n`
+    const peoplePath = path.join(__dirname, 'seedPeople.ts')
+    fs.writeFileSync(peoplePath, peopleContent)
+    console.log('✅ Generated seedPeople.ts')
+  }
+  if (jsonData.groups != null && Array.isArray(jsonData.groups)) {
+    const groupsContent =
+      tsHeader('Groups Data') + `export const seedGroups: unknown[] | null = ${JSON.stringify(jsonData.groups, null, 2)}\n`
+    const groupsPath = path.join(__dirname, 'seedGroups.ts')
+    fs.writeFileSync(groupsPath, groupsContent)
+    console.log('✅ Generated seedGroups.ts')
+  }
+
+  console.log(`\n📦 Zones: ${jsonData.zones?.length ?? 0}`)
+  console.log(`📦 Devices: ${jsonData.devices?.length ?? 0}`)
+  console.log(`📦 People: ${jsonData.people?.length ?? 0}`)
+  console.log(`📦 Groups: ${jsonData.groups?.length ?? 0}`)
   console.log('\n💡 Next steps:')
-  console.log('   git add lib/seedZones.ts lib/seedDevices.ts')
-  console.log('   git commit -m "Update seed data with current zones and device positions"')
+  console.log('   git add lib/seedZones.ts lib/seedDevices.ts lib/seedPeople.ts lib/seedGroups.ts')
+  console.log('   git commit -m "Update seed data (zones, devices, people, groups)"')
   console.log('   git push origin main')
 }
 

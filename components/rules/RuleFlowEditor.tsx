@@ -91,15 +91,15 @@ export function RuleFlowEditor({ rule, onChange, ruleType, readOnly = false }: R
           </div>
         )}
 
-        {/* Arrow */}
-        {rule.trigger && rule.condition && Object.keys(rule.condition).length > 0 && (
+        {/* Arrow: show for fault even with empty condition */}
+        {rule.trigger && rule.condition && (Object.keys(rule.condition).length > 0 || rule.trigger === 'fault') && (
           <div className="flex items-center justify-center py-2">
             <ArrowRight size={20} className="text-[var(--color-text-muted)]" />
           </div>
         )}
 
-        {/* Action Tile */}
-        {rule.trigger && rule.condition && Object.keys(rule.condition).length > 0 && (
+        {/* Action Tile: show for fault even with empty condition */}
+        {rule.trigger && rule.condition && (Object.keys(rule.condition).length > 0 || rule.trigger === 'fault') && (
           <div className="relative">
             <ActionTile
               action={rule.action || {}}

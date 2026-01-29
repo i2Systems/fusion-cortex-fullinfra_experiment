@@ -11,6 +11,85 @@ import { prisma } from '@/lib/prisma'
 import { randomUUID } from 'crypto'
 import { logger } from '@/lib/logger'
 import { withRetry, isConnectionError } from '../utils/withRetry'
+import { SITE_ROLE_TYPES } from '@/lib/constants/roleTypes'
+
+/**
+ * Get or create a role-based group for a given role
+ */
+async function ensureRoleGroup(siteId: string, role: string): Promise<string | null> {
+    if (!role || role.trim() === '') return null
+
+    const existingGroup = await prisma.group.findFirst({
+        where: {
+            siteId,
+            name: role
+        }
+    })
+
+    if (existingGroup) {
+        return existingGroup.id
+    }
+
+    const isStandardRole = SITE_ROLE_TYPES.some(r => r.value === role)
+    
+    const roleGroup = await prisma.group.create({
+        data: {
+            id: randomUUID(),
+            name: role,
+            description: `Auto-generated group for ${role} role`,
+            color: isStandardRole ? '#4c7dff' : '#8b5cf6',
+            siteId,
+            updatedAt: new Date()
+        }
+    })
+
+    logger.info(`Created role group "${role}" for site ${siteId}`)
+    return roleGroup.id
+}
+
+/**
+ * Sync a person to their role group
+ */
+async function syncPersonToRoleGroup(personId: string, siteId: string, newRole: string | null | undefined, oldRole?: string | null) {
+    try {
+        if (oldRole && oldRole !== newRole) {
+            const oldRoleGroup = await prisma.group.findFirst({
+                where: { siteId, name: oldRole }
+            })
+            if (oldRoleGroup) {
+                await prisma.groupPerson.deleteMany({
+                    where: {
+                        groupId: oldRoleGroup.id,
+                        personId
+                    }
+                })
+            }
+        }
+
+        if (newRole && newRole.trim() !== '') {
+            const roleGroupId = await ensureRoleGroup(siteId, newRole)
+            if (roleGroupId) {
+                const existing = await prisma.groupPerson.findFirst({
+                    where: {
+                        groupId: roleGroupId,
+                        personId
+                    }
+                })
+                if (!existing) {
+                    await prisma.groupPerson.create({
+                        data: {
+                            id: randomUUID(),
+                            groupId: roleGroupId,
+                            personId
+                        }
+                    })
+                }
+            }
+        }
+    } catch (error) {
+        logger.error(`Error syncing person ${personId} to role group:`, error)
+    }
+}
 
 /**
  * Parse manager name into firstName and lastName
@@ -94,7 +173,8 @@ async function syncManagerToPerson(siteId: string, managerName: string | null | 
 
   if (existingPerson) {
     // Update existing person if needed
-    return await prisma.person.update({
+    const oldRole = existingPerson.role
+    const person = await prisma.person.update({
       where: { id: existingPerson.id },
       data: {
         firstName,
@@ -103,10 +183,17 @@ async function syncManagerToPerson(siteId: string, managerName: string | null | 
         updatedAt: new Date(),
       },
     })
+
+    // Sync to role group if role changed
+    if (finalRole !== oldRole) {
+      await syncPersonToRoleGroup(person.id, siteId, finalRole, oldRole)
+    }
+
+    return person
   }
 
   // Create new person
-  return await prisma.person.create({
+  const person = await prisma.person.create({
     data: {
       id: randomUUID(),
       siteId,
@@ -116,6 +203,13 @@ async function syncManagerToPerson(siteId: string, managerName: string | null | 
       updatedAt: new Date(),
     },
   })
+
+  // Sync to role group
+  if (finalRole) {
+    await syncPersonToRoleGroup(person.id, siteId, finalRole)
+  }
+
+  return person
 }
 
 export const siteRouter = router({
@@ -271,9 +365,9 @@ export const siteRouter = router({
         logger.debug('Updating site imageUrl length:', updates.imageUrl.length)
       }
 
-      // Get existing site to check if manager changed
+      // Get existing site to check if manager changed or if we need to update role
       let existingSite = null
-      if (updates.manager !== undefined) {
+      if (updates.manager !== undefined || personRole !== undefined) {
         try {
           existingSite = await prisma.site.findUnique({
             where: { id },
@@ -290,22 +384,22 @@ export const siteRouter = router({
           { context: 'site.update' }
         )
 
-        // Create/update person from manager if manager was provided and changed
-        if (updates.manager !== undefined) {
-          const managerChanged = !existingSite || existingSite.manager !== updates.manager
-          if (managerChanged && updates.manager) {
+        // Get the manager name to use (either from updates or existing site)
+        const managerName = updates.manager !== undefined ? updates.manager : existingSite?.manager
+
+        // Create/update person from manager if:
+        // 1. Manager was provided and changed, OR
+        // 2. Role was provided and manager exists (to update role)
+        if (managerName) {
+          const managerChanged = updates.manager !== undefined && (!existingSite || existingSite.manager !== updates.manager)
+          const roleChanged = personRole !== undefined
+          
+          if (managerChanged || roleChanged) {
             try {
-              await syncManagerToPerson(id, updates.manager, personRole)
+              await syncManagerToPerson(id, managerName, personRole || 'Manager')
             } catch (error) {
               // Log error but don't fail site update
-              logger.error('Failed to sync manager to person', { error, siteId: id, manager: updates.manager, role: personRole })
-            }
-          } else if (personRole && updates.manager) {
-            // Manager name didn't change but role might have - update role
-            try {
-              await syncManagerToPerson(id, updates.manager, personRole)
-            } catch (error) {
-              logger.error('Failed to update person role', { error, siteId: id, manager: updates.manager, role: personRole })
+              logger.error('Failed to sync manager to person', { error, siteId: id, manager: managerName, role: personRole })
             }
           }
         }
@@ -638,6 +732,46 @@ export const siteRouter = router({
 
         // Re-throw with more context
         throw new Error(`Failed to delete site: ${error.message || 'Unknown error'}`)
+      }
+    }),
+
+  // Sync all site managers to people
+  syncManagersToPeople: publicProcedure
+    .mutation(async () => {
+      try {
+        const sites = await prisma.site.findMany({
+          where: {
+            manager: { not: null },
+          },
+          select: {
+            id: true,
+            manager: true,
+          },
+        })
+
+        const results = []
+        for (const site of sites) {
+          if (site.manager) {
+            try {
+              const person = await syncManagerToPerson(site.id, site.manager, 'Manager')
+              if (person) {
+                results.push({ siteId: site.id, personId: person.id, success: true })
+              }
+            } catch (error) {
+              logger.error('Failed to sync manager to person', { siteId: site.id, manager: site.manager, error })
+              results.push({ siteId: site.id, success: false, error: String(error) })
+            }
+          }
+        }
+
+        return {
+          synced: results.filter(r => r.success).length,
+          total: sites.length,
+          results,
+        }
+      } catch (error: any) {
+        logger.error('Failed to sync managers to people', { error })
+        throw new Error(`Failed to sync managers: ${error.message || 'Unknown error'}`)
       }
     }),
 

@@ -60,33 +60,31 @@ export function RulePreview({ rule }: RulePreviewProps) {
           triggerText = 'At scheduled time'
         }
         break
+      case 'fault':
+        triggerText = 'When a fault is detected'
+        break
     }
 
     // Build action part
     let actionText = ''
     if (rule.action) {
       const parts: string[] = []
-      
-      if (rule.action.zones?.length) {
-        parts.push(`set ${rule.action.zones.length === 1 ? rule.action.zones[0] : `${rule.action.zones.length} zones (${rule.action.zones.slice(0, 2).join(', ')}${rule.action.zones.length > 2 ? '...' : ''})`}`)
-      } else if (rule.action.devices?.length) {
-        parts.push(`set ${rule.action.devices.length} device(s)`)
-      } else {
-        parts.push('set targets')
+      if (rule.action.emailManager) {
+        parts.push('email the store manager')
       }
-
-      if (rule.action.brightness !== undefined) {
-        parts.push(`to ${rule.action.brightness}% brightness`)
+      const hasLighting = (rule.action.zones?.length ?? 0) > 0 || (rule.action.devices?.length ?? 0) > 0
+      if (hasLighting) {
+        if (rule.action.zones?.length) {
+          parts.push(`set ${rule.action.zones.length === 1 ? rule.action.zones[0] : `${rule.action.zones.length} zones (${rule.action.zones.slice(0, 2).join(', ')}${rule.action.zones.length > 2 ? '...' : ''})`}`)
+        } else if (rule.action.devices?.length) {
+          parts.push(`set ${rule.action.devices.length} device(s)`)
+        } else {
+          parts.push('set targets')
+        }
+        if (rule.action.brightness !== undefined) parts.push(`to ${rule.action.brightness}% brightness`)
+        if (rule.action.duration) parts.push(`for ${rule.action.duration} minutes`)
+        if (rule.action.returnToBMS) parts.push('then return control to BMS')
       }
-
-      if (rule.action.duration) {
-        parts.push(`for ${rule.action.duration} minutes`)
-      }
-
-      if (rule.action.returnToBMS) {
-        parts.push('then return control to BMS')
-      }
-
       actionText = parts.join(' ')
     }
 

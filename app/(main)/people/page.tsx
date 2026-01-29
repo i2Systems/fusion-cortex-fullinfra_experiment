@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { SearchIsland } from '@/components/layout/SearchIsland'
 import { ResizablePanel } from '@/components/layout/ResizablePanel'
 import { PeopleListView } from '@/components/people/PeopleListView'
@@ -25,14 +26,32 @@ const PeopleMapCanvasDynamic = dynamic(() => import('@/components/people/PeopleM
 })
 
 export default function PeoplePage() {
-    const { people, addPerson, updatePerson, deletePerson, fetchPeople } = usePeople()
+    const searchParams = useSearchParams()
+    const { people, isLoading: peopleLoading, addPerson, updatePerson, updatePersonPosition, deletePerson } = usePeople()
     const { activeSiteId } = useSite()
     const { addToast } = useToast()
 
     const [viewMode, setViewMode] = useState<PeopleViewMode>('grid')
     const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
+    const appliedPersonIdFromUrlRef = useRef<string | null>(null)
+
+    // Apply personId from URL after people have loaded (avoids race where param is set before data)
+    useEffect(() => {
+        const personIdFromQuery = searchParams.get('personId')
+        if (!personIdFromQuery) {
+            appliedPersonIdFromUrlRef.current = null
+            return
+        }
+        if (peopleLoading) return
+        if (appliedPersonIdFromUrlRef.current === personIdFromQuery) return
+        if (people.some(p => p.id === personIdFromQuery)) {
+            setSelectedPersonId(personIdFromQuery)
+            appliedPersonIdFromUrlRef.current = personIdFromQuery
+        }
+    }, [searchParams, people, peopleLoading])
     const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([])
     const [searchQuery, setSearchQuery] = useState('')
+    const [roleFilter, setRoleFilter] = useState<string>('all')
     const [toolMode, setToolMode] = useState<PeopleToolMode>('select')
     const [currentLocationId, setCurrentLocationId] = useState<string | null>(null)
     const [mapImageUrl, setMapImageUrl] = useState<string | null>(null)
@@ -82,7 +101,7 @@ export default function PeoplePage() {
                         setVectorData(data)
                     }
                 } catch (e) {
-                    console.error('Failed to load vector data:', e)
+                    addToast({ type: 'error', title: 'Map data', message: 'Failed to load vector data.' })
                 }
             } else {
                 setVectorData(null)
@@ -99,10 +118,18 @@ export default function PeoplePage() {
 
     const mapUploaded = !!currentLocation
 
-    // Fetch people when site changes
+    // Sync mutation for role groups
+    const syncRoleGroupsMutation = trpc.person.syncAllToRoleGroups.useMutation()
+    const syncedSitesRef = useRef<Set<string>>(new Set())
+
+    // Sync role groups (one-time per site); groups auto-loaded by useGroupSync
     useEffect(() => {
-        if (activeSiteId) {
-            fetchPeople(activeSiteId).catch(console.error)
+        if (activeSiteId && !syncedSitesRef.current.has(activeSiteId) && !syncRoleGroupsMutation.isPending) {
+            syncedSitesRef.current.add(activeSiteId)
+            syncRoleGroupsMutation.mutate(
+                { siteId: activeSiteId },
+                { onError: (err) => addToast({ type: 'warning', title: 'Role group sync', message: (err as unknown as Error)?.message ?? 'Sync skipped.' }) }
+            )
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeSiteId])
@@ -136,8 +163,7 @@ export default function PeoplePage() {
             setSelectedPersonId(newPerson.id)
             addToast({ type: 'success', title: 'Person Created', message: 'New person created successfully' })
         } catch (error) {
-            console.error('Failed to create person:', error)
-            addToast({ type: 'error', title: 'Error', message: 'Failed to create person' })
+            addToast({ type: 'error', title: 'Error', message: (error as Error)?.message ?? 'Failed to create person' })
         }
     }
 
@@ -149,8 +175,7 @@ export default function PeoplePage() {
             }
             addToast({ type: 'success', title: 'Person Deleted', message: 'Person deleted successfully' })
         } catch (error) {
-            console.error('Failed to delete person:', error)
-            addToast({ type: 'error', title: 'Error', message: 'Failed to delete person' })
+            addToast({ type: 'error', title: 'Error', message: (error as Error)?.message ?? 'Failed to delete person' })
         }
     }
 
@@ -163,29 +188,19 @@ export default function PeoplePage() {
             setSelectedPersonIds([])
             addToast({ type: 'success', title: 'People Deleted', message: `${personIds.length} people deleted successfully` })
         } catch (error) {
-            console.error('Failed to delete people:', error)
-            addToast({ type: 'error', title: 'Error', message: 'Failed to delete people' })
+            addToast({ type: 'error', title: 'Error', message: (error as Error)?.message ?? 'Failed to delete people' })
         }
     }
 
-    // Handle person move on map
-    const handlePersonMove = useCallback(async (personId: string, x: number, y: number) => {
+    // Handle person move on map (debounced position update)
+    const handlePersonMove = useCallback((personId: string, x: number, y: number) => {
         const person = people.find(p => p.id === personId)
         if (!person) return
+        updatePersonPosition(personId, x, y)
+    }, [people, updatePersonPosition])
 
-        try {
-            await updatePerson({
-                id: personId,
-                x,
-                y,
-            })
-        } catch (error) {
-            console.error('Failed to update person position:', error)
-        }
-    }, [people, updatePerson])
-
-    const handlePersonMoveEnd = useCallback(async (personId: string, x: number, y: number) => {
-        await handlePersonMove(personId, x, y)
+    const handlePersonMoveEnd = useCallback((personId: string, x: number, y: number) => {
+        handlePersonMove(personId, x, y)
     }, [handlePersonMove])
 
     // Handle palette drag (now handled directly in PeoplePalette)
@@ -202,13 +217,13 @@ export default function PeoplePage() {
             // Get dragged person IDs (using application/json like DevicePalette)
             const json = e.dataTransfer.getData('application/json')
             if (!json) {
-                console.warn('No drag data found')
+                addToast({ type: 'warning', title: 'Drop', message: 'No drag data found' })
                 return
             }
 
             const personIds = JSON.parse(json) as string[]
             if (!Array.isArray(personIds) || personIds.length === 0) {
-                console.warn('Invalid person IDs:', personIds)
+                addToast({ type: 'warning', title: 'Drop', message: 'Invalid person data' })
                 return
             }
 
@@ -241,18 +256,21 @@ export default function PeoplePage() {
             finalX = Math.max(0.01, Math.min(0.99, finalX))
             finalY = Math.max(0.01, Math.min(0.99, finalY))
 
-            // Update each person's position with small offset for multiple people
+            // Persist each person's position immediately (batch drop; debounce is for drag only)
             const offset = 0.02
             for (let i = 0; i < personIds.length; i++) {
                 const personId = personIds[i]
                 const person = people.find(p => p.id === personId)
                 if (person) {
-                    // Add small offset for multiple people
                     const offsetX = i * offset
                     const offsetY = 0
-                    await handlePersonMove(personId, finalX + offsetX, finalY + offsetY)
+                    try {
+                        await updatePerson({ id: personId, x: finalX + offsetX, y: finalY + offsetY })
+                    } catch (e) {
+                        addToast({ type: 'error', title: 'Drop', message: (e as Error)?.message ?? 'Failed to save position' })
+                    }
                 } else {
-                    console.warn(`Person ${personId} not found`)
+                    addToast({ type: 'warning', title: 'Drop', message: `Person ${personId} not found` })
                 }
             }
 
@@ -270,27 +288,46 @@ export default function PeoplePage() {
                 }
             }
         } catch (error) {
-            console.error('Failed to handle drop:', error)
-            addToast({ 
-                type: 'error', 
-                title: 'Drop Failed', 
-                message: 'Failed to place person on map' 
+            addToast({
+                type: 'error',
+                title: 'Drop Failed',
+                message: (error as Error)?.message ?? 'Failed to place person on map'
             })
         }
-    }, [people, handlePersonMove, mapPosition, mapScale, imageBounds, addToast])
+    }, [people, updatePerson, mapPosition, mapScale, imageBounds, addToast])
 
-    // Filter people by search
-    const filteredPeople = useMemo(() => {
-        if (!searchQuery) return people
-        const lowerQuery = searchQuery.toLowerCase()
-        return people.filter((p) => {
-            const firstNameMatch = p.firstName.toLowerCase().includes(lowerQuery)
-            const lastNameMatch = p.lastName.toLowerCase().includes(lowerQuery)
-            const emailMatch = p.email?.toLowerCase().includes(lowerQuery) || false
-            const roleMatch = p.role?.toLowerCase().includes(lowerQuery) || false
-            return firstNameMatch || lastNameMatch || emailMatch || roleMatch
+    // Get unique roles for filter dropdown
+    const availableRoles = useMemo(() => {
+        const roles = new Set<string>()
+        people.forEach(p => {
+            if (p.role) roles.add(p.role)
         })
-    }, [people, searchQuery])
+        return Array.from(roles).sort()
+    }, [people])
+
+    // Filter people by search and role
+    const filteredPeople = useMemo(() => {
+        let result = people
+
+        // Apply role filter
+        if (roleFilter !== 'all') {
+            result = result.filter(p => p.role === roleFilter)
+        }
+
+        // Apply search filter
+        if (searchQuery) {
+            const lowerQuery = searchQuery.toLowerCase()
+            result = result.filter((p) => {
+                const firstNameMatch = p.firstName.toLowerCase().includes(lowerQuery)
+                const lastNameMatch = p.lastName.toLowerCase().includes(lowerQuery)
+                const emailMatch = p.email?.toLowerCase().includes(lowerQuery) || false
+                const roleMatch = p.role?.toLowerCase().includes(lowerQuery) || false
+                return firstNameMatch || lastNameMatch || emailMatch || roleMatch
+            })
+        }
+
+        return result
+    }, [people, searchQuery, roleFilter])
 
     return (
         <div className="h-full flex flex-col min-h-0 overflow-hidden">
@@ -313,6 +350,30 @@ export default function PeoplePage() {
                 />
             </div>
 
+            {/* Filters and View Toggle */}
+            <div className="flex-shrink-0 page-padding-x pb-2 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <PeopleViewToggle currentView={viewMode} onViewChange={setViewMode} />
+                    {availableRoles.length > 0 && (
+                        <select
+                            value={roleFilter}
+                            onChange={(e) => setRoleFilter(e.target.value)}
+                            className="px-3 py-1.5 rounded-lg text-sm bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] cursor-pointer"
+                        >
+                            <option value="all">All Roles</option>
+                            {availableRoles.map(role => (
+                                <option key={role} value={role}>{role}</option>
+                            ))}
+                        </select>
+                    )}
+                    {(searchQuery || roleFilter !== 'all') && (
+                        <span className="text-xs text-[var(--color-text-muted)]">
+                            {filteredPeople.length} of {people.length} people
+                        </span>
+                    )}
+                </div>
+            </div>
+
             {/* Main Content */}
             <div
                 className="main-content-area flex-1 flex min-h-0 gap-2 md:gap-4 page-padding-x pb-12 md:pb-14"
@@ -326,11 +387,6 @@ export default function PeoplePage() {
                             ref={mapContainerRef}
                             className="flex-1 min-w-0 flex flex-col"
                         >
-                            {/* View Toggle - Top of main content */}
-                            <div className="mb-2 md:mb-3 flex items-center justify-between">
-                                <PeopleViewToggle currentView={viewMode} onViewChange={setViewMode} />
-                            </div>
-
                             {/* Content Area */}
                             <div className="flex-1 min-h-0 relative rounded-2xl shadow-[var(--shadow-strong)] border border-[var(--color-border-subtle)] overflow-hidden bg-[var(--color-surface)]">
                                 <PeopleListView
@@ -375,8 +431,7 @@ export default function PeoplePage() {
                                             })
                                             addToast({ type: 'success', title: 'Person Updated', message: 'Person updated successfully' })
                                         } catch (e) {
-                                            console.error(e)
-                                            addToast({ type: 'error', title: 'Error', message: 'Failed to update person' })
+                                            addToast({ type: 'error', title: 'Error', message: (e as Error)?.message ?? 'Failed to update person' })
                                         }
                                     }}
                                 />
@@ -390,11 +445,6 @@ export default function PeoplePage() {
                             ref={mapContainerRef}
                             className="flex-1 min-w-0 flex flex-col"
                         >
-                            {/* View Toggle - Top of main content */}
-                            <div className="mb-2 md:mb-3 flex items-center justify-between">
-                                <PeopleViewToggle currentView={viewMode} onViewChange={setViewMode} />
-                            </div>
-
                             {/* Content Area */}
                             <div className="flex-1 min-h-0 relative rounded-2xl shadow-[var(--shadow-strong)] border border-[var(--color-border-subtle)]" style={{ overflow: 'visible', minHeight: 0 }}>
                                 {/* Toolbar - Top center */}
@@ -525,8 +575,7 @@ export default function PeoplePage() {
                                             })
                                             addToast({ type: 'success', title: 'Person Updated', message: 'Person updated successfully' })
                                         } catch (e) {
-                                            console.error(e)
-                                            addToast({ type: 'error', title: 'Error', message: 'Failed to update person' })
+                                            addToast({ type: 'error', title: 'Error', message: (e as Error)?.message ?? 'Failed to update person' })
                                         }
                                     }}
                                 />

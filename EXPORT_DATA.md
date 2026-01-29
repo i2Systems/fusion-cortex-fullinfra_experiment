@@ -1,20 +1,20 @@
-# Exporting Zones and Device Positions
+# Exporting Zones, Devices, People, and Groups
 
 > **AI Note**: Instructions for exporting current state as seed data. See [SEEDING.md](./SEEDING.md) for seeding overview.
 
-**Guide for exporting and persisting zones and device positions across deployments.**
+**Guide for exporting and persisting zones, devices, people, and groups across deployments.**
 
 ## Problem
-When you push code to GitHub and deploy to Vercel, your zones and device positions are lost because they're stored in browser localStorage, which doesn't persist across deployments.
+When you push code to GitHub and deploy to Vercel, your zones and device positions are lost because they're stored in browser localStorage. People and groups live in the database but are not part of the export story.
 
 ## Solution
-Export your current state and commit it as seed data. The app will automatically use this seed data on fresh deployments, making your current state the default.
+Export your current state and commit it as seed data. The export now includes **people and groups** (from the app stores) as well as zones and devices (from localStorage). The app will use this seed data on fresh deployments.
 
 ## Quick Workflow: Make Current State the Default
 
 ### Before Pushing (when you want to save your current state):
 
-1. **Open your local app** in the browser (e.g., `http://localhost:3000`)
+1. **Open your local app** in the browser with a **site selected** so people and groups are loaded (e.g., `http://localhost:3000`)
 2. **Open the browser console** (F12 or Cmd+Option+I)
 3. **Run this command:**
    ```javascript
@@ -23,50 +23,48 @@ Export your current state and commit it as seed data. The app will automatically
    
    This will:
    - Display the TypeScript code in the console
-   - **Download 3 files automatically:**
-     - `seedZones.ts` - Ready to use!
-     - `seedDevices.ts` - Ready to use!
-     - `fusion-data-export-YYYY-MM-DD.json` - Backup JSON
+   - **Download files automatically:**
+     - `seedZones.ts` - Zones
+     - `seedDevices.ts` - Devices
+     - `seedPeople.ts` - People (when loaded)
+     - `seedGroups.ts` - Groups (when loaded)
+     - `fusion-data-export-YYYY-MM-DD.json` - Backup JSON (includes all)
 
 4. **Move the downloaded files:**
    ```bash
    mv ~/Downloads/seedZones.ts lib/seedZones.ts
    mv ~/Downloads/seedDevices.ts lib/seedDevices.ts
+   mv ~/Downloads/seedPeople.ts lib/seedPeople.ts   # if present
+   mv ~/Downloads/seedGroups.ts lib/seedGroups.ts   # if present
    ```
 
 5. **Commit and push:**
    ```bash
-   git add lib/seedZones.ts lib/seedDevices.ts
-   git commit -m "Update seed data with current zones and device positions"
+   git add lib/seedZones.ts lib/seedDevices.ts lib/seedPeople.ts lib/seedGroups.ts
+   git commit -m "Update seed data (zones, devices, people, groups)"
    git push origin main
    ```
 
-That's it! Your current state is now the default for all future deployments.
+That's it! Your current state (including people and groups) is now part of the export.
 
 ### Alternative: Using JSON Export
 
 If you prefer to use the JSON file:
 
-1. Export using `exportFusionData()` (downloads JSON)
-2. Run: `npm run seed:generate <path-to-json-file>`
-3. This generates the seed files automatically
+1. Export using `exportFusionData()` (downloads JSON with zones, devices, people, groups)
+2. Run: `npx tsx lib/generateSeedFiles.ts <path-to-exported-json>`
+3. This generates all seed files (zones, devices, people, groups) automatically
 4. Commit and push as above
 
 ## How It Works
 
-The app checks for data in this priority order:
-1. **Seed data** (from `seedZones.ts` and `seedDevices.ts`) - Used on fresh deployments
-2. **localStorage** (browser storage) - Used when user has made changes locally
-3. **Default data** (from `initialZones.ts` and `mockData.ts`) - Fallback if nothing else exists
-
-This means:
-- Fresh deployments use your committed seed data
-- Local development uses localStorage (your current edits)
-- If you update seed data and push, new deployments will use the updated data
+- **Zones and devices** are read from localStorage.
+- **People and groups** are read from the app’s in-memory stores (they are synced from the API when you have a site selected). StateHydration exposes them on `window` so `exportFusionData()` can include them.
+- The JSON and generated `.ts` files include all four so you can commit a full snapshot.
 
 ## Notes
 
-- The seed files are committed to the repository, so they persist across deployments
-- You can update seed data anytime by exporting and committing again
-- Seed data takes precedence over localStorage on fresh page loads, but localStorage will override it if you make changes locally
+- The seed files are committed to the repository, so they persist across deployments.
+- You can update seed data anytime by exporting (with a site selected) and committing again.
+- Loading seed people/groups into the database is a separate step (e.g. a seed script that reads `seedPeople.ts` / `seedGroups.ts`); the export gives you the data to commit and reuse.
 

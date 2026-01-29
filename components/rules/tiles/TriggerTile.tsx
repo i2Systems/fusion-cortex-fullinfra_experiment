@@ -7,7 +7,7 @@
 
 'use client'
 
-import { Radio, Clock, Sun, Zap, Calendar } from 'lucide-react'
+import { Radio, Clock, Sun, Zap, Calendar, AlertTriangle } from 'lucide-react'
 import { TriggerType, RuleType } from '@/lib/mockRules'
 import { TriggerEditor } from '../editors/TriggerEditor'
 
@@ -26,6 +26,7 @@ const triggerIcons: Record<TriggerType, any> = {
   daylight: Sun,
   bms: Zap,
   schedule: Calendar,
+  fault: AlertTriangle,
 }
 
 const triggerLabels: Record<TriggerType, string> = {
@@ -34,6 +35,7 @@ const triggerLabels: Record<TriggerType, string> = {
   daylight: 'Daylight Level',
   bms: 'BMS Command',
   schedule: 'Schedule',
+  fault: 'Fault Detected',
 }
 
 export function TriggerTile({ trigger, ruleType, isEditing, onClick, onChange, readOnly = false }: TriggerTileProps) {

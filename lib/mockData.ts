@@ -28,6 +28,13 @@ export interface Component {
   notes?: string // Instance-specific notes for this component within this specific device
 }
 
+/** Minimal person info for "assigned to" display */
+export interface AssignedToPerson {
+  id: string
+  firstName: string
+  lastName: string
+}
+
 export interface Device {
   id: string
   deviceId: string
@@ -49,6 +56,9 @@ export interface Device {
   firmwareTarget?: string // Target firmware version for update
   firmwareStatus?: string // Firmware status (UP_TO_DATE, UPDATE_AVAILABLE, etc.)
   lastFirmwareUpdate?: Date // When firmware was last updated
+  /** Person accountable for this device; when unset, UI may show site manager as default */
+  assignedToPersonId?: string | null
+  assignedToPerson?: AssignedToPerson
 }
 
 // Generate 120 devices with realistic data and organized positioning

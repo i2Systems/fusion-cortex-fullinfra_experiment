@@ -55,7 +55,7 @@ const ZoneCanvas = dynamic(() => import('@/components/map/ZoneCanvas').then(mod 
 export default function LookupPage() {
   const { devices, addDevice, removeDevice, updateDevice } = useDevices()
   const { zones } = useZones()
-  const { activeSiteId } = useSite()
+  const { activeSiteId, activeSite } = useSite()
   const { addToast } = useToast()
   const confirm = useConfirm()
 
@@ -558,6 +558,7 @@ export default function LookupPage() {
         >
           <DeviceProfilePanel
             device={selectedDevice}
+            siteManagerName={activeSite?.manager ?? null}
             onDeviceSelect={(device) => setSelectedDeviceId(device?.id || null)}
             onComponentClick={handleComponentClick}
             onManualEntry={handleManualEntry}

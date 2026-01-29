@@ -11,15 +11,20 @@ export interface Person {
     x?: number | null
     y?: number | null
     siteId: string
+    groupIds?: string[]
     createdAt: Date
     updatedAt: Date
 }
 
 interface PersonState {
     people: Person[]
+    isLoading: boolean
+    error: unknown | null
 
     // Actions
     setPeople: (people: Person[]) => void
+    setLoading: (loading: boolean) => void
+    setError: (error: unknown | null) => void
     addPerson: (person: Person) => void
     updatePerson: (personId: string, updates: Partial<Person>) => void
     removePerson: (personId: string) => void
@@ -28,10 +33,23 @@ interface PersonState {
 export const usePersonStore = create<PersonState>()(
     immer((set) => ({
         people: [],
+        isLoading: false,
+        error: null,
 
         setPeople: (people) =>
             set((state) => {
                 state.people = people
+                state.error = null
+            }),
+
+        setLoading: (loading) =>
+            set((state) => {
+                state.isLoading = loading
+            }),
+
+        setError: (error) =>
+            set((state) => {
+                state.error = error
             }),
 
         addPerson: (person) =>

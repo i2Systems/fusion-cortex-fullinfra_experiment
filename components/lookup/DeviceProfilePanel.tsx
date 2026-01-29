@@ -30,6 +30,8 @@ import { ConfirmationModal } from '@/components/shared/ConfirmationModal'
 
 interface DeviceProfilePanelProps {
   device: Device | null
+  /** When device has no assigned person, show this as default (e.g. site manager name) */
+  siteManagerName?: string | null
   onDeviceSelect?: (device: Device | null) => void
   onComponentClick?: (component: Component, parentDevice: Device) => void
   onManualEntry?: () => void
@@ -167,7 +169,7 @@ function DeviceIcon({ deviceType }: { deviceType: string }) {
   )
 }
 
-export function DeviceProfilePanel({ device, onDeviceSelect, onComponentClick, onManualEntry, onQRScan, onImport, onExport, onDelete }: DeviceProfilePanelProps) {
+export function DeviceProfilePanel({ device, siteManagerName, onDeviceSelect, onComponentClick, onManualEntry, onQRScan, onImport, onExport, onDelete, onEdit }: DeviceProfilePanelProps) {
   const router = useRouter()
   const { devices, addDevice } = useDevices()
   const { addToast } = useToast()
@@ -548,6 +550,16 @@ export function DeviceProfilePanel({ device, onDeviceSelect, onComponentClick, o
               <span className="text-xs md:text-sm text-[var(--color-text-muted)]">Type</span>
               <span className="text-xs md:text-sm font-medium text-[var(--color-text)] truncate ml-2">
                 {getTypeLabel(device.type)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center p-1.5 md:p-2 rounded-lg bg-[var(--color-surface-subtle)]">
+              <span className="text-xs md:text-sm text-[var(--color-text-muted)]">Assigned to</span>
+              <span className="text-xs md:text-sm font-medium text-[var(--color-text)] truncate ml-2">
+                {device.assignedToPerson
+                  ? `${device.assignedToPerson.firstName} ${device.assignedToPerson.lastName}`
+                  : siteManagerName
+                    ? `${siteManagerName} (default)`
+                    : 'Site manager (default)'}
               </span>
             </div>
             {device.location && (

@@ -9,10 +9,11 @@
 
 'use client'
 
-import { Stage, Layer, Circle, Image as KonvaImage, Group, Text, Rect, Line } from 'react-konva'
+import { Stage, Layer, Circle, Group, Text, Rect, Line } from 'react-konva'
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 
 import { FloorPlanImage, type ImageBounds } from './FloorPlanImage'
+import { MapPersonToken } from './MapPersonToken'
 import type { ExtractedVectorData } from '@/lib/pdfVectorExtractor'
 import { DeviceType } from '@/lib/mockData'
 import { getCanvasColors, getRgbaVariable } from '@/lib/canvasColors'
@@ -27,6 +28,18 @@ interface DevicePoint {
   signal: number
   location?: string
   orientation?: number
+  inSelectedZone?: boolean // Whether device is in the currently selected zone
+}
+
+interface PersonPoint {
+  id: string
+  firstName: string
+  lastName: string
+  x: number
+  y: number
+  imageUrl?: string | null
+  role?: string | null
+  email?: string | null
 }
 
 interface Zone {
@@ -42,6 +55,7 @@ interface ZoneCanvasProps {
   mapImageUrl?: string | null
   vectorData?: ExtractedVectorData | null
   devices?: DevicePoint[]
+  people?: PersonPoint[]
   zones?: Zone[]
   selectedZoneId?: string | null
   onZoneSelect?: (zoneId: string | null) => void
@@ -54,6 +68,11 @@ interface ZoneCanvasProps {
   showAnnotations?: boolean
   showText?: boolean
   showZones?: boolean
+  showPeople?: boolean
+  /** When minimal, person/device tooltips show basic info only; detailed = full info */
+  tooltipDetailLevel?: 'minimal' | 'detailed'
+  /** Called when a person token is clicked (e.g. navigate to People page) */
+  onPersonSelect?: (personId: string | null) => void
   // Shared zoom state props
   externalScale?: number
   externalStagePosition?: { x: number; y: number }
@@ -68,6 +87,7 @@ export function ZoneCanvas({
   mapImageUrl,
   vectorData,
   devices = [],
+  people = [],
   zones = [],
   selectedZoneId,
   onZoneSelect,
@@ -80,6 +100,9 @@ export function ZoneCanvas({
   showAnnotations = true,
   showText = true,
   showZones = true,
+  showPeople = true,
+  tooltipDetailLevel = 'detailed',
+  onPersonSelect,
   externalScale,
   externalStagePosition,
   onScaleChange,
@@ -105,8 +128,35 @@ export function ZoneCanvas({
     onStagePositionChange?.(newPosition)
   }, [onStagePositionChange])
   const [hoveredDevice, setHoveredDevice] = useState<DevicePoint | null>(null)
+  const [hoveredPerson, setHoveredPerson] = useState<PersonPoint | null>(null)
+  const [personTooltipTier, setPersonTooltipTier] = useState<1 | 2>(1)
+  const personTooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
+  const [personTooltipPosition, setPersonTooltipPosition] = useState({ x: 0, y: 0 })
   const [imageBounds, setImageBounds] = useState<ImageBounds | null>(null)
+
+  // Two-tier person tooltip: tier 1 on hover, tier 2 after sustained hover
+  useEffect(() => {
+    if (!hoveredPerson) {
+      setPersonTooltipTier(1)
+      if (personTooltipTimerRef.current) {
+        clearTimeout(personTooltipTimerRef.current)
+        personTooltipTimerRef.current = null
+      }
+      return
+    }
+    setPersonTooltipTier(1)
+    personTooltipTimerRef.current = setTimeout(() => {
+      setPersonTooltipTier(2)
+      personTooltipTimerRef.current = null
+    }, 700)
+    return () => {
+      if (personTooltipTimerRef.current) {
+        clearTimeout(personTooltipTimerRef.current)
+        personTooltipTimerRef.current = null
+      }
+    }
+  }, [hoveredPerson])
 
   // Get full device data for hovered device
   const hoveredDeviceData = useMemo(() => {
@@ -664,6 +714,9 @@ export function ZoneCanvas({
             const deviceCoords = toCanvasCoords({ x: device.x, y: device.y })
             const isSelected = selectedDeviceId === device.id
             const isHovered = hoveredDevice?.id === device.id
+            const inSelectedZone = device.inSelectedZone !== false // Default to true if not specified
+            // Apply reduced opacity if a zone is selected and this device is not in it
+            const zoneOpacity = selectedZoneId && !inSelectedZone ? 0.3 : 1
 
             // Common event handlers
             const handleClick = () => onDeviceSelect?.(device.id)
@@ -717,12 +770,12 @@ export function ZoneCanvas({
                     width={barLength}
                     height={barWidth}
                     fill={getDeviceColor(device.type)}
-                    opacity={isSelected ? 1 : (isHovered ? 0.95 : 0.9)}
+                    opacity={(isSelected ? 1 : (isHovered ? 0.95 : 0.9)) * zoneOpacity}
                     stroke={colors.border}
                     strokeWidth={0.5}
                     shadowBlur={isSelected ? 4 : (isHovered ? 2 : 1)}
                     shadowColor={isSelected ? colors.fixture : colors.muted}
-                    shadowOpacity={0.3}
+                    shadowOpacity={0.3 * zoneOpacity}
                     cornerRadius={1}
                     onClick={handleClick}
                     onTap={handleClick}
@@ -740,7 +793,7 @@ export function ZoneCanvas({
                     strokeWidth={0.5}
                     shadowBlur={isSelected ? 3 : 1}
                     shadowColor={colors.muted}
-                    opacity={isSelected ? 1 : 0.85}
+                    opacity={(isSelected ? 1 : 0.85) * zoneOpacity}
                     listening={false}
                   />
                 </Group>
@@ -763,6 +816,7 @@ export function ZoneCanvas({
                   strokeWidth={0.5}
                   shadowBlur={isSelected ? 4 : (isHovered ? 2 : 1)}
                   shadowColor={colors.muted}
+                  opacity={zoneOpacity}
                   listening={false}
                 />
                 {/* Main device marker */}
@@ -775,7 +829,7 @@ export function ZoneCanvas({
                   strokeWidth={isSelected ? 1 : 0.5}
                   shadowBlur={isSelected ? 4 : (isHovered ? 2 : 1)}
                   shadowColor={isSelected ? colors.primary : colors.muted}
-                  opacity={isSelected ? 1 : (isHovered ? 0.95 : 0.9)}
+                  opacity={(isSelected ? 1 : (isHovered ? 0.95 : 0.9)) * zoneOpacity}
                   onClick={handleClick}
                   onTap={handleClick}
                   onMouseEnter={handleMouseEnter}
@@ -798,18 +852,112 @@ export function ZoneCanvas({
           })}
         </Layer>
 
+        {/* People Layer - token style (pill + icon + name) */}
+        {showPeople && imageBounds && (
+          <Layer>
+            {people
+              .filter(person => person.x !== null && person.x !== undefined && person.y !== null && person.y !== undefined)
+              .map((person) => {
+                const personCoords = toCanvasCoords({ x: person.x, y: person.y })
+                const isHovered = hoveredPerson?.id === person.id
+                const handlePersonMouseEnter = (e: any) => {
+                  const container = e.target.getStage()?.container()
+                  if (container) container.style.cursor = onPersonSelect ? 'pointer' : 'default'
+                  setHoveredPerson(person)
+                  const stage = e.target.getStage()
+                  if (stage) {
+                    const pointerPos = stage.getPointerPosition()
+                    if (pointerPos) setPersonTooltipPosition({ x: pointerPos.x, y: pointerPos.y })
+                  }
+                }
+                const handlePersonMouseLeave = () => {
+                  setHoveredPerson(null)
+                }
+                const handlePersonMouseMove = (e: any) => {
+                  const stage = e.target.getStage()
+                  if (stage) {
+                    const pointerPos = stage.getPointerPosition()
+                    if (pointerPos) setPersonTooltipPosition({ x: pointerPos.x, y: pointerPos.y })
+                  }
+                }
+                const handlePersonClick = () => onPersonSelect?.(person.id)
+                return (
+                  <Group
+                    key={person.id}
+                    x={personCoords.x}
+                    y={personCoords.y}
+                    listening={true}
+                    onClick={handlePersonClick}
+                    onTap={handlePersonClick}
+                    onMouseEnter={handlePersonMouseEnter}
+                    onMouseLeave={handlePersonMouseLeave}
+                    onMouseMove={handlePersonMouseMove}
+                  >
+                    <MapPersonToken
+                      person={person}
+                      isHovered={isHovered}
+                      radius={7}
+                      scale={1 / effectiveScale}
+                    />
+                  </Group>
+                )
+              })}
+          </Layer>
+        )}
+
         {/* Tooltip Layer - Always on top */}
         <Layer>
+          {/* Person tooltip - tier 1 (some info) immediately, tier 2 (more info) after ~700ms */}
+          {hoveredPerson && (() => {
+            const tier2 = personTooltipTier === 2
+            const pad = 12
+            const lineH = 16
+            const nameH = 16
+            const roleH = (tier2 && hoveredPerson.role) ? lineH : 0
+            const emailH = (tier2 && hoveredPerson.email) ? lineH : 0
+            const placedH = tier2 ? lineH : 0
+            const hintH = 14
+            const th = pad * 2 + nameH + (roleH ? roleH + 2 : 0) + (emailH ? emailH + 2 : 0) + (placedH ? placedH + 2 : 0) + 6 + hintH
+            const tw = tier2 ? 240 : 200
+            const x = Math.max(pad, Math.min(personTooltipPosition.x + 14, dimensions.width - tw - pad))
+            const y = Math.max(pad, Math.min(personTooltipPosition.y - 8, dimensions.height - th - pad))
+            const name = [hoveredPerson.firstName, hoveredPerson.lastName].filter(Boolean).join(' ') || 'Person'
+            return (
+              <Group key="person-tooltip" x={x} y={y}>
+                <Rect width={tw} height={th} fill={colors.tooltipBg} cornerRadius={10} listening={false} shadowBlur={20} shadowColor={colors.tooltipShadow} opacity={0.98} />
+                <Rect width={tw} height={th} fill="transparent" stroke={colors.tooltipBorder} strokeWidth={1.5} cornerRadius={10} listening={false} />
+                <Text x={pad + 32} y={pad} text={name} fontSize={13} fontFamily="system-ui, -apple-system, sans-serif" fontStyle="bold" fill={colors.tooltipText} width={tw - pad * 2 - 32} wrap="none" ellipsis={true} listening={false} />
+                <Text x={pad + 32} y={th - pad - hintH} text="Click to view profile" fontSize={10} fontFamily="system-ui, -apple-system, sans-serif" fill={colors.muted} listening={false} />
+                {tier2 && hoveredPerson.role && <Text x={pad + 32} y={pad + nameH + 2} text={hoveredPerson.role} fontSize={11} fontFamily="system-ui, -apple-system, sans-serif" fill={colors.muted} width={tw - pad * 2 - 32} wrap="none" ellipsis={true} listening={false} />}
+                {tier2 && hoveredPerson.email && <Text x={pad + 32} y={pad + nameH + 2 + roleH + 2} text={hoveredPerson.email} fontSize={10} fontFamily="system-ui, -apple-system, sans-serif" fill={colors.muted} width={tw - pad * 2 - 32} wrap="none" ellipsis={true} listening={false} />}
+                {tier2 && <Text x={pad + 32} y={pad + nameH + 2 + roleH + 2 + emailH + 2} text="Placed on map" fontSize={10} fontFamily="system-ui, -apple-system, sans-serif" fill={colors.muted} listening={false} />}
+                <Circle x={pad + 14} y={pad + (tier2 ? 28 : 18)} radius={12} fill={getRgbaVariable('--color-primary', 0.35)} stroke={colors.tooltipBorder} strokeWidth={1} listening={false} />
+              </Group>
+            )
+          })()}
           {hoveredDevice && hoveredDeviceData && (() => {
-            // Calculate tooltip dimensions based on content
-            const componentsCount = hoveredDeviceData.components?.length || 0
-            const hasComponents = componentsCount > 0
-            const tooltipWidth = 300 // Increased width for better text wrapping
+            const tooltipWidth = tooltipDetailLevel === 'minimal' ? 220 : 300
             const padding = 16
             const lineHeight = 18
             const sectionSpacing = 8
 
-            // Calculate base info height (accounting for text wrapping)
+            if (tooltipDetailLevel === 'minimal') {
+              const minHeight = 56
+              const tooltipX = Math.max(padding, Math.min(tooltipPosition.x + 20, dimensions.width - tooltipWidth - padding))
+              const tooltipY = Math.max(padding, Math.min(tooltipPosition.y - 8, dimensions.height - minHeight - padding))
+              return (
+                <Group x={tooltipX} y={tooltipY}>
+                  <Rect width={tooltipWidth} height={minHeight} fill={colors.tooltipBg} cornerRadius={10} listening={false} shadowBlur={20} shadowColor={colors.tooltipShadow} opacity={0.98} />
+                  <Rect width={tooltipWidth} height={minHeight} fill="transparent" stroke={colors.tooltipBorder} strokeWidth={2} cornerRadius={10} listening={false} />
+                  <Text x={padding} y={padding} text={hoveredDevice.deviceId} fontSize={14} fontFamily="system-ui, -apple-system, sans-serif" fontStyle="bold" fill={colors.tooltipText} width={tooltipWidth - padding * 2} wrap="none" ellipsis={true} listening={false} />
+                  <Text x={padding} y={padding + 22} text="Click for details" fontSize={11} fontFamily="system-ui, -apple-system, sans-serif" fill={colors.muted} listening={false} />
+                </Group>
+              )
+            }
+
+            // Full device tooltip
+            const componentsCount = hoveredDeviceData.components?.length || 0
+            const hasComponents = componentsCount > 0
             const deviceInfoLines = [
               `Type: ${hoveredDevice.type}`,
               `Serial: ${hoveredDeviceData.serialNumber || 'N/A'}`,

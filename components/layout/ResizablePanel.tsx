@@ -27,6 +27,8 @@ interface ResizablePanelProps {
   className?: string
   showCloseButton?: boolean
   onClose?: () => void
+  /** When this value changes (e.g. increment), panel opens. Lets parent open without ref. */
+  openTrigger?: number
 }
 
 export interface ResizablePanelRef {
@@ -47,6 +49,7 @@ export const ResizablePanel = forwardRef<ResizablePanelRef, ResizablePanelProps>
   className = '',
   showCloseButton = false,
   onClose,
+  openTrigger,
 }, ref) => {
   const [width, setWidth] = useState(defaultWidth)
   // Always start collapsed to match SSR - will be updated in useEffect
@@ -143,6 +146,18 @@ export const ResizablePanel = forwardRef<ResizablePanelRef, ResizablePanelProps>
       }
     })
   }, [storageKey])
+
+  // When parent passes openTrigger (e.g. after clicking "add to group"), open the panel
+  const prevOpenTrigger = useRef<number | undefined>(undefined)
+  useEffect(() => {
+    if (openTrigger != null && openTrigger !== prevOpenTrigger.current) {
+      prevOpenTrigger.current = openTrigger
+      if (openTrigger > 0) {
+        setIsCollapsed(false)
+        setWidth(lastOpenWidth)
+      }
+    }
+  }, [openTrigger, lastOpenWidth])
 
   // Staggered animation: content fades out THEN panel closes, panel opens THEN content fades in
   useEffect(() => {

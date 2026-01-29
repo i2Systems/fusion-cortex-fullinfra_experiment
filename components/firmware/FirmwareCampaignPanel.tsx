@@ -9,6 +9,7 @@
 import { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { Switch } from '@/components/ui/Switch'
 import { Play, Pause, X, Trash2, RefreshCw, CheckCircle2, Clock, AlertCircle, Download } from 'lucide-react'
 import { PanelEmptyState } from '@/components/shared/PanelEmptyState'
 import { FirmwareDeviceTable } from './FirmwareDeviceTable'
@@ -64,6 +65,11 @@ interface FirmwareCampaignPanelProps {
   onCancelCampaign: (id: string) => void
   onDeleteCampaign: (id: string) => void
   onRefresh: () => void
+  /** Footer: show completed toggle */
+  includeCompleted?: boolean
+  onIncludeCompletedChange?: (checked: boolean) => void
+  /** Footer: create campaign action */
+  onCreateCampaign?: () => void
 }
 
 export function FirmwareCampaignPanel({
@@ -73,6 +79,9 @@ export function FirmwareCampaignPanel({
   onCancelCampaign,
   onDeleteCampaign,
   onRefresh,
+  includeCompleted = false,
+  onIncludeCompletedChange,
+  onCreateCampaign,
 }: FirmwareCampaignPanelProps) {
   const { activeSiteId } = useSite()
   const [showEligibleDevices, setShowEligibleDevices] = useState(false)
@@ -91,13 +100,50 @@ export function FirmwareCampaignPanel({
     },
   })
 
+  const footer = (onIncludeCompletedChange != null || onCreateCampaign != null) && (
+    <footer className="flex-shrink-0 border-t border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        {onIncludeCompletedChange != null && (
+          <>
+            <Switch
+              checked={includeCompleted}
+              onCheckedChange={onIncludeCompletedChange}
+              id="firmware-show-completed"
+            />
+            <label
+              htmlFor="firmware-show-completed"
+              className="text-sm font-medium text-[var(--color-text-muted)] cursor-pointer hover:text-[var(--color-text)] transition-colors select-none"
+            >
+              Show completed
+            </label>
+          </>
+        )}
+      </div>
+      {onCreateCampaign != null && (
+        <Button
+          onClick={onCreateCampaign}
+          variant="primary"
+          size="sm"
+          className="shadow-[var(--shadow-sm)]"
+        >
+          Create Campaign
+        </Button>
+      )}
+    </footer>
+  )
+
   if (!campaign) {
     return (
-      <PanelEmptyState
-        icon={Download}
-        title="No Campaign Selected"
-        description="Select a campaign from the list to view details and manage devices."
-      />
+      <div className="h-full flex flex-col min-h-0">
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <PanelEmptyState
+            icon={Download}
+            title="No Campaign Selected"
+            description="Select a campaign from the list to view details and manage devices."
+          />
+        </div>
+        {footer}
+      </div>
     )
   }
 
@@ -134,7 +180,8 @@ export function FirmwareCampaignPanel({
   }
 
   return (
-    <div className="h-full flex flex-col overflow-y-auto">
+    <div className="h-full flex flex-col min-h-0">
+      <div className="flex-1 min-h-0 overflow-y-auto">
       <div className="p-6 border-b border-[var(--color-border-subtle)]">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
@@ -324,6 +371,8 @@ export function FirmwareCampaignPanel({
           </div>
         )}
       </div>
+      </div>
+      {footer}
     </div>
   )
 }

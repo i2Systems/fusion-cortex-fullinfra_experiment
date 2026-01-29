@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { User, Edit2, Trash2, Save, X, Mail, Shield, Upload, MapPin, Calendar } from 'lucide-react'
+import { User, Edit2, Trash2, Save, X, Mail, Shield, Upload, MapPin, Calendar, Users } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Select, type SelectOption } from '@/components/ui/Select'
 import { Input } from '@/components/ui/Input'
@@ -11,6 +11,7 @@ import { useToast } from '@/lib/ToastContext'
 import { Person } from '@/lib/stores/personStore'
 import { SITE_ROLE_TYPES } from '@/lib/constants/roleTypes'
 import { trpc } from '@/lib/trpc/client'
+import { useGroups } from '@/lib/hooks/useGroups'
 
 interface PeoplePanelProps {
     people: Person[]
@@ -46,10 +47,31 @@ export function PeoplePanel({
     const fileInputRef = useRef<HTMLInputElement>(null)
     
     const savePersonImageMutation = trpc.person.saveImage.useMutation()
+    const { groups } = useGroups()
 
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
 
     const selectedPerson = useMemo(() => people.find(p => p.id === selectedPersonId), [people, selectedPersonId])
+
+    // Find groups the selected person is in
+    const personGroups = useMemo(() => {
+        if (!selectedPersonId || !groups) return []
+        const allGroups = groups.filter(g => (g.personIds ?? []).includes(selectedPersonId))
+        
+        // Sort: role groups first, then others
+        return allGroups.sort((a, b) => {
+            const aIsRole = SITE_ROLE_TYPES.some(r => r.value === a.name) || a.name === selectedPerson?.role
+            const bIsRole = SITE_ROLE_TYPES.some(r => r.value === b.name) || b.name === selectedPerson?.role
+            if (aIsRole && !bIsRole) return -1
+            if (!aIsRole && bIsRole) return 1
+            return 0
+        })
+    }, [selectedPersonId, groups, selectedPerson?.role])
+
+    // Check if a group is a role group
+    const isRoleGroup = (groupName: string) => {
+        return SITE_ROLE_TYPES.some(r => r.value === groupName) || groupName === selectedPerson?.role
+    }
 
     useEffect(() => {
         if (selectedPerson) {
@@ -334,14 +356,13 @@ export function PeoplePanel({
                         </div>
                     </div>
                 ) : (
-                    /* View Mode */
+                    /* View Mode - simple header (no repeated token) */
                     <div className="p-4">
-                        {/* Profile Header */}
                         <div className="flex flex-col items-center text-center pb-6 border-b border-[var(--color-border-subtle)]">
                             <div className="relative w-24 h-24 rounded-full bg-[var(--color-surface-subtle)] border-2 border-[var(--color-border-subtle)] flex items-center justify-center overflow-hidden mb-4">
                                 {selectedPerson.imageUrl ? (
-                                    <img 
-                                        src={selectedPerson.imageUrl} 
+                                    <img
+                                        src={selectedPerson.imageUrl}
                                         alt={`${selectedPerson.firstName} ${selectedPerson.lastName}`}
                                         className="w-full h-full object-cover"
                                     />
@@ -386,7 +407,7 @@ export function PeoplePanel({
                                 </div>
                             )}
 
-                            {selectedPerson.createdAt && (
+                            {selectedPerson.createdAt != null && (
                                 <div className="flex items-start gap-3">
                                     <div className="p-2 rounded-lg bg-[var(--color-surface-subtle)]">
                                         <Calendar size={16} className="text-[var(--color-text-muted)]" />
@@ -394,7 +415,10 @@ export function PeoplePanel({
                                     <div>
                                         <div className="text-xs text-[var(--color-text-muted)] mb-0.5">Added</div>
                                         <div className="text-sm text-[var(--color-text)]">
-                                            {selectedPerson.createdAt.toLocaleDateString('en-US', {
+                                            {(selectedPerson.createdAt instanceof Date
+                                                ? selectedPerson.createdAt
+                                                : new Date(selectedPerson.createdAt as string)
+                                            ).toLocaleDateString('en-US', {
                                                 year: 'numeric',
                                                 month: 'long',
                                                 day: 'numeric'
@@ -402,6 +426,46 @@ export function PeoplePanel({
                                         </div>
                                     </div>
                                 </div>
+                            )}
+                        </div>
+
+                        {/* Groups Section */}
+                        <div className="pt-4 border-t border-[var(--color-border-subtle)]">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Users size={16} className="text-[var(--color-text-muted)]" />
+                                <span className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider">Groups</span>
+                            </div>
+                            {personGroups.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                    {personGroups.map(group => {
+                                        const isRole = isRoleGroup(group.name)
+                                        return (
+                                            <div
+                                                key={group.id}
+                                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+                                                style={{
+                                                    backgroundColor: `${group.color}20`,
+                                                    color: group.color,
+                                                    border: `1px solid ${group.color}40`
+                                                }}
+                                                title={isRole ? 'Auto-generated role group' : undefined}
+                                            >
+                                                <div
+                                                    className="w-2 h-2 rounded-full"
+                                                    style={{ backgroundColor: group.color }}
+                                                />
+                                                {group.name}
+                                                {isRole && (
+                                                    <span className="ml-1 text-[10px] opacity-70" title="Auto-generated from role">
+                                                        ⚡
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            ) : (
+                                <p className="text-xs text-[var(--color-text-soft)] italic">Not in any groups</p>
                             )}
                         </div>
                     </div>

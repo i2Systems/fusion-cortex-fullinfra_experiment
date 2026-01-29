@@ -5,6 +5,7 @@ import { User, Mail, Shield, CheckSquare, Square, Trash2, Plus } from 'lucide-re
 import { Person } from '@/lib/stores/personStore'
 import { Button } from '@/components/ui/Button'
 import { ConfirmationModal } from '@/components/shared/ConfirmationModal'
+import { PersonToken } from './PersonToken'
 
 interface PeopleListViewProps {
     people: Person[]
@@ -125,12 +126,24 @@ export function PeopleListView({
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filteredPeople.map(person => (
+                        {filteredPeople.map(person => {
+                            const handleKeyDown = (e: React.KeyboardEvent) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault()
+                                    onPersonSelect(person.id)
+                                }
+                            }
+                            return (
                             <div
                                 key={person.id}
                                 onClick={() => onPersonSelect(person.id)}
+                                onKeyDown={handleKeyDown}
+                                tabIndex={0}
+                                role="button"
+                                aria-label={`${person.firstName} ${person.lastName}${person.role ? `, ${person.role}` : ''}`}
+                                aria-pressed={selectedPersonId === person.id}
                                 className={`
-                                    p-4 rounded-xl border cursor-pointer transition-all hover:shadow-[var(--shadow-elevated)] flex flex-col gap-3 relative
+                                    p-4 rounded-xl border cursor-pointer transition-all hover:shadow-[var(--shadow-elevated)] flex flex-col gap-3 relative focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]
                                     ${selectedPersonId === person.id
                                         ? 'bg-[var(--color-primary-soft)] border-[var(--color-primary)] ring-1 ring-[var(--color-primary)]'
                                         : selectedIds.has(person.id)
@@ -143,6 +156,7 @@ export function PeopleListView({
                                 <button
                                     onClick={(e) => handleToggleSelect(e, person.id)}
                                     className="absolute top-3 right-3 p-1 rounded hover:bg-[var(--color-surface-subtle)] transition-colors"
+                                    aria-label={`Select ${person.firstName} ${person.lastName}`}
                                 >
                                     {selectedIds.has(person.id) ? (
                                         <CheckSquare size={18} className="text-[var(--color-primary)]" />
@@ -152,18 +166,16 @@ export function PeopleListView({
                                 </button>
 
                                 <div className="flex items-center gap-3 pr-8">
-                                    <div className="relative w-10 h-10 rounded-full bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-center flex-shrink-0 overflow-hidden">
-                                        {person.imageUrl ? (
-                                            <img 
-                                                src={person.imageUrl} 
-                                                alt={`${person.firstName} ${person.lastName}`}
-                                                className="w-full h-full object-cover"
-                                            />
-                                        ) : (
-                                            <User size={20} className="text-[var(--color-text-muted)]" />
-                                        )}
-                                    </div>
-                                    <div className="min-w-0">
+                                    <PersonToken
+                                        person={person}
+                                        size="md"
+                                        layout="avatar"
+                                        onClick={onPersonSelect}
+                                        variant="elevated"
+                                        tooltipDetailLevel="none"
+                                        isSelected={selectedPersonId === person.id}
+                                    />
+                                    <div className="min-w-0 flex-1">
                                         <h3 className="font-semibold text-[var(--color-text)] truncate">
                                             {person.firstName} {person.lastName}
                                         </h3>
@@ -182,10 +194,11 @@ export function PeopleListView({
                                 )}
 
                                 <div className="flex items-center justify-between text-xs text-[var(--color-text-muted)] mt-auto pt-2 border-t border-[var(--color-border-subtle)]">
-                                    <span>Added {person.createdAt?.toLocaleDateString()}</span>
+                                        <span>Added {(person.createdAt instanceof Date ? person.createdAt : person.createdAt ? new Date(person.createdAt as string) : null)?.toLocaleDateString() ?? '—'}</span>
                                 </div>
                             </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 )}
             </div>

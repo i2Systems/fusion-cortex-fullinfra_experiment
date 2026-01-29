@@ -237,6 +237,15 @@ export function ConditionEditor({ trigger, condition, ruleType, onChange, onCanc
           </div>
         )
 
+      case 'fault':
+        return (
+          <div className="p-3 rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)]">
+            <div className="text-sm text-[var(--color-text-muted)]">
+              This rule runs when a device or system fault is detected at this site. Configure the action (e.g. email store manager) in the action step.
+            </div>
+          </div>
+        )
+
       default:
         return null
     }

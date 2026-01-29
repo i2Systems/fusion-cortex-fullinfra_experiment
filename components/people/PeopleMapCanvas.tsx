@@ -6,7 +6,7 @@
 
 'use client'
 
-import { Stage, Layer, Circle, Group, Text } from 'react-konva'
+import { Stage, Layer, Circle, Group, Text, Rect } from 'react-konva'
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { useZoomContext } from '@/lib/MapContext'
 import { FloorPlanImage, type ImageBounds } from '@/components/map/FloorPlanImage'
@@ -14,6 +14,8 @@ import type { ExtractedVectorData } from '@/lib/pdfVectorExtractor'
 import type { Location } from '@/lib/locationStorage'
 import { getRgbaVariable } from '@/lib/canvasColors'
 import { Person } from '@/lib/stores/personStore'
+import { MapPersonToken } from '@/components/map/MapPersonToken'
+import { getCanvasColors } from '@/lib/canvasColors'
 
 interface PeopleMapCanvasProps {
   onPersonSelect?: (personId: string | null) => void
@@ -155,6 +157,9 @@ export function PeopleMapCanvas({
   }, [getEffectiveImageBounds, dimensions])
 
   const [hoveredPerson, setHoveredPerson] = useState<Person | null>(null)
+  const [personTooltipTier, setPersonTooltipTier] = useState<1 | 2>(1)
+  const personTooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [personTooltipPosition, setPersonTooltipPosition] = useState({ x: 0, y: 0 })
   const [draggedPerson, setDraggedPerson] = useState<{
     id: string
     startX: number
@@ -228,8 +233,31 @@ export function PeopleMapCanvas({
     setDraggedPerson(null)
   }, [draggedPerson, fromCanvasCoords, onPersonMoveEnd])
 
+  // Two-tier person tooltip: tier 1 (some info) on hover, tier 2 (more info) after ~700ms
+  useEffect(() => {
+    if (!hoveredPerson) {
+      setPersonTooltipTier(1)
+      if (personTooltipTimerRef.current) {
+        clearTimeout(personTooltipTimerRef.current)
+        personTooltipTimerRef.current = null
+      }
+      return
+    }
+    setPersonTooltipTier(1)
+    personTooltipTimerRef.current = setTimeout(() => {
+      setPersonTooltipTier(2)
+      personTooltipTimerRef.current = null
+    }, 700)
+    return () => {
+      if (personTooltipTimerRef.current) {
+        clearTimeout(personTooltipTimerRef.current)
+        personTooltipTimerRef.current = null
+      }
+    }
+  }, [hoveredPerson])
 
-  // Colors
+  // Colors (for tooltip)
+  const canvasColors = getCanvasColors()
   const colors = {
     primary: getRgbaVariable('--color-primary', 1),
     text: getRgbaVariable('--color-text', 1),
@@ -323,48 +351,66 @@ export function PeopleMapCanvas({
                 onDragEnd={handlePersonDragEnd}
                 onClick={() => onPersonSelect?.(person.id)}
                 onTap={() => onPersonSelect?.(person.id)}
-                onMouseEnter={() => setHoveredPerson(person)}
+                onMouseEnter={(e) => {
+                  setHoveredPerson(person)
+                  const stage = e.target.getStage()
+                  if (stage) {
+                    const pos = stage.getPointerPosition()
+                    if (pos) setPersonTooltipPosition({ x: pos.x, y: pos.y })
+                  }
+                }}
                 onMouseLeave={() => setHoveredPerson(null)}
+                onMouseMove={(e) => {
+                  const stage = e.target.getStage()
+                  if (stage) {
+                    const pos = stage.getPointerPosition()
+                    if (pos) setPersonTooltipPosition({ x: pos.x, y: pos.y })
+                  }
+                }}
               >
-                {/* Person icon circle */}
-                <Circle
-                  name="person-circle"
-                  radius={isSelected ? 12 : (isHovered ? 10 : 8)}
-                  fill={isSelected ? colors.primary : getRgbaVariable('--color-primary', 0.7)}
-                  stroke={isSelected ? colors.text : colors.border}
-                  strokeWidth={isSelected ? 3 : 2}
-                  shadowBlur={isSelected ? 8 : (isHovered ? 4 : 2)}
-                  shadowColor={colors.primary}
-                  shadowOpacity={0.4}
-                  listening={true}
+                <MapPersonToken
+                  person={person}
+                  isSelected={isSelected}
+                  isHovered={isHovered}
+                  radius={7}
+                  scale={1 / effectiveScale}
                 />
-                {/* Person icon (simplified - using circle with "P" text) */}
-                <Text
-                  text="👤"
-                  fontSize={isSelected ? 14 : (isHovered ? 12 : 10)}
-                  x={-7}
-                  y={-7}
-                  fill={colors.text}
-                  listening={false}
-                />
-                {/* Name label on hover/select */}
-                {(isSelected || isHovered) && (
-                  <Text
-                    text={`${person.firstName} ${person.lastName}`}
-                    fontSize={12}
-                    fontFamily="system-ui, -apple-system, sans-serif"
-                    fill={colors.text}
-                    x={15}
-                    y={-6}
-                    padding={4}
-                    align="left"
-                    listening={false}
-                  />
-                )}
               </Group>
             )
           })}
         </Layer>
+
+        {/* Person tooltip - tier 1 (some info) immediately, tier 2 (more info) after ~700ms */}
+        {hoveredPerson && (() => {
+          const tier2 = personTooltipTier === 2
+          const pad = 12
+          const lineH = 16
+          const nameH = 16
+          const roleH = (tier2 && hoveredPerson.role) ? lineH : 0
+          const emailH = (tier2 && hoveredPerson.email) ? lineH : 0
+          const placedH = tier2 && hoveredPerson.x != null && hoveredPerson.y != null ? lineH : 0
+          const hintH = 14
+          const th = pad * 2 + nameH + (roleH ? roleH + 2 : 0) + (emailH ? emailH + 2 : 0) + (placedH ? placedH + 2 : 0) + 6 + hintH
+          const tw = tier2 ? 240 : 200
+          const x = Math.max(pad, Math.min(personTooltipPosition.x + 14, dimensions.width - tw - pad))
+          const y = Math.max(pad, Math.min(personTooltipPosition.y - 8, dimensions.height - th - pad))
+          const name = [hoveredPerson.firstName, hoveredPerson.lastName].filter(Boolean).join(' ') || 'Person'
+          const c = canvasColors
+          return (
+            <Layer key="person-tooltip">
+              <Group x={x} y={y}>
+                <Rect width={tw} height={th} fill={c.tooltipBg} cornerRadius={10} listening={false} shadowBlur={20} shadowColor={c.tooltipShadow} opacity={0.98} />
+                <Rect width={tw} height={th} fill="transparent" stroke={c.tooltipBorder} strokeWidth={1.5} cornerRadius={10} listening={false} />
+                <Text x={pad + 32} y={pad} text={name} fontSize={13} fontFamily="system-ui, -apple-system, sans-serif" fontStyle="bold" fill={c.tooltipText} width={tw - pad * 2 - 32} wrap="none" ellipsis={true} listening={false} />
+                <Text x={pad + 32} y={th - pad - hintH} text="Click to view profile" fontSize={10} fontFamily="system-ui, -apple-system, sans-serif" fill={c.muted} listening={false} />
+                {tier2 && hoveredPerson.role && <Text x={pad + 32} y={pad + nameH + 2} text={hoveredPerson.role} fontSize={11} fontFamily="system-ui, -apple-system, sans-serif" fill={c.muted} width={tw - pad * 2 - 32} wrap="none" ellipsis={true} listening={false} />}
+                {tier2 && hoveredPerson.email && <Text x={pad + 32} y={pad + nameH + 2 + roleH + 2} text={hoveredPerson.email} fontSize={10} fontFamily="system-ui, -apple-system, sans-serif" fill={c.muted} width={tw - pad * 2 - 32} wrap="none" ellipsis={true} listening={false} />}
+                {tier2 && hoveredPerson.x != null && hoveredPerson.y != null && <Text x={pad + 32} y={pad + nameH + 2 + roleH + 2 + emailH + 2} text="Placed on map" fontSize={10} fontFamily="system-ui, -apple-system, sans-serif" fill={c.muted} listening={false} />}
+                <Circle x={pad + 14} y={pad + (tier2 ? 28 : 18)} radius={12} fill={getRgbaVariable('--color-primary', 0.35)} stroke={c.tooltipBorder} strokeWidth={1} listening={false} />
+              </Group>
+            </Layer>
+          )
+        })()}
       </Stage>
     </div>
   )

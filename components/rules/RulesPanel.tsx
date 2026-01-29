@@ -11,7 +11,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Edit2, Save, Trash2, Radio, Clock, Sun, Zap, Calendar, Plus, X, Layers, Lightbulb, Workflow, CalendarClock, ArrowLeft } from 'lucide-react'
+import { Edit2, Save, Trash2, Radio, Clock, Sun, Zap, Calendar, AlertTriangle, Plus, X, Layers, Lightbulb, Workflow, CalendarClock, ArrowLeft } from 'lucide-react'
 import { Rule, RuleType, TargetType, TriggerType, ScheduleFrequency } from '@/lib/mockRules'
 import { useZones } from '@/lib/DomainContext'
 import { useDevices } from '@/lib/DomainContext'
@@ -34,6 +34,7 @@ const triggerOptions: Array<{ value: TriggerType; label: string; icon: any; desc
   { value: 'daylight', label: 'Daylight level', icon: Sun, description: 'Trigger based on natural light levels' },
   { value: 'bms', label: 'BMS command', icon: Zap, description: 'Trigger on building management system command' },
   { value: 'schedule', label: 'Time schedule', icon: Calendar, description: 'Trigger at specific times' },
+  { value: 'fault', label: 'Fault detected', icon: AlertTriangle, description: 'Trigger when a device or system fault occurs' },
 ]
 
 const ruleTypeOptions: Array<{ value: RuleType; label: string; icon: any; description: string; examples: string[] }> = [
@@ -235,28 +236,32 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
           return `scheduled at ${rule.condition.scheduleTime}${rule.condition.scheduleDays ? ` on ${rule.condition.scheduleDays.length} day(s)` : ''}`
         }
         return `scheduled time reached`
+      case 'fault':
+        return 'a fault is detected'
       default:
         return 'condition met'
     }
   }
 
   const formatRuleAction = (rule: Rule) => {
-    const parts: string[] = []
-    if (rule.action.brightness !== undefined) {
-      parts.push(`set to ${rule.action.brightness}%`)
-    }
-    if (rule.action.duration) {
-      parts.push(`for ${rule.action.duration} minutes`)
-    }
-    if (rule.action.returnToBMS) {
-      parts.push('then return to BMS')
-    }
+    const lightingParts: string[] = []
+    if (rule.action.brightness !== undefined) lightingParts.push(`set to ${rule.action.brightness}%`)
+    if (rule.action.duration) lightingParts.push(`for ${rule.action.duration} minutes`)
+    if (rule.action.returnToBMS) lightingParts.push('then return to BMS')
     const targets = (rule.action.zones && rule.action.zones.length > 0)
       ? rule.action.zones.join(', ')
       : (rule.action.devices && rule.action.devices.length > 0)
         ? `${rule.action.devices.length} device(s)`
         : 'targets'
-    return `set ${targets} ${parts.join(', ')}`
+    const hasLighting = (rule.action.zones?.length ?? 0) > 0 || (rule.action.devices?.length ?? 0) > 0
+    const emailPart = rule.action.emailManager ? 'email store manager' : ''
+    if (emailPart && !hasLighting) return emailPart
+    if (hasLighting && lightingParts.length > 0) {
+      const lightingStr = `set ${targets} ${lightingParts.join(', ')}`
+      return emailPart ? `${lightingStr}, and ${emailPart}` : lightingStr
+    }
+    if (emailPart) return emailPart
+    return 'No action set'
   }
 
   const formatLastTriggered = (date?: Date) => {

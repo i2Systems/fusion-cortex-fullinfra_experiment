@@ -42,6 +42,9 @@ import { Rule } from '@/lib/mockRules'
 import { FaultCategory, faultCategories } from '@/lib/faultDefinitions'
 import { calculateWarrantyStatus } from '@/lib/warranty'
 import { Badge } from '@/components/ui/Badge'
+import { trpc } from '@/lib/trpc/client'
+import { PersonToken } from '@/components/people/PersonToken'
+import { useRouter } from 'next/navigation'
 
 interface CriticalFault {
   deviceId: string
@@ -97,6 +100,27 @@ function OverviewTab({
   missingDevices?: number
   mapUploaded?: boolean
 }) {
+  const router = useRouter()
+  
+  // Fetch people to get manager role
+  const { data: sitePeople = [] } = trpc.person.list.useQuery(
+    { siteId: site?.id || '' },
+    { enabled: !!site?.id }
+  )
+
+  // Find person matching manager name to get their role
+  const managerPerson = site?.manager && sitePeople.length > 0
+    ? sitePeople.find(p => {
+        const fullName = `${p.firstName} ${p.lastName}`.trim()
+        return fullName === site.manager || p.firstName === site.manager || p.lastName === site.manager
+      })
+    : null
+  const managerRole = managerPerson?.role || 'Manager'
+
+  const handlePersonClick = (personId: string) => {
+    router.push(`/people?personId=${personId}`)
+  }
+
   const getHealthColor = (percentage: number) => {
     if (percentage >= 95) return 'var(--color-success)'
     if (percentage >= 85) return 'var(--color-warning)'
@@ -159,9 +183,21 @@ function OverviewTab({
               <div className="flex justify-between items-center p-2 rounded-lg bg-[var(--color-surface)]">
                 <span className="text-sm text-[var(--color-text-muted)] flex items-center gap-1">
                   <User size={14} />
-                  Manager
+                  {managerRole}
                 </span>
-                <span className="text-sm font-medium text-[var(--color-text)]">{site.manager}</span>
+                {managerPerson ? (
+                  <PersonToken
+                    person={managerPerson}
+                    size="sm"
+                    showName={true}
+                    layout="chip"
+                    onClick={handlePersonClick}
+                    variant="subtle"
+                    tooltipDetailLevel="none"
+                  />
+                ) : (
+                  <span className="text-sm font-medium text-[var(--color-text)]">{site.manager}</span>
+                )}
               </div>
             )}
             {site.squareFootage && (

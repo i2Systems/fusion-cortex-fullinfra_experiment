@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, memo } from 'react'
-import { Users, Monitor, Edit2, Trash2, Save, X, CheckSquare, Square, Plus, UserPlus, AlertCircle } from 'lucide-react'
+import { Users, Monitor, Edit2, Trash2, Save, X, CheckSquare, Square, Plus, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { PanelEmptyState } from '@/components/shared/PanelEmptyState'
 import { ConfirmationModal } from '@/components/shared/ConfirmationModal'
@@ -22,6 +22,8 @@ interface GroupsPanelProps {
     selectedGroupId: string | null
     onGroupSelect: (groupId: string | null) => void
     onCreateGroup: () => void
+    /** Called when creating a group with pre-selected items */
+    onCreateGroupWithItems?: (personIds: string[], deviceIds: string[]) => void
     onDeleteGroup: (groupId: string) => void
     onDeleteGroups: (groupIds: string[]) => void
     onEditGroup: (groupId: string, updates: Partial<Group>) => void
@@ -29,7 +31,8 @@ interface GroupsPanelProps {
     people?: Person[]
     filterMode?: GroupsFilterMode
     onAddToGroup?: (groupId: string, itemIds: string[], type: 'devices' | 'people') => Promise<void>
-    onItemMove?: (itemId: string, itemType: 'person' | 'device', fromGroupId: string | null, toGroupId: string) => void
+    /** Called when an item is moved/copied. `copy` is true when Shift is held */
+    onItemMove?: (itemId: string, itemType: 'person' | 'device', fromGroupId: string | null, toGroupId: string, copy?: boolean) => void
 }
 
 export function GroupsPanel({
@@ -37,6 +40,7 @@ export function GroupsPanel({
     selectedGroupId,
     onGroupSelect,
     onCreateGroup,
+    onCreateGroupWithItems,
     onDeleteGroup,
     onDeleteGroups,
     onEditGroup,
@@ -61,6 +65,8 @@ export function GroupsPanel({
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
     const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false)
     const [selectedUngroupedIds, setSelectedUngroupedIds] = useState<Set<string>>(new Set())
+    const [itemsViewMode, setItemsViewMode] = useState<'ungrouped' | 'all'>('ungrouped')
+    const [itemsFilterTab, setItemsFilterTab] = useState<'all' | 'people' | 'devices'>('all')
 
     const selectedGroup = useMemo(() => groups.find(g => g.id === selectedGroupId), [groups, selectedGroupId])
     const allSelected = useMemo(() => groups.length > 0 && selectedGroupIds.size === groups.length, [groups.length, selectedGroupIds.size])
@@ -75,7 +81,7 @@ export function GroupsPanel({
     // Get all person IDs that are in any group
     const groupedPersonIds = useMemo(() => {
         const ids = new Set<string>()
-        groups.forEach(g => g.personIds?.forEach(id => ids.add(id)))
+        groups.forEach(g => (g.personIds ?? []).forEach(id => ids.add(id)))
         return ids
     }, [groups])
 
@@ -93,10 +99,10 @@ export function GroupsPanel({
     const filteredGroups = useMemo(() => {
         if (filterMode === 'both') return groups
         if (filterMode === 'devices') {
-            return groups.filter(g => g.deviceIds.length > 0 || g.personIds?.length === 0)
+            return groups.filter(g => g.deviceIds.length > 0 || (g.personIds ?? []).length === 0)
         }
         if (filterMode === 'people') {
-            return groups.filter(g => (g.personIds?.length || 0) > 0 || g.deviceIds.length === 0)
+            return groups.filter(g => (g.personIds ?? []).length > 0 || g.deviceIds.length === 0)
         }
         return groups
     }, [groups, filterMode])
@@ -109,7 +115,7 @@ export function GroupsPanel({
                 description: selectedGroup.description || '',
                 color: selectedGroup.color,
                 deviceIds: selectedGroup.deviceIds,
-                personIds: selectedGroup.personIds || []
+                personIds: selectedGroup.personIds ?? []
             })
             setIsEditing(false)
         }
@@ -125,7 +131,7 @@ export function GroupsPanel({
                 description: selectedGroup.description || '',
                 color: selectedGroup.color,
                 deviceIds: selectedGroup.deviceIds,
-                personIds: selectedGroup.personIds || []
+                personIds: selectedGroup.personIds ?? []
             })
         }
     }
@@ -204,7 +210,7 @@ export function GroupsPanel({
     // Get the count label for a group based on filter mode
     const getGroupCountLabel = (group: Group) => {
         const deviceCount = group.deviceIds.length
-        const personCount = group.personIds?.length || 0
+        const personCount = (group.personIds ?? []).length
         
         if (filterMode === 'devices') return `${deviceCount} device${deviceCount !== 1 ? 's' : ''}`
         if (filterMode === 'people') return `${personCount} ${personCount !== 1 ? 'people' : 'person'}`
@@ -333,121 +339,251 @@ export function GroupsPanel({
                 )}
             </div>
 
-            {/* Ungrouped Items - Bottom Half */}
+            {/* Items Section - Bottom Half */}
             <div className="flex-1 min-h-0 flex flex-col">
-                <div className="p-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)]/50 flex-shrink-0">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <AlertCircle size={14} className="text-[var(--color-warning)]" />
-                            <h4 className="text-sm font-semibold text-[var(--color-text)]">Ungrouped</h4>
-                        </div>
-                        {selectedGroup && selectedUngroupedIds.size > 0 && (
-                            <Button
-                                onClick={handleAddSelectedToGroup}
-                                variant="ghost"
-                                size="sm"
-                                className="text-xs"
-                            >
-                                <Plus size={12} /> Add to {selectedGroup.name}
-                            </Button>
-                        )}
+                {/* Toggle: Ungrouped vs All */}
+                <div className="flex-shrink-0 p-2 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)]/30">
+                    <div className="flex rounded-lg bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-0.5">
+                        <button
+                            onClick={() => setItemsViewMode('ungrouped')}
+                            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                                itemsViewMode === 'ungrouped'
+                                    ? 'bg-[var(--color-primary)] text-white'
+                                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+                            }`}
+                        >
+                            Ungrouped ({ungroupedDevices.length + ungroupedPeople.length})
+                        </button>
+                        <button
+                            onClick={() => setItemsViewMode('all')}
+                            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                                itemsViewMode === 'all'
+                                    ? 'bg-[var(--color-primary)] text-white'
+                                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+                            }`}
+                        >
+                            All ({devices.length + people.length})
+                        </button>
                     </div>
-                    <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                        {filterMode === 'devices' && `${ungroupedDevices.length} device${ungroupedDevices.length !== 1 ? 's' : ''}`}
-                        {filterMode === 'people' && `${ungroupedPeople.length} ${ungroupedPeople.length !== 1 ? 'people' : 'person'}`}
-                        {filterMode === 'both' && `${ungroupedDevices.length} device${ungroupedDevices.length !== 1 ? 's' : ''}, ${ungroupedPeople.length} ${ungroupedPeople.length !== 1 ? 'people' : 'person'}`}
-                    </p>
                 </div>
-                <div className="flex-1 overflow-auto p-2">
-                    {/* Ungrouped Devices */}
-                    {(filterMode === 'devices' || filterMode === 'both') && ungroupedDevices.length > 0 && (
-                        <div className={filterMode === 'both' ? 'mb-3' : ''}>
-                            {filterMode === 'both' && (
-                                <div className="flex items-center gap-1.5 mb-2 px-1">
-                                    <Monitor size={12} className="text-[var(--color-text-muted)]" />
-                                    <span className="text-xs font-medium text-[var(--color-text-muted)]">Devices</span>
-                                </div>
-                            )}
-                            <div className="space-y-1">
-                                {ungroupedDevices.slice(0, 20).map(device => {
-                                    const handleDragStart = (e: React.DragEvent) => {
-                                        e.dataTransfer.effectAllowed = 'move'
-                                        e.dataTransfer.setData('application/json', JSON.stringify({ type: 'device', itemId: device.id, fromGroupId: null }))
-                                    }
-                                    return (
-                                        <div
-                                            key={device.id}
-                                            draggable
-                                            onDragStart={handleDragStart}
-                                            onClick={() => handleToggleUngrouped(device.id)}
-                                            className={`p-2 rounded-lg border cursor-move flex items-center gap-2 text-sm transition-all ${selectedUngroupedIds.has(device.id) ? 'bg-[var(--color-primary-soft)]/50 border-[var(--color-primary)]/50' : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30'}`}
-                                        >
-                                            {selectedUngroupedIds.has(device.id) ? <CheckSquare size={14} className="text-[var(--color-primary)]" /> : <Square size={14} className="text-[var(--color-text-muted)]" />}
-                                            <Monitor size={14} className="text-[var(--color-text-muted)]" />
-                                            <span className="text-[var(--color-text)] truncate">{device.deviceId || device.serialNumber}</span>
-                                        </div>
-                                    )
-                                })}
-                                {ungroupedDevices.length > 20 && (
-                                    <p className="text-xs text-[var(--color-text-muted)] text-center py-2">+{ungroupedDevices.length - 20} more</p>
-                                )}
-                            </div>
-                        </div>
-                    )}
 
-                    {/* Ungrouped People */}
-                    {(filterMode === 'people' || filterMode === 'both') && ungroupedPeople.length > 0 && (
-                        <div>
-                            {filterMode === 'both' && (
-                                <div className="flex items-center gap-1.5 mb-2 px-1">
-                                    <Users size={12} className="text-[var(--color-text-muted)]" />
-                                    <span className="text-xs font-medium text-[var(--color-text-muted)]">People</span>
-                                </div>
-                            )}
-                            <div className="space-y-1">
-                                {ungroupedPeople.slice(0, 20).map(person => {
-                                    const handleDragStart = (e: React.DragEvent) => {
-                                        e.dataTransfer.effectAllowed = 'move'
-                                        e.dataTransfer.setData('application/json', JSON.stringify({ type: 'person', itemId: person.id, fromGroupId: null }))
-                                    }
-                                    return (
-                                        <div
-                                            key={person.id}
-                                            draggable
-                                            onDragStart={handleDragStart}
-                                            onClick={() => handleToggleUngrouped(person.id)}
-                                            className={`p-2 rounded-lg border cursor-move flex items-center gap-2 text-sm transition-all ${selectedUngroupedIds.has(person.id) ? 'bg-[var(--color-primary-soft)]/50 border-[var(--color-primary)]/50' : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30'}`}
-                                        >
-                                            {selectedUngroupedIds.has(person.id) ? <CheckSquare size={14} className="text-[var(--color-primary)]" /> : <Square size={14} className="text-[var(--color-text-muted)]" />}
-                                            <Users size={14} className="text-[var(--color-text-muted)]" />
-                                            <span className="text-[var(--color-text)] truncate">{person.firstName} {person.lastName}</span>
-                                        </div>
-                                    )
-                                })}
-                                {ungroupedPeople.length > 20 && (
-                                    <p className="text-xs text-[var(--color-text-muted)] text-center py-2">+{ungroupedPeople.length - 20} more</p>
-                                )}
-                            </div>
-                        </div>
-                    )}
+                {/* Filter Tabs: All / People / Devices */}
+                <div className="flex-shrink-0 border-b border-[var(--color-border-subtle)]">
+                    <div className="flex">
+                        <button
+                            onClick={() => setItemsFilterTab('all')}
+                            className={`flex-1 px-2 py-2 text-[11px] font-medium transition-colors border-b-2 ${
+                                itemsFilterTab === 'all'
+                                    ? 'text-[var(--color-primary)] border-[var(--color-primary)]'
+                                    : 'text-[var(--color-text-muted)] border-transparent hover:text-[var(--color-text)]'
+                            }`}
+                        >
+                            All
+                        </button>
+                        <button
+                            onClick={() => setItemsFilterTab('people')}
+                            className={`flex-1 px-2 py-2 text-[11px] font-medium transition-colors border-b-2 flex items-center justify-center gap-1 ${
+                                itemsFilterTab === 'people'
+                                    ? 'text-[var(--color-primary)] border-[var(--color-primary)]'
+                                    : 'text-[var(--color-text-muted)] border-transparent hover:text-[var(--color-text)]'
+                            }`}
+                        >
+                            <Users size={10} />
+                            People
+                        </button>
+                        <button
+                            onClick={() => setItemsFilterTab('devices')}
+                            className={`flex-1 px-2 py-2 text-[11px] font-medium transition-colors border-b-2 flex items-center justify-center gap-1 ${
+                                itemsFilterTab === 'devices'
+                                    ? 'text-[var(--color-primary)] border-[var(--color-primary)]'
+                                    : 'text-[var(--color-text-muted)] border-transparent hover:text-[var(--color-text)]'
+                            }`}
+                        >
+                            <Monitor size={10} />
+                            Devices
+                        </button>
+                    </div>
+                </div>
 
-                    {/* Empty state for ungrouped */}
-                    {((filterMode === 'devices' && ungroupedDevices.length === 0) ||
-                      (filterMode === 'people' && ungroupedPeople.length === 0) ||
-                      (filterMode === 'both' && ungroupedDevices.length === 0 && ungroupedPeople.length === 0)) && (
-                        <div className="flex flex-col items-center justify-center h-full text-center py-8">
-                            <CheckSquare size={24} className="text-[var(--color-success)] mb-2" />
-                            <p className="text-sm text-[var(--color-text-muted)]">All items are grouped!</p>
-                        </div>
-                    )}
+                {/* Compact Tag Content */}
+                <div className="flex-1 overflow-auto p-3">
+                    {(() => {
+                        // Determine which items to show based on viewMode
+                        const showPeople = itemsViewMode === 'ungrouped' ? ungroupedPeople : people
+                        const showDevices = itemsViewMode === 'ungrouped' ? ungroupedDevices : devices
+                        const filteredPeople = itemsFilterTab === 'devices' ? [] : showPeople
+                        const filteredDevices = itemsFilterTab === 'people' ? [] : showDevices
+                        const hasItems = filteredPeople.length > 0 || filteredDevices.length > 0
+
+                        if (!hasItems) {
+                            return (
+                                <div className="flex flex-col items-center justify-center h-full text-center py-8">
+                                    <CheckSquare size={24} className="text-[var(--color-success)] mb-2" />
+                                    <p className="text-sm text-[var(--color-text-muted)]">
+                                        {itemsViewMode === 'ungrouped' 
+                                            ? (itemsFilterTab === 'all' ? 'All items are grouped!' : `All ${itemsFilterTab} are grouped!`)
+                                            : 'No items found'
+                                        }
+                                    </p>
+                                </div>
+                            )
+                        }
+
+                        return (
+                            <>
+                                {/* People Tags */}
+                                {filteredPeople.length > 0 && (
+                                    <div className={itemsFilterTab === 'all' && filteredDevices.length > 0 ? 'mb-4' : ''}>
+                                        {itemsFilterTab === 'all' && (
+                                            <div className="flex items-center gap-1.5 mb-2">
+                                                <Users size={11} className="text-[var(--color-text-muted)]" />
+                                                <span className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider">People</span>
+                                            </div>
+                                        )}
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {filteredPeople.map(person => {
+                                                const isSelected = selectedUngroupedIds.has(person.id)
+                                                const isGrouped = groupedPersonIds.has(person.id)
+                                                const handleDragStart = (e: React.DragEvent) => {
+                                                    e.dataTransfer.effectAllowed = 'move'
+                                                    e.dataTransfer.setData('application/json', JSON.stringify({ type: 'person', itemId: person.id, fromGroupId: null }))
+                                                }
+                                                const handleKeyDown = (e: React.KeyboardEvent) => {
+                                                    if (e.key === 'Enter' || e.key === ' ') {
+                                                        e.preventDefault()
+                                                        handleToggleUngrouped(person.id)
+                                                    }
+                                                }
+                                                return (
+                                                    <div
+                                                        key={person.id}
+                                                        draggable
+                                                        onDragStart={handleDragStart}
+                                                        onClick={() => handleToggleUngrouped(person.id)}
+                                                        onKeyDown={handleKeyDown}
+                                                        tabIndex={0}
+                                                        role="checkbox"
+                                                        aria-checked={isSelected}
+                                                        aria-label={`${person.firstName} ${person.lastName}${isSelected ? ', selected' : ''}`}
+                                                        className={`
+                                                            inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs cursor-pointer transition-all
+                                                            focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]
+                                                            ${isSelected 
+                                                                ? 'bg-[var(--color-primary)] text-white' 
+                                                                : isGrouped && itemsViewMode === 'all'
+                                                                    ? 'bg-[var(--color-surface)] text-[var(--color-text-muted)] border border-dashed border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/50'
+                                                                    : 'bg-[var(--color-surface-subtle)] text-[var(--color-text)] hover:bg-[var(--color-surface)] border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/50'
+                                                            }
+                                                        `}
+                                                        title={`${person.firstName} ${person.lastName}${person.role ? ` • ${person.role}` : ''}${isGrouped ? ' • In group(s)' : ''}`}
+                                                    >
+                                                        {person.imageUrl ? (
+                                                            <img src={person.imageUrl} alt="" className="w-4 h-4 rounded-full object-cover" />
+                                                        ) : (
+                                                            <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold ${isSelected ? 'bg-white/20' : 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]'}`}>
+                                                                {person.firstName[0]}{person.lastName[0]}
+                                                            </div>
+                                                        )}
+                                                        <span className="max-w-[80px] truncate">{person.firstName}</span>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Device Tags */}
+                                {filteredDevices.length > 0 && (
+                                    <div>
+                                        {itemsFilterTab === 'all' && (
+                                            <div className="flex items-center gap-1.5 mb-2">
+                                                <Monitor size={11} className="text-[var(--color-text-muted)]" />
+                                                <span className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider">Devices</span>
+                                            </div>
+                                        )}
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {filteredDevices.map(device => {
+                                                const isSelected = selectedUngroupedIds.has(device.id)
+                                                const isGrouped = groupedDeviceIds.has(device.id)
+                                                const handleDragStart = (e: React.DragEvent) => {
+                                                    e.dataTransfer.effectAllowed = 'move'
+                                                    e.dataTransfer.setData('application/json', JSON.stringify({ type: 'device', itemId: device.id, fromGroupId: null }))
+                                                }
+                                                const handleKeyDown = (e: React.KeyboardEvent) => {
+                                                    if (e.key === 'Enter' || e.key === ' ') {
+                                                        e.preventDefault()
+                                                        handleToggleUngrouped(device.id)
+                                                    }
+                                                }
+                                                return (
+                                                    <div
+                                                        key={device.id}
+                                                        draggable
+                                                        onDragStart={handleDragStart}
+                                                        onClick={() => handleToggleUngrouped(device.id)}
+                                                        onKeyDown={handleKeyDown}
+                                                        tabIndex={0}
+                                                        role="checkbox"
+                                                        aria-checked={isSelected}
+                                                        aria-label={`${device.deviceId}${isSelected ? ', selected' : ''}`}
+                                                        className={`
+                                                            inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs cursor-pointer transition-all
+                                                            focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]
+                                                            ${isSelected 
+                                                                ? 'bg-[var(--color-primary)] text-white' 
+                                                                : isGrouped && itemsViewMode === 'all'
+                                                                    ? 'bg-[var(--color-surface)] text-[var(--color-text-muted)] border border-dashed border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/50'
+                                                                    : 'bg-[var(--color-surface-subtle)] text-[var(--color-text)] hover:bg-[var(--color-surface)] border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/50'
+                                                            }
+                                                        `}
+                                                        title={`${device.deviceId} • ${device.type}${isGrouped ? ' • In group(s)' : ''}`}
+                                                    >
+                                                        <Monitor size={12} className={isSelected ? 'text-white/80' : 'text-[var(--color-text-muted)]'} />
+                                                        <span className="max-w-[80px] truncate">{device.deviceId}</span>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )
+                    })()}
                 </div>
             </div>
 
             {/* Footer */}
-            <div className="p-3 md:p-4 border-t border-[var(--color-border-subtle)] flex-shrink-0">
-                <Button onClick={onCreateGroup} className="w-full flex items-center justify-center gap-2" variant="primary">
-                    <Plus size={16} /> Create Group
-                </Button>
+            <div className="p-3 md:p-4 border-t border-[var(--color-border-subtle)] flex-shrink-0 space-y-2">
+                {/* Add selected items to selected group */}
+                {selectedGroup && selectedUngroupedIds.size > 0 && (
+                    <Button
+                        onClick={handleAddSelectedToGroup}
+                        className="w-full flex items-center justify-center gap-2"
+                        variant="secondary"
+                    >
+                        <UserPlus size={16} />
+                        Add {selectedUngroupedIds.size} to "{selectedGroup.name}"
+                    </Button>
+                )}
+                {/* Create Group - shows count when items selected */}
+                {selectedUngroupedIds.size > 0 && onCreateGroupWithItems ? (
+                    <Button
+                        onClick={() => {
+                            const personIds = Array.from(selectedUngroupedIds).filter(id => people.some(p => p.id === id))
+                            const deviceIds = Array.from(selectedUngroupedIds).filter(id => devices.some(d => d.id === id))
+                            onCreateGroupWithItems(personIds, deviceIds)
+                            setSelectedUngroupedIds(new Set())
+                        }}
+                        className="w-full flex items-center justify-center gap-2"
+                        variant="primary"
+                    >
+                        <Plus size={16} /> Create Group with {selectedUngroupedIds.size}
+                    </Button>
+                ) : (
+                    <Button onClick={onCreateGroup} className="w-full flex items-center justify-center gap-2" variant="primary">
+                        <Plus size={16} /> Create Group
+                    </Button>
+                )}
             </div>
 
             <ConfirmationModal
