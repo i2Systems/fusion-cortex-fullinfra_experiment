@@ -60,8 +60,14 @@ export function useSiteActions() {
         const currentState = useSiteStore.getState()
         const previousId = currentState.activeSiteId
 
-        // Skip if switching to same site
-        if (previousId === siteId) return
+        // Skip if switching to same site - STRICT CHECK
+        if (previousId === siteId) {
+            // Ensure switching state is off just in case
+            if (currentState.isSwitching) {
+                currentState.setSwitching(false)
+            }
+            return
+        }
 
         const newSite = currentState.sites.find(s => s.id === siteId)
         if (!newSite) return

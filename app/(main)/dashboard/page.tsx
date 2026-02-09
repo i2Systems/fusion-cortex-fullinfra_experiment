@@ -254,11 +254,15 @@ export default function DashboardPage() {
   }, [sites, selectedSiteId, activeSiteId]) // Remove setActiveSite from deps to prevent loops
 
   // When switching to map view, ensure activeSiteId matches selectedSiteId for map data
+  // REMOVED: Auto-sync effect that was causing infinite loops
+  // The site selection should be driven by user interaction (clicks), not side effects
+  /* 
   useEffect(() => {
     if (viewMode === 'map' && selectedSiteId && activeSiteId !== selectedSiteId) {
       setActiveSite(selectedSiteId, { skipAnimation: true })
     }
   }, [viewMode, selectedSiteId, activeSiteId, setActiveSite])
+  */
 
   // Fetch devices, zones, faults, and locations for all sites - create queries dynamically
   // Note: We'll fetch data in the useEffect to avoid hook rule violations
