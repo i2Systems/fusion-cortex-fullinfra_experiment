@@ -7,8 +7,27 @@ A web-based commissioning & configuration UI for large-scale retail lighting dep
 
 **Current Architecture (2025)**: Zustand stores + tRPC + Next.js 14 App Router. Legacy Context API files exist for compatibility but are deprecated.
 
+### What this fork adds
+
+This fork extends the base app with multi-app shell UX and configurable app-switcher patterns aimed at real-world use cases:
+
+- **Multi-app shell** — Side-by-side with Commissioning: a **Products** placeholder app (filler, lorem product grid) and **izOS Sign** (TV displays, playlists, stub dashboard). All share a unified nav/header pattern (notifications, profile/settings/help in sidebar, theme toggle in header).
+- **App switcher styles** (Settings → Appearance → App menu style):
+  - **Dropdown** — Click to open menu (default).
+  - **Icon tabs** — One icon per app with hover tooltip.
+  - **Inline** — Icon and label always visible, no menu.
+  - **Primary + overflow** — Main app (e.g. Commissioning) prominent; others under “Other apps”. Best when one product is primary and the rest are satellite tools.
+  - **Recent first** — Last-used app at top of the list for faster switching (persisted in `localStorage`). Best for repeat workflows.
+  - **Role-based** — Only apps relevant to the current role (e.g. Technician sees Commissioning + Sign, not Products). Best for compliance and task-focused UI.
+- **Day/Night design language** — Settings → Appearance: choose which theme is “Day” and which is “Night”; sun/moon toggle in the header switches between them (no extra themes, just remapping).
+- **Bottom drawer** — Footer/drawer respects the left nav width via `--fusion-nav-width` so it doesn’t sit under the panel.
+- **TanStack Query Devtools** — Trigger moved to bottom-right so it doesn’t cover the nav collapse control.
+
+Filler and Sign are intentionally minimal (stub pages, mock data) so the shell and switcher patterns can be tried without changing core Commissioning behavior.
+
 ## 📋 Table of Contents
 
+- [What this fork adds](#what-this-fork-adds)
 - [Purpose](#-purpose)
 - [Architecture](#-architecture)
 - [Design System](#-design-system)

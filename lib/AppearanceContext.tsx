@@ -30,6 +30,13 @@ export type FontSize = 'normal' | 'medium' | 'large'
 // Language types
 export type Language = 'en' | 'es' | 'fr'
 
+// Day/night mode: which theme is applied when (sun = day, moon = night)
+export type ThemeMode = 'day' | 'night'
+
+// App switcher / app menu interaction pattern
+export type AppSwitcherStyle = 'dropdown' | 'tabs' | 'inline' | 'primary' | 'recent' | 'role'
+const VALID_APP_SWITCHER_STYLES: AppSwitcherStyle[] = ['dropdown', 'tabs', 'inline', 'primary', 'recent', 'role']
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -107,9 +114,15 @@ export const languageNames: Record<Language, string> = {
 // ============================================================================
 
 interface AppearanceContextType {
-    // Theme
+    // Theme (effective = dayTheme when mode is day, nightTheme when mode is night)
     theme: Theme
     setTheme: (theme: Theme) => void
+    themeMode: ThemeMode
+    setThemeMode: (mode: ThemeMode) => void
+    dayTheme: Theme
+    nightTheme: Theme
+    setDayTheme: (theme: Theme) => void
+    setNightTheme: (theme: Theme) => void
     // Font
     fontFamily: FontFamily
     fontSize: FontSize
@@ -122,6 +135,9 @@ interface AppearanceContextType {
     // Advanced Settings
     enableSVGExtraction: boolean
     setEnableSVGExtraction: (enabled: boolean) => void
+    // App menu / switcher interaction pattern
+    appSwitcherStyle: AppSwitcherStyle
+    setAppSwitcherStyle: (style: AppSwitcherStyle) => void
 }
 
 const AppearanceContext = createContext<AppearanceContextType | undefined>(undefined)
@@ -131,12 +147,16 @@ const AppearanceContext = createContext<AppearanceContextType | undefined>(undef
 // ============================================================================
 
 export function AppearanceProvider({ children }: { children: ReactNode }) {
-    // State
-    const [theme, setThemeState] = useState<Theme>('dark')
+    // State: day/night each have a design language (theme); mode picks which is active
+    const [themeMode, setThemeModeState] = useState<ThemeMode>('night')
+    const [dayTheme, setDayThemeState] = useState<Theme>('light')
+    const [nightTheme, setNightThemeState] = useState<Theme>('dark')
+    const theme = themeMode === 'day' ? dayTheme : nightTheme
     const [fontFamily, setFontFamilyState] = useState<FontFamily>('system')
     const [fontSize, setFontSizeState] = useState<FontSize>('normal')
     const [language, setLanguageState] = useState<Language>('en')
     const [enableSVGExtraction, setEnableSVGExtractionState] = useState(false)
+    const [appSwitcherStyle, setAppSwitcherStyleState] = useState<AppSwitcherStyle>('dropdown')
     const [mounted, setMounted] = useState(false)
 
     // Load all preferences from localStorage on mount
@@ -145,14 +165,33 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
 
         const root = document.documentElement
 
-        // Theme
-        const storedTheme = localStorage.getItem('fusion_theme') as Theme | null
-        if (storedTheme && VALID_THEMES.includes(storedTheme)) {
-            setThemeState(storedTheme)
-            root.setAttribute('data-theme', storedTheme)
+        // Day / night theme selection (with backward compat for old fusion_theme)
+        const storedMode = localStorage.getItem('fusion_theme_mode') as ThemeMode | null
+        let storedDay = localStorage.getItem('fusion_day_theme') as Theme | null
+        let storedNight = localStorage.getItem('fusion_night_theme') as Theme | null
+        const legacyTheme = localStorage.getItem('fusion_theme') as Theme | null
+        let effective: Theme = 'dark'
+        let mode: ThemeMode = 'night'
+
+        if (!storedDay && !storedNight && legacyTheme && VALID_THEMES.includes(legacyTheme)) {
+            storedDay = legacyTheme
+            storedNight = legacyTheme
+            setDayThemeState(legacyTheme)
+            setNightThemeState(legacyTheme)
+            const nightThemes: Theme[] = ['dark', 'warm-night', 'on-brand-glass']
+            mode = nightThemes.includes(legacyTheme) ? 'night' : 'day'
+            setThemeModeState(mode)
+            effective = legacyTheme
         } else {
-            root.setAttribute('data-theme', 'dark')
+            if (storedMode === 'day' || storedMode === 'night') {
+                mode = storedMode
+                setThemeModeState(storedMode)
+            }
+            if (storedDay && VALID_THEMES.includes(storedDay)) setDayThemeState(storedDay)
+            if (storedNight && VALID_THEMES.includes(storedNight)) setNightThemeState(storedNight)
+            effective = mode === 'day' ? (storedDay && VALID_THEMES.includes(storedDay) ? storedDay : 'light') : (storedNight && VALID_THEMES.includes(storedNight) ? storedNight : 'dark')
         }
+        root.setAttribute('data-theme', effective)
 
         // Font
         const savedFont = localStorage.getItem('fusion_font_family') as FontFamily | null
@@ -188,15 +227,30 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
             console.warn('Failed to load advanced settings:', e)
         }
 
+        // App switcher style (migrate legacy segmented/mega/rail to primary/recent/role)
+        const storedStyle = localStorage.getItem('fusion_app_switcher_style') as string | null
+        const migrated = storedStyle === 'segmented' ? 'primary' : storedStyle === 'mega' ? 'recent' : storedStyle === 'rail' ? 'role' : storedStyle
+        if (migrated && VALID_APP_SWITCHER_STYLES.includes(migrated as AppSwitcherStyle)) {
+            setAppSwitcherStyleState(migrated as AppSwitcherStyle)
+            if (migrated !== storedStyle) localStorage.setItem('fusion_app_switcher_style', migrated)
+        }
+
         setMounted(true)
     }, [])
 
-    // Save theme changes
+    // Apply and persist theme (day/night)
     useEffect(() => {
         if (!mounted) return
         document.documentElement.setAttribute('data-theme', theme)
         localStorage.setItem('fusion_theme', theme)
     }, [theme, mounted])
+
+    useEffect(() => {
+        if (!mounted) return
+        localStorage.setItem('fusion_theme_mode', themeMode)
+        localStorage.setItem('fusion_day_theme', dayTheme)
+        localStorage.setItem('fusion_night_theme', nightTheme)
+    }, [themeMode, dayTheme, nightTheme, mounted])
 
     // Save font changes
     useEffect(() => {
@@ -231,6 +285,12 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
         }
     }, [enableSVGExtraction, mounted])
 
+    // Save app switcher style
+    useEffect(() => {
+        if (!mounted) return
+        localStorage.setItem('fusion_app_switcher_style', appSwitcherStyle)
+    }, [appSwitcherStyle, mounted])
+
     // Translation function
     const t = useCallback((key: string): string => {
         const keys = key.split('.')
@@ -255,20 +315,30 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
         return typeof value === 'string' ? value : key
     }, [language])
 
-    // Setters
-    const setTheme = (newTheme: Theme) => setThemeState(newTheme)
+    // Setters: setTheme updates the current mode's theme; setThemeMode toggles day/night
+    const setTheme = (newTheme: Theme) => {
+        if (themeMode === 'day') setDayThemeState(newTheme)
+        else setNightThemeState(newTheme)
+    }
+    const setThemeMode = (mode: ThemeMode) => setThemeModeState(mode)
+    const setDayTheme = (t: Theme) => setDayThemeState(VALID_THEMES.includes(t) ? t : 'light')
+    const setNightTheme = (t: Theme) => setNightThemeState(VALID_THEMES.includes(t) ? t : 'dark')
     const setFontFamily = (font: FontFamily) => setFontFamilyState(font)
     const setFontSize = (size: FontSize) => setFontSizeState(size)
     const setLanguage = (lang: Language) => setLanguageState(lang)
     const setEnableSVGExtraction = (enabled: boolean) => setEnableSVGExtractionState(enabled)
+    const setAppSwitcherStyle = (style: AppSwitcherStyle) => setAppSwitcherStyleState(style)
 
     return (
         <AppearanceContext.Provider
             value={{
                 theme, setTheme,
+                themeMode, setThemeMode,
+                dayTheme, nightTheme, setDayTheme, setNightTheme,
                 fontFamily, fontSize, setFontFamily, setFontSize,
                 language, setLanguage, t,
                 enableSVGExtraction, setEnableSVGExtraction,
+                appSwitcherStyle, setAppSwitcherStyle,
             }}
         >
             {children}

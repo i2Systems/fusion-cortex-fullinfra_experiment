@@ -1,6 +1,10 @@
 @tailwind base;
 
 @layer base {
+  /* Layout: nav width for fixed elements (bottom drawer); themes may override; MainNav updates on expand/collapse */
+  :root {
+    --fusion-nav-width: 240px;
+  }
 
   /* ============================================
      BASE STYLES

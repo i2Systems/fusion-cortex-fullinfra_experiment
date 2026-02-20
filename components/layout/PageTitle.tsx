@@ -18,6 +18,7 @@ import { useSite } from '@/lib/hooks/useSite'
 import { useNotifications } from '@/lib/NotificationContext'
 import { useDashboardViewStore } from '@/lib/stores/dashboardViewStore'
 import { ChevronDown, Bell, Loader2, LayoutGrid, Map } from 'lucide-react'
+import { ThemeToggle } from '@/components/layout/ThemeToggle'
 
 // Keyframes for text shimmer effect
 const shimmerKeyframes = `
@@ -119,8 +120,9 @@ export function PageTitle() {
             )}
           </div>
 
-          {/* Right: Site Selector + Notifications */}
+          {/* Right: Theme + Notifications + Site Selector */}
           <div className="flex items-center gap-2 md:gap-3 pointer-events-auto flex-shrink-0">
+            <ThemeToggle />
             {/* Notifications icon */}
             <button
               onClick={() => router.push('/notifications')}

@@ -241,23 +241,15 @@ export function PeoplePanel({
     return (
         <div className="h-full flex flex-col">
             {/* Header */}
-            <div className="p-4 border-b border-[var(--color-border-subtle)] flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-[var(--color-text)]">Profile</h3>
+            <div className="fusion-panel-header">
+                <h3 className="fusion-panel-header-title text-lg">Profile</h3>
                 {!isEditing && (
-                    <div className="flex items-center gap-1">
-                        <button 
-                            onClick={handleStartEdit} 
-                            className="p-2 hover:bg-[var(--color-surface-subtle)] rounded-lg transition-colors"
-                            title="Edit profile"
-                        >
-                            <Edit2 size={16} className="text-[var(--color-text-muted)]" />
+                    <div className="fusion-panel-header-actions">
+                        <button type="button" onClick={handleStartEdit} className="fusion-panel-header-action" title="Edit profile">
+                            <Edit2 size={16} />
                         </button>
-                        <button 
-                            onClick={() => setIsDeleteModalOpen(true)} 
-                            className="p-2 hover:bg-[var(--color-surface-subtle)] rounded-lg transition-colors"
-                            title="Delete person"
-                        >
-                            <Trash2 size={16} className="text-[var(--color-danger)]" />
+                        <button type="button" onClick={() => setIsDeleteModalOpen(true)} className="fusion-panel-header-action text-[var(--color-danger)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger-soft)]" title="Delete person">
+                            <Trash2 size={16} />
                         </button>
                     </div>
                 )}

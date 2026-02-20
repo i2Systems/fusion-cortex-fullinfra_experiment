@@ -247,31 +247,23 @@ export function SiteDetailsPanel({
           </div>
 
           {/* Action Buttons Bar */}
-          <div className="p-3 md:p-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)]">
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={onAddSite}
-                className="px-3 md:px-4 py-1.5 md:py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-xs md:text-sm text-[var(--color-text)] hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)] transition-all flex items-center gap-1.5 md:gap-2"
-              >
+          <div className="fusion-panel-footer">
+            <div className="fusion-panel-footer-actions fusion-panel-footer-actions--between">
+              <Button onClick={onAddSite} variant="primary" className="flex items-center justify-center gap-2 text-sm">
                 <Plus size={14} className="md:w-4 md:h-4" />
                 <span className="hidden sm:inline">Add Site</span>
                 <span className="sm:hidden">Add</span>
-              </button>
-              <div className="flex-1" />
-              <button
-                onClick={onImportSites}
-                className="px-3 md:px-4 py-1.5 md:py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-xs md:text-sm text-[var(--color-text)] hover:border-[var(--color-border-strong)] transition-all flex items-center gap-1.5 md:gap-2"
-              >
-                <Upload size={14} className="md:w-4 md:h-4" />
-                <span className="hidden sm:inline">Import</span>
-              </button>
-              <button
-                onClick={onExportSites}
-                className="px-3 md:px-4 py-1.5 md:py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-xs md:text-sm text-[var(--color-text)] hover:border-[var(--color-border-strong)] transition-all flex items-center gap-1.5 md:gap-2"
-              >
-                <Download size={14} className="md:w-4 md:h-4" />
-                <span className="hidden sm:inline">Export</span>
-              </button>
+              </Button>
+              <div className="fusion-panel-footer-actions">
+                <Button onClick={onImportSites} variant="secondary" className="flex items-center justify-center gap-2 text-sm">
+                  <Upload size={14} className="md:w-4 md:h-4" />
+                  <span className="hidden sm:inline">Import</span>
+                </Button>
+                <Button onClick={onExportSites} variant="secondary" className="flex items-center justify-center gap-2 text-sm">
+                  <Download size={14} className="md:w-4 md:h-4" />
+                  <span className="hidden sm:inline">Export</span>
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -405,20 +397,22 @@ export function SiteDetailsPanel({
               )}
             </div>
 
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="fusion-panel-header-actions">
               <button
+                type="button"
                 onClick={() => setShowFocusedModal(true)}
-                className="p-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
+                className="fusion-panel-header-action text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
                 title="Open focused view"
               >
                 <Maximize2 size={14} />
               </button>
               <button
+                type="button"
                 onClick={() => onEditSite?.(site)}
-                className="p-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors"
+                className="fusion-panel-header-action"
                 title="Edit site"
               >
-                <Edit2 size={14} className="text-[var(--color-text-muted)]" />
+                <Edit2 size={14} />
               </button>
               {sites.length > 1 && (
                 <></>
@@ -534,10 +528,7 @@ export function SiteDetailsPanel({
                 <AlertTriangle size={16} className="text-[var(--color-danger)]" />
                 <span className="font-semibold text-[var(--color-text)]">Critical Faults</span>
               </div>
-              <button
-                onClick={() => handleNavigate('/faults')}
-                className="text-xs text-[var(--color-primary)] hover:underline flex items-center gap-1"
-              >
+              <button type="button" onClick={() => handleNavigate('/faults')} className="fusion-panel-section-link">
                 View all
                 <ArrowRight size={12} />
               </button>
@@ -573,10 +564,7 @@ export function SiteDetailsPanel({
                 <Shield size={16} className="text-[var(--color-warning)]" />
                 <span className="font-semibold text-[var(--color-text)]">Warranty Alerts</span>
               </div>
-              <button
-                onClick={() => handleNavigate('/lookup')}
-                className="text-xs text-[var(--color-primary)] hover:underline flex items-center gap-1"
-              >
+              <button type="button" onClick={() => handleNavigate('/lookup')} className="fusion-panel-section-link">
                 View devices
                 <ArrowRight size={12} />
               </button>
@@ -712,36 +700,23 @@ export function SiteDetailsPanel({
       />
 
       {/* Action Buttons Bar */}
-      <div className="p-3 md:p-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)] flex-shrink-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            onClick={onAddSite}
-            variant="ghost"
-            className="border border-[var(--color-border-subtle)] hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)] flex-1 sm:flex-none justify-center"
-          >
-            <Plus size={14} className="md:w-4 md:h-4 mr-1.5 md:mr-2" />
+      <div className="fusion-panel-footer">
+        <div className="fusion-panel-footer-actions fusion-panel-footer-actions--between">
+          <Button onClick={onAddSite} variant="primary" className="flex items-center justify-center gap-2 text-sm">
+            <Plus size={14} className="md:w-4 md:h-4" />
             <span className="hidden sm:inline">Add Site</span>
             <span className="sm:hidden">Add</span>
           </Button>
-          <div className="hidden sm:block flex-1" />
-          <Button
-            onClick={onImportSites}
-            variant="ghost"
-            className="border border-[var(--color-border-subtle)] hover:border-[var(--color-border-strong)] flex-1 sm:flex-none justify-center"
-          >
-            <Upload size={14} className="md:w-4 md:h-4 mr-1.5 md:mr-2" />
-            <span className="hidden sm:inline">Import</span>
-            <span className="sm:hidden">Import</span>
-          </Button>
-          <Button
-            onClick={onExportSites}
-            variant="ghost"
-            className="border border-[var(--color-border-subtle)] hover:border-[var(--color-border-strong)] flex-1 sm:flex-none justify-center"
-          >
-            <Download size={14} className="md:w-4 md:h-4 mr-1.5 md:mr-2" />
-            <span className="hidden sm:inline">Export</span>
-            <span className="sm:hidden">Export</span>
-          </Button>
+          <div className="fusion-panel-footer-actions">
+            <Button onClick={onImportSites} variant="secondary" className="flex items-center justify-center gap-2 text-sm">
+              <Upload size={14} className="md:w-4 md:h-4" />
+              <span className="hidden sm:inline">Import</span>
+            </Button>
+            <Button onClick={onExportSites} variant="secondary" className="flex items-center justify-center gap-2 text-sm">
+              <Download size={14} className="md:w-4 md:h-4" />
+              <span className="hidden sm:inline">Export</span>
+            </Button>
+          </div>
         </div>
       </div>
 

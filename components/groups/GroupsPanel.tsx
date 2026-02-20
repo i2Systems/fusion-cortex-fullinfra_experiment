@@ -558,37 +558,37 @@ export function GroupsPanel({
             </div>
 
             {/* Footer */}
-            <div className="p-3 md:p-4 border-t border-[var(--color-border-subtle)] flex-shrink-0 space-y-2">
-                {/* Add selected items to selected group */}
-                {selectedGroup && selectedUngroupedIds.size > 0 && (
-                    <Button
-                        onClick={handleAddSelectedToGroup}
-                        className="w-full flex items-center justify-center gap-2"
-                        variant="secondary"
-                    >
-                        <UserPlus size={16} />
-                        Add {selectedUngroupedIds.size} to "{selectedGroup.name}"
-                    </Button>
-                )}
-                {/* Create Group - shows count when items selected */}
-                {selectedUngroupedIds.size > 0 && onCreateGroupWithItems ? (
-                    <Button
-                        onClick={() => {
-                            const personIds = Array.from(selectedUngroupedIds).filter(id => people.some(p => p.id === id))
-                            const deviceIds = Array.from(selectedUngroupedIds).filter(id => devices.some(d => d.id === id))
-                            onCreateGroupWithItems(personIds, deviceIds)
-                            setSelectedUngroupedIds(new Set())
-                        }}
-                        className="w-full flex items-center justify-center gap-2"
-                        variant="primary"
-                    >
-                        <Plus size={16} /> Create Group with {selectedUngroupedIds.size}
-                    </Button>
-                ) : (
-                    <Button onClick={onCreateGroup} className="w-full flex items-center justify-center gap-2" variant="primary">
-                        <Plus size={16} /> Create Group
-                    </Button>
-                )}
+            <div className="fusion-panel-footer">
+                <div className="fusion-panel-footer-actions fusion-panel-footer-actions--stacked">
+                    {selectedGroup && selectedUngroupedIds.size > 0 && (
+                        <Button
+                            onClick={handleAddSelectedToGroup}
+                            variant="secondary"
+                            className="w-full flex items-center justify-center gap-2 text-sm"
+                        >
+                            <UserPlus size={16} />
+                            Add {selectedUngroupedIds.size} to &quot;{selectedGroup.name}&quot;
+                        </Button>
+                    )}
+                    {selectedUngroupedIds.size > 0 && onCreateGroupWithItems ? (
+                        <Button
+                            onClick={() => {
+                                const personIds = Array.from(selectedUngroupedIds).filter(id => people.some(p => p.id === id))
+                                const deviceIds = Array.from(selectedUngroupedIds).filter(id => devices.some(d => d.id === id))
+                                onCreateGroupWithItems(personIds, deviceIds)
+                                setSelectedUngroupedIds(new Set())
+                            }}
+                            variant="primary"
+                            className="w-full flex items-center justify-center gap-2 text-sm"
+                        >
+                            <Plus size={16} /> Create Group with {selectedUngroupedIds.size}
+                        </Button>
+                    ) : (
+                        <Button onClick={onCreateGroup} variant="primary" className="w-full flex items-center justify-center gap-2 text-sm">
+                            <Plus size={16} /> Create Group
+                        </Button>
+                    )}
+                </div>
             </div>
 
             <ConfirmationModal

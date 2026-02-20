@@ -43,7 +43,7 @@ export const CardTitle = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLHea
     ({ className = '', ...props }, ref) => (
         <h3
             ref={ref}
-            className={`text-2xl font-semibold leading-none tracking-tight text-text ${className}`}
+            className={`text-2xl font-semibold leading-none tracking-tight text-[var(--color-text)] ${className}`}
             {...props}
         />
     )
@@ -55,7 +55,7 @@ export const CardDescription = forwardRef<HTMLParagraphElement, HTMLAttributes<H
     ({ className = '', ...props }, ref) => (
         <p
             ref={ref}
-            className={`text-sm text-text-muted ${className}`}
+            className={`text-sm text-[var(--color-text-muted)] ${className}`}
             {...props}
         />
     )
@@ -80,11 +80,12 @@ export const CardContent = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElem
 CardContent.displayName = 'CardContent';
 
 // --- Card Footer ---
+// For panel-style action bars, use fusion-panel-footer and fusion-panel-footer-actions (see components.css).
 export const CardFooter = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
     ({ className = '', ...props }, ref) => (
         <div
             ref={ref}
-            className={`flex items-center ${className}`}
+            className={`flex items-center gap-2 ${className}`}
             style={{ 
                 padding: 'var(--space-6)', 
                 paddingTop: 'var(--space-0)',

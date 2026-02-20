@@ -12,9 +12,10 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { X, Search, Settings, User, Bell, Shield, Palette, Database, Info, Type, Wrench, BookOpen } from 'lucide-react'
+import { X, Search, Settings, User, Bell, Shield, Palette, Database, Info, Type, Wrench, BookOpen, Sun, Moon } from 'lucide-react'
 import { useAuth, useRole } from '@/lib/auth'
-import { useTheme, useFont, useI18n, useAdvancedSettings, languageNames, type FontFamily, type FontSize, type Language } from '@/lib/AppearanceContext'
+import { useFont, useI18n, useAdvancedSettings, languageNames, type FontFamily, type FontSize, type Language, type AppSwitcherStyle, type Theme } from '@/lib/AppearanceContext'
+import { useAppearance } from '@/lib/AppearanceContext'
 import { Button } from '@/components/ui/Button'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 
@@ -36,11 +37,11 @@ const settingsSections = [
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { user, logout, isAuthenticated } = useAuth()
-  const { theme, setTheme } = useTheme()
   const { role, setRole } = useRole()
   const { fontFamily, fontSize, setFontFamily, setFontSize } = useFont()
   const { language, setLanguage, t } = useI18n()
   const { enableSVGExtraction, setEnableSVGExtraction } = useAdvancedSettings()
+  const { theme, setTheme, themeMode, setThemeMode, dayTheme, nightTheme, setDayTheme, setNightTheme, appSwitcherStyle, setAppSwitcherStyle } = useAppearance()
   const [activeSection, setActiveSection] = useState(isAuthenticated ? 'profile' : 'appearance')
   const [searchQuery, setSearchQuery] = useState('')
   const modalRef = useRef<HTMLDivElement>(null)
@@ -289,6 +290,71 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-3">
                         {t('theme')}
                       </label>
+                      {/* Day / Night: choose which design language is day and which is night — at top */}
+                      <div className="flex flex-col gap-3 py-3 px-3 mb-4 bg-[var(--color-bg-elevated)]/50 rounded-lg border border-[var(--color-border-subtle)]">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-[var(--color-text-muted)]">Day / Night</span>
+                          <button
+                            type="button"
+                            onClick={() => setThemeMode(themeMode === 'day' ? 'night' : 'day')}
+                            className={`p-1.5 rounded-md transition-colors ${themeMode === 'day' ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]' : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)]'}`}
+                            title={themeMode === 'day' ? 'Currently day — click for night' : 'Currently night — click for day'}
+                          >
+                            <Sun size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setThemeMode(themeMode === 'night' ? 'day' : 'night')}
+                            className={`p-1.5 rounded-md transition-colors ${themeMode === 'night' ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]' : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)]'}`}
+                            title={themeMode === 'night' ? 'Currently night — click for day' : 'Currently day — click for night'}
+                          >
+                            <Moon size={16} />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label htmlFor="settings-day-theme" className="block text-xs font-medium text-[var(--color-text-muted)] mb-1.5">Day (sun)</label>
+                            <select
+                              id="settings-day-theme"
+                              value={dayTheme}
+                              onChange={(e) => setDayTheme(e.target.value as Theme)}
+                              className="w-full px-3 py-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]"
+                            >
+                              <option value="light">Light</option>
+                              <option value="dark">Dark</option>
+                              <option value="warm-day">Warm Day</option>
+                              <option value="warm-night">Warm Night</option>
+                              <option value="high-contrast">High Contrast</option>
+                              <option value="glass-neumorphism">Glass Neumorphism</option>
+                              <option value="business-fluent">Business Fluent</option>
+                              <option value="on-brand">On Brand</option>
+                              <option value="on-brand-glass">On Brand Glass</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label htmlFor="settings-night-theme" className="block text-xs font-medium text-[var(--color-text-muted)] mb-1.5">Night (moon)</label>
+                            <select
+                              id="settings-night-theme"
+                              value={nightTheme}
+                              onChange={(e) => setNightTheme(e.target.value as Theme)}
+                              className="w-full px-3 py-2 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]"
+                            >
+                              <option value="light">Light</option>
+                              <option value="dark">Dark</option>
+                              <option value="warm-day">Warm Day</option>
+                              <option value="warm-night">Warm Night</option>
+                              <option value="high-contrast">High Contrast</option>
+                              <option value="glass-neumorphism">Glass Neumorphism</option>
+                              <option value="business-fluent">Business Fluent</option>
+                              <option value="on-brand">On Brand</option>
+                              <option value="on-brand-glass">On Brand Glass</option>
+                            </select>
+                          </div>
+                        </div>
+                        <p className="text-xs text-[var(--color-text-soft)]">
+                          The sun/moon icon in the header switches between day and night. Choose which design language is used for each.
+                        </p>
+                      </div>
                       <div className="space-y-2" role="radiogroup" aria-labelledby="settings-theme-label">
                         <label htmlFor="settings-theme-dark" className="flex items-center gap-3 p-3 bg-[var(--color-surface-subtle)] rounded-lg cursor-pointer hover:bg-[var(--color-surface)] transition-colors">
                           <input
@@ -469,6 +535,90 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       <p className="text-xs text-[var(--color-text-muted)] mt-2">
                         Changes the language of the interface
                       </p>
+                    </div>
+
+                    {/* App menu / switcher style */}
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-3">
+                        App menu style
+                      </label>
+                      <p className="text-xs text-[var(--color-text-muted)] mb-3">
+                        How the app switcher (Commissioning, Products, izOS Sign) is shown in the sidebar.
+                      </p>
+                      <div className="space-y-2" role="radiogroup" aria-label="App menu style">
+                        <label htmlFor="settings-app-menu-dropdown" className="flex items-center gap-3 p-3 bg-[var(--color-surface-subtle)] rounded-lg cursor-pointer hover:bg-[var(--color-surface)] transition-colors">
+                          <input
+                            id="settings-app-menu-dropdown"
+                            type="radio"
+                            name="appSwitcherStyle"
+                            value="dropdown"
+                            checked={appSwitcherStyle === 'dropdown'}
+                            onChange={() => setAppSwitcherStyle('dropdown' as AppSwitcherStyle)}
+                            className="rounded"
+                          />
+                          <span className="text-sm text-[var(--color-text)]">Dropdown — click to open menu</span>
+                        </label>
+                        <label htmlFor="settings-app-menu-tabs" className="flex items-center gap-3 p-3 bg-[var(--color-surface-subtle)] rounded-lg cursor-pointer hover:bg-[var(--color-surface)] transition-colors">
+                          <input
+                            id="settings-app-menu-tabs"
+                            type="radio"
+                            name="appSwitcherStyle"
+                            value="tabs"
+                            checked={appSwitcherStyle === 'tabs'}
+                            onChange={() => setAppSwitcherStyle('tabs' as AppSwitcherStyle)}
+                            className="rounded"
+                          />
+                          <span className="text-sm text-[var(--color-text)]">Icon tabs — one icon per app, hover for tooltip</span>
+                        </label>
+                        <label htmlFor="settings-app-menu-inline" className="flex items-center gap-3 p-3 bg-[var(--color-surface-subtle)] rounded-lg cursor-pointer hover:bg-[var(--color-surface)] transition-colors">
+                          <input
+                            id="settings-app-menu-inline"
+                            type="radio"
+                            name="appSwitcherStyle"
+                            value="inline"
+                            checked={appSwitcherStyle === 'inline'}
+                            onChange={() => setAppSwitcherStyle('inline' as AppSwitcherStyle)}
+                            className="rounded"
+                          />
+                          <span className="text-sm text-[var(--color-text)]">Inline — icon and label always visible, no menu</span>
+                        </label>
+                        <label htmlFor="settings-app-menu-primary" className="flex items-center gap-3 p-3 bg-[var(--color-surface-subtle)] rounded-lg cursor-pointer hover:bg-[var(--color-surface)] transition-colors">
+                          <input
+                            id="settings-app-menu-primary"
+                            type="radio"
+                            name="appSwitcherStyle"
+                            value="primary"
+                            checked={appSwitcherStyle === 'primary'}
+                            onChange={() => setAppSwitcherStyle('primary' as AppSwitcherStyle)}
+                            className="rounded"
+                          />
+                          <span className="text-sm text-[var(--color-text)]">Primary + overflow — main app (e.g. Commissioning) prominent; other apps under “Other apps”. Best when one product is primary and the rest are satellite tools.</span>
+                        </label>
+                        <label htmlFor="settings-app-menu-recent" className="flex items-center gap-3 p-3 bg-[var(--color-surface-subtle)] rounded-lg cursor-pointer hover:bg-[var(--color-surface)] transition-colors">
+                          <input
+                            id="settings-app-menu-recent"
+                            type="radio"
+                            name="appSwitcherStyle"
+                            value="recent"
+                            checked={appSwitcherStyle === 'recent'}
+                            onChange={() => setAppSwitcherStyle('recent' as AppSwitcherStyle)}
+                            className="rounded"
+                          />
+                          <span className="text-sm text-[var(--color-text)]">Recent first — last-used app at top of the list for faster switching. Best for repeat workflows and muscle memory.</span>
+                        </label>
+                        <label htmlFor="settings-app-menu-role" className="flex items-center gap-3 p-3 bg-[var(--color-surface-subtle)] rounded-lg cursor-pointer hover:bg-[var(--color-surface)] transition-colors">
+                          <input
+                            id="settings-app-menu-role"
+                            type="radio"
+                            name="appSwitcherStyle"
+                            value="role"
+                            checked={appSwitcherStyle === 'role'}
+                            onChange={() => setAppSwitcherStyle('role' as AppSwitcherStyle)}
+                            className="rounded"
+                          />
+                          <span className="text-sm text-[var(--color-text)]">Role-based — only show apps relevant to your role (e.g. Technician sees Commissioning + Sign, not Products). Best for compliance and task-focused UI.</span>
+                        </label>
+                      </div>
                     </div>
 
                     <div>

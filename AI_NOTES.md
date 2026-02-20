@@ -238,6 +238,20 @@ These components follow a consistent pattern with Overview, Metrics, History, an
 </div>
 ```
 
+### Panel layout and actions
+
+Detail/context panels use a consistent structure (see `app/styles/components.css`):
+
+- **Header**: `fusion-panel-header`, `fusion-panel-header-title`, `fusion-panel-header-actions`. Icon buttons use `fusion-panel-header-action` (edit, delete, maximize).
+- **Body**: Scrollable content; use `fusion-panel-body` or `flex-1 overflow-auto` with padding.
+- **Footer**: `fusion-panel-footer` for actions attached to the bottom. Inner layout:
+  - `fusion-panel-footer-actions` — horizontal row (gap).
+  - `fusion-panel-footer-actions--between` — primary left, secondary/utility right.
+  - `fusion-panel-footer-actions--stacked` — vertical stack; buttons full-width.
+- **Section links**: In-content links like "View devices →" use `fusion-panel-section-link`.
+
+Use `Button` with `variant="primary" | "secondary" | "ghost" | "danger"` for all panel actions so styling stays consistent.
+
 ## File Structure
 
 - **Pages**: `app/(main)/[section]/page.tsx`

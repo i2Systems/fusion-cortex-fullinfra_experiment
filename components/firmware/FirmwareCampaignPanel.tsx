@@ -101,35 +101,34 @@ export function FirmwareCampaignPanel({
   })
 
   const footer = (onIncludeCompletedChange != null || onCreateCampaign != null) && (
-    <footer className="flex-shrink-0 border-t border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 flex items-center justify-between gap-3">
-      <div className="flex items-center gap-2">
-        {onIncludeCompletedChange != null && (
-          <>
-            <Switch
-              checked={includeCompleted}
-              onCheckedChange={onIncludeCompletedChange}
-              id="firmware-show-completed"
-            />
-            <label
-              htmlFor="firmware-show-completed"
-              className="text-sm font-medium text-[var(--color-text-muted)] cursor-pointer hover:text-[var(--color-text)] transition-colors select-none"
-            >
-              Show completed
-            </label>
-          </>
+    <div className="fusion-panel-footer">
+      <div className="fusion-panel-footer-actions fusion-panel-footer-actions--between">
+        <div className="flex items-center gap-2">
+          {onIncludeCompletedChange != null && (
+            <>
+              <Switch
+                checked={includeCompleted}
+                onCheckedChange={onIncludeCompletedChange}
+                id="firmware-show-completed"
+              />
+              <label
+                htmlFor="firmware-show-completed"
+                className="text-sm font-medium text-[var(--color-text-muted)] cursor-pointer hover:text-[var(--color-text)] transition-colors select-none"
+              >
+                Show completed
+              </label>
+            </>
+          )}
+        </div>
+        {onCreateCampaign != null && (
+          <div className="fusion-panel-footer-actions">
+            <Button onClick={onCreateCampaign} variant="primary" className="flex items-center justify-center gap-2 text-sm">
+              Create Campaign
+            </Button>
+          </div>
         )}
       </div>
-      {onCreateCampaign != null && (
-        <Button
-          onClick={onCreateCampaign}
-          variant="primary"
-          size="sm"
-          className="shadow-[var(--shadow-sm)]"
-        >
-          Create Campaign
-        </Button>
-      )}
-    </footer>
+    </div>
   )
 
   if (!campaign) {

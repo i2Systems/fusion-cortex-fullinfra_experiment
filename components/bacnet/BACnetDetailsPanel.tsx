@@ -246,15 +246,9 @@ export function BACnetDetailsPanel({
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
                 {!isEditing && (
-                  <>
-                    <button
-                      onClick={handleEditClick}
-                      className="p-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors"
-                      title="Edit mapping"
-                    >
-                      <Edit2 size={14} className="text-[var(--color-text-muted)]" />
-                    </button>
-                  </>
+                  <button type="button" onClick={handleEditClick} className="fusion-panel-header-action" title="Edit mapping">
+                    <Edit2 size={14} />
+                  </button>
                 )}
               </div>
             </div>
@@ -465,49 +459,39 @@ export function BACnetDetailsPanel({
       />
 
       {/* Actions Footer */}
-      <div className="p-3 md:p-4 border-t border-[var(--color-border-subtle)] space-y-2 flex-shrink-0">
-        {isEditing ? (
-          <>
-            <Button
-              onClick={handleSave}
-              variant="primary"
-              className="w-full flex items-center justify-center gap-1.5 md:gap-2 text-xs md:text-sm"
-            >
-              <Save size={14} className="md:w-4 md:h-4" />
-              <span className="hidden sm:inline">Save Changes</span>
-              <span className="sm:hidden">Save</span>
-            </Button>
-            <Button
-              onClick={handleCancel}
-              variant="secondary"
-              className="w-full text-xs md:text-sm"
-            >
-              Cancel
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button
-              onClick={onTestConnection}
-              disabled={mapping.status === 'not-assigned'}
-              variant="primary"
-              className="w-full flex items-center justify-center gap-1.5 md:gap-2 text-xs md:text-sm"
-            >
-              <RefreshCw size={14} className="md:w-4 md:h-4" />
-              <span className="hidden sm:inline">Test Connection</span>
-              <span className="sm:hidden">Test</span>
-            </Button>
-            {mapping.status === 'error' && (
-              <Button
-                onClick={handleEditClick}
-                variant="secondary"
-                className="w-full"
-              >
-                Troubleshoot Connection
+      <div className="fusion-panel-footer">
+        <div className="fusion-panel-footer-actions fusion-panel-footer-actions--stacked">
+          {isEditing ? (
+            <>
+              <Button onClick={handleSave} variant="primary" className="w-full flex items-center justify-center gap-2 text-sm">
+                <Save size={14} className="md:w-4 md:h-4" />
+                <span className="hidden sm:inline">Save Changes</span>
+                <span className="sm:hidden">Save</span>
               </Button>
-            )}
-          </>
-        )}
+              <Button onClick={handleCancel} variant="secondary" className="w-full flex items-center justify-center gap-2 text-sm">
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                onClick={onTestConnection}
+                disabled={mapping.status === 'not-assigned'}
+                variant="primary"
+                className="w-full flex items-center justify-center gap-2 text-sm"
+              >
+                <RefreshCw size={14} className="md:w-4 md:h-4" />
+                <span className="hidden sm:inline">Test Connection</span>
+                <span className="sm:hidden">Test</span>
+              </Button>
+              {mapping.status === 'error' && (
+                <Button onClick={handleEditClick} variant="secondary" className="w-full flex items-center justify-center gap-2 text-sm">
+                  Troubleshoot Connection
+                </Button>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   )

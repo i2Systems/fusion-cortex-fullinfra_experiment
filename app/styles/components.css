@@ -109,6 +109,126 @@
         color: var(--color-text);
     }
 
+    /* ============================================
+     PANEL LAYOUT - Consistent structure for context/detail panels
+     Use for: right-side detail panels, list-detail layouts, modals with actions
+     ============================================ */
+    .fusion-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+        padding: var(--space-4) var(--space-6);
+        border-bottom: var(--border-width-thin) solid var(--color-border-subtle);
+        flex-shrink: 0;
+    }
+
+    .fusion-panel-header-title {
+        font-size: var(--font-size-h3);
+        font-weight: 700;
+        color: var(--color-text);
+        margin: 0;
+        line-height: var(--typography-h3-line-height);
+    }
+
+    .fusion-panel-header-actions {
+        display: flex;
+        align-items: center;
+        gap: var(--space-1);
+        flex-shrink: 0;
+    }
+
+    .fusion-panel-header-action {
+        padding: var(--space-2);
+        border-radius: var(--radius-md);
+        background: transparent;
+        border: none;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all var(--transition-fast);
+    }
+
+    .fusion-panel-header-action:hover {
+        background: var(--color-surface-subtle);
+        color: var(--color-text);
+    }
+
+    .fusion-panel-header-action:focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+    }
+
+    .fusion-panel-body {
+        flex: 1;
+        overflow: auto;
+        padding: var(--space-4) var(--space-6);
+        min-height: 0;
+    }
+
+    /* Panel footer: primary/secondary actions attached to bottom of panel */
+    .fusion-panel-footer {
+        flex-shrink: 0;
+        padding: var(--space-4) var(--space-6);
+        border-top: var(--border-width-thin) solid var(--color-border-subtle);
+        background: var(--color-surface-subtle);
+        transition: background var(--transition-fast);
+    }
+
+    .fusion-panel-footer-actions {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        flex-wrap: wrap;
+    }
+
+    .fusion-panel-footer-actions--end {
+        justify-content: flex-end;
+    }
+
+    .fusion-panel-footer-actions--between {
+        justify-content: space-between;
+    }
+
+    .fusion-panel-footer-actions--stacked {
+        flex-direction: column;
+        gap: var(--space-2);
+    }
+
+    .fusion-panel-footer-actions--stacked .fusion-button,
+    .fusion-panel-footer-actions--stacked button.fusion-button {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* In-panel section action link (e.g. "View devices →", "View all →") */
+    .fusion-panel-section-link {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-1);
+        font-size: var(--font-size-xs);
+        font-weight: 500;
+        color: var(--color-primary);
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+        transition: color var(--transition-fast);
+    }
+
+    .fusion-panel-section-link:hover {
+        color: var(--color-primary-hover);
+        text-decoration: underline;
+    }
+
+    .fusion-panel-section-link:focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+        border-radius: var(--radius-sm);
+    }
+
     /* Button base styles - Neon glow on hover */
     .fusion-button {
         padding: var(--space-3) var(--space-6);

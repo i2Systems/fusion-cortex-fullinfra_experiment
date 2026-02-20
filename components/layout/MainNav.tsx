@@ -12,7 +12,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Home,
   Map,
@@ -28,14 +28,24 @@ import {
   X,
   Download,
   Users,
-  Boxes
+  Boxes,
+  PanelLeftClose,
+  PanelLeft
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { useRole } from '@/lib/auth'
 import { LoginModal } from '@/components/auth/LoginModal'
 import { SettingsModal } from '@/components/settings/SettingsModal'
+import { AppSwitcher } from '@/components/layout/AppSwitcher'
 
-// Navigation groups with subtle gestalt grouping
+const NAV_STORAGE_KEY = 'fusion-nav-expanded'
+const NAV_WIDTH_COLLAPSED = 80   // px — icons only
+const NAV_WIDTH_EXPANDED = 240  // px — icons + labels
+const ICON_SIZE_COLLAPSED = 20
+const ICON_SIZE_EXPANDED = 22
+const MOTION_DURATION_MS = 280
+
+// Navigation groups with subtle gestalt grouping with subtle gestalt grouping
 const navGroups = [
   // Group 1: Overview
   [
@@ -66,6 +76,33 @@ export function MainNav() {
   const [showSettings, setShowSettings] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
+  // Left nav open/closed (desktop): persist in localStorage
+  const [navExpanded, setNavExpanded] = useState(true)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(NAV_STORAGE_KEY)
+      if (raw !== null) setNavExpanded(JSON.parse(raw))
+    } catch {
+      /* ignore */
+    }
+  }, [])
+  useEffect(() => {
+    try {
+      localStorage.setItem(NAV_STORAGE_KEY, JSON.stringify(navExpanded))
+    } catch {
+      /* ignore */
+    }
+  }, [navExpanded])
+
+  // Sync nav width to CSS variable so fixed elements (e.g. BottomDrawer) align with panel
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    document.documentElement.style.setProperty(
+      '--fusion-nav-width',
+      navExpanded ? `${NAV_WIDTH_EXPANDED}px` : `${NAV_WIDTH_COLLAPSED}px`
+    )
+  }, [navExpanded])
+
   // Filter nav items based on role
   const filterNavItems = (items: typeof navGroups[0]) => {
     return items.filter(item => {
@@ -79,12 +116,23 @@ export function MainNav() {
 
   const visibleNavGroups = navGroups.map(group => filterNavItems(group)).filter(group => group.length > 0)
 
-  const NavContent = () => (
+  const motionClass = `transition-all ease-out`
+  const motionStyle = { transitionDuration: `${MOTION_DURATION_MS}ms` }
+
+  const NavContent = ({ expanded, setExpanded }: { expanded: boolean; setExpanded: (fn: (e: boolean) => boolean) => void }) => (
     <>
+      {/* App Switcher at top */}
+      <div className="hidden md:flex shrink-0 items-center py-3 px-3 border-b border-[var(--color-border-subtle)]">
+        <AppSwitcher compact={!expanded} />
+      </div>
+
       {/* Navigation Items with Gestalt Grouping */}
-      <div className="flex-1 flex flex-col items-center py-4">
+      <div className="flex-1 flex flex-col py-4 overflow-hidden">
         {visibleNavGroups.map((group, groupIndex) => (
-          <div key={groupIndex} className="flex flex-col items-center gap-2">
+          <div
+            key={groupIndex}
+            className={`flex flex-col gap-1 ${expanded ? 'items-stretch px-3' : 'items-center'}`}
+          >
             {group.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
@@ -95,79 +143,153 @@ export function MainNav() {
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
                   className={`
-                    w-14 h-14 flex items-center justify-center rounded-lg
-                    transition-all duration-200
+                    flex items-center rounded-lg min-h-[44px]
+                    ${expanded ? 'gap-3 px-3' : 'justify-center w-12 h-11'}
+                    ${motionClass}
                     ${isActive
                       ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)] shadow-[var(--shadow-glow-primary)]'
                       : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)]'
                     }
                   `}
+                  style={motionStyle}
                   title={item.label}
                 >
-                  <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                  <Icon
+                    size={expanded ? ICON_SIZE_EXPANDED : ICON_SIZE_COLLAPSED}
+                    strokeWidth={isActive ? 2.5 : 2}
+                    className="shrink-0"
+                    style={motionStyle}
+                  />
+                  <span
+                    className={`
+                      text-sm font-medium truncate whitespace-nowrap
+                      ${expanded ? 'opacity-100 max-w-[10rem]' : 'opacity-0 max-w-0 overflow-hidden'}
+                    `}
+                    style={{ ...motionStyle, transitionProperty: 'opacity, max-width' }}
+                  >
+                    {item.label}
+                  </span>
                 </Link>
               )
             })}
-            {/* Subtle separator between groups (except last) */}
             {groupIndex < visibleNavGroups.length - 1 && (
-              <div className="w-8 h-px bg-[var(--color-border-subtle)] my-1 opacity-30" />
+              <div
+                className={`h-px bg-[var(--color-border-subtle)] my-1 opacity-30 ${expanded ? 'mx-2' : 'w-8 mx-auto'}`}
+                style={motionStyle}
+              />
             )}
           </div>
         ))}
       </div>
 
-      {/* Bottom: Library, Profile & Settings */}
-      <div className="p-4 flex flex-col items-center gap-2 border-t border-[var(--color-border-subtle)]">
-        {/* Library Icon */}
+      {/* Bottom: Library, Profile, Settings, then open/close */}
+      <div
+        className={`flex border-t border-[var(--color-border-subtle)] ${expanded ? 'flex-col gap-1 p-3' : 'flex-col items-center gap-2 p-4'}`}
+        style={motionStyle}
+      >
         <Link
           href="/library"
           onClick={() => setMobileMenuOpen(false)}
           className={`
-            w-14 h-14 flex items-center justify-center rounded-lg
-            transition-all duration-200
+            flex items-center rounded-lg min-h-[44px]
+            ${expanded ? 'gap-3 px-3' : 'justify-center w-12 h-11'}
+            ${motionClass}
             ${pathname === '/library' || pathname?.startsWith('/library')
               ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)] shadow-[var(--shadow-glow-primary)]'
               : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)]'
             }
           `}
+          style={motionStyle}
           title="Library"
         >
-          <HelpCircle size={22} strokeWidth={pathname === '/library' || pathname?.startsWith('/library') ? 2.5 : 2} />
+          <HelpCircle
+            size={expanded ? ICON_SIZE_EXPANDED : ICON_SIZE_COLLAPSED}
+            strokeWidth={pathname === '/library' || pathname?.startsWith('/library') ? 2.5 : 2}
+            className="shrink-0"
+            style={motionStyle}
+          />
+          <span
+            className={`text-sm font-medium truncate whitespace-nowrap ${expanded ? 'opacity-100 max-w-[10rem]' : 'opacity-0 max-w-0 overflow-hidden'}`}
+            style={{ ...motionStyle, transitionProperty: 'opacity, max-width' }}
+          >
+            Library
+          </span>
         </Link>
 
-        {/* Subtle separator */}
-        <div className="w-8 h-px bg-[var(--color-border-subtle)] my-1 opacity-30" />
+        <div className={`h-px bg-[var(--color-border-subtle)] opacity-30 ${expanded ? 'mx-2' : 'w-8'}`} style={motionStyle} />
 
-        {/* Profile Icon */}
         <button
           onClick={() => {
             setMobileMenuOpen(false)
             isAuthenticated ? setShowSettings(true) : setShowLogin(true)
           }}
-          className="w-14 h-14 flex items-center justify-center rounded-lg text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-text)] transition-all duration-200"
+          className={`
+            flex items-center rounded-lg min-h-[44px] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-text)]
+            ${expanded ? 'gap-3 px-3 w-full' : 'justify-center w-12 h-11'}
+            ${motionClass}
+          `}
+          style={motionStyle}
           title={isAuthenticated ? user?.name || 'Profile' : 'Sign In'}
         >
           {isAuthenticated && user ? (
-            <div className="w-10 h-10 rounded-full bg-[var(--color-primary)] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-[var(--color-primary)] flex items-center justify-center shrink-0">
               <span className="text-[var(--color-text-on-primary)] text-sm font-medium">
                 {user.name.charAt(0).toUpperCase()}
               </span>
             </div>
           ) : (
-            <User size={22} />
+            <User size={expanded ? ICON_SIZE_EXPANDED : ICON_SIZE_COLLAPSED} className="shrink-0" style={motionStyle} />
           )}
+          <span
+            className={`text-sm font-medium truncate whitespace-nowrap ${expanded ? 'opacity-100 max-w-[10rem]' : 'opacity-0 max-w-0 overflow-hidden'}`}
+            style={{ ...motionStyle, transitionProperty: 'opacity, max-width' }}
+          >
+            {isAuthenticated ? user?.name ?? 'Profile' : 'Sign In'}
+          </span>
         </button>
 
-        {/* Settings Icon - Always visible */}
         <button
           onClick={() => {
             setMobileMenuOpen(false)
             setShowSettings(true)
           }}
-          className="w-14 h-14 flex items-center justify-center rounded-lg text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-text)] transition-all duration-200"
+          className={`
+            flex items-center rounded-lg min-h-[44px] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-text)]
+            ${expanded ? 'gap-3 px-3 w-full' : 'justify-center w-12 h-11'}
+            ${motionClass}
+          `}
+          style={motionStyle}
           title="Settings"
         >
-          <Settings size={22} />
+          <Settings size={expanded ? ICON_SIZE_EXPANDED : ICON_SIZE_COLLAPSED} className="shrink-0" style={motionStyle} />
+          <span
+            className={`text-sm font-medium truncate whitespace-nowrap ${expanded ? 'opacity-100 max-w-[10rem]' : 'opacity-0 max-w-0 overflow-hidden'}`}
+            style={{ ...motionStyle, transitionProperty: 'opacity, max-width' }}
+          >
+            Settings
+          </span>
+        </button>
+
+        {/* Open/close at bottom (desktop only) */}
+        <div className={`h-px bg-[var(--color-border-subtle)] opacity-30 ${expanded ? 'mx-2' : 'w-8 mx-auto'}`} style={motionStyle} />
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          className={`
+            flex items-center rounded-lg min-h-[44px] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-subtle)] hover:text-[var(--color-primary)]
+            ${expanded ? 'gap-3 px-3 w-full' : 'justify-center w-12 h-11'}
+            ${motionClass}
+          `}
+          style={motionStyle}
+          aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+        >
+          {expanded ? <PanelLeftClose size={20} /> : <PanelLeft size={20} />}
+          <span
+            className={`text-sm font-medium truncate whitespace-nowrap ${expanded ? 'opacity-100 max-w-[10rem]' : 'opacity-0 max-w-0 overflow-hidden'}`}
+            style={{ ...motionStyle, transitionProperty: 'opacity, max-width' }}
+          >
+            {expanded ? 'Collapse' : 'Expand'}
+          </span>
         </button>
       </div>
     </>
@@ -175,12 +297,16 @@ export function MainNav() {
 
   return (
     <>
-      {/* Desktop Navigation - Always visible on md+ */}
+      {/* Desktop Navigation - Collapsible, animated width */}
       <nav
-        className="hidden md:flex flex-col w-20 bg-[var(--color-bg-elevated)] backdrop-blur-xl border-r border-[var(--color-border-subtle)]"
-        style={{ zIndex: 'var(--z-nav)' }}
+        className="hidden md:flex flex-col shrink-0 bg-[var(--color-bg-elevated)] backdrop-blur-xl border-r border-[var(--color-border-subtle)] overflow-hidden"
+        style={{
+          zIndex: 'var(--z-nav)',
+          width: navExpanded ? NAV_WIDTH_EXPANDED : NAV_WIDTH_COLLAPSED,
+          transition: `width ${MOTION_DURATION_MS}ms ease-out`,
+        }}
       >
-        <NavContent />
+        <NavContent expanded={navExpanded} setExpanded={setNavExpanded} />
       </nav>
 
       {/* Mobile Hamburger Button - Visible on mobile */}
@@ -192,20 +318,19 @@ export function MainNav() {
         {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
-      {/* Mobile Menu Overlay */}
+      {/* Mobile Menu Overlay - Always expanded when open so labels are visible */}
       {mobileMenuOpen && (
         <>
-          {/* Backdrop */}
           <div
             className="md:hidden fixed inset-0 backdrop-blur-sm z-[calc(var(--z-nav)-1)]"
             style={{ backgroundColor: 'var(--color-backdrop)' }}
             onClick={() => setMobileMenuOpen(false)}
           />
-          {/* Mobile Menu */}
           <nav
-            className="md:hidden fixed top-0 left-0 h-full w-20 bg-[var(--color-bg-elevated)] backdrop-blur-xl border-r border-[var(--color-border-subtle)] z-[var(--z-nav)]"
+            className="md:hidden fixed top-0 left-0 h-full bg-[var(--color-bg-elevated)] backdrop-blur-xl border-r border-[var(--color-border-subtle)] z-[var(--z-nav)] overflow-hidden"
+            style={{ width: NAV_WIDTH_EXPANDED }}
           >
-            <NavContent />
+            <NavContent expanded={true} setExpanded={setNavExpanded} />
           </nav>
         </>
       )}

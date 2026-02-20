@@ -224,6 +224,8 @@
         --z-drawer: 300;
         --z-modal: 400;
         --z-toast: 9999;
+        /* Nav width for fixed elements (e.g. bottom drawer); updated by MainNav when expand/collapse */
+        --fusion-nav-width: 240px;
 
         /* ============================================
        GLASS & MATERIALITY EFFECTS

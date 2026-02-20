@@ -341,17 +341,10 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
                       })()}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <button
-                      onClick={handleEdit}
-                      className="p-1.5 rounded-lg hover:bg-[var(--color-surface-subtle)] transition-colors"
-                      title="Edit rule"
-                    >
-                      <Edit2 size={14} className="text-[var(--color-text-muted)]" />
+                  <div className="fusion-panel-header-actions">
+                    <button type="button" onClick={handleEdit} className="fusion-panel-header-action" title="Edit rule">
+                      <Edit2 size={14} />
                     </button>
-                    {onDelete && (
-                      <></>
-                    )}
                   </div>
                 </div>
                 {/* Quick Stats */}
@@ -733,54 +726,44 @@ export function RulesPanel({ selectedRule, onSave, onCancel, onDelete }: RulesPa
       />
 
       {/* Action Buttons Footer */}
-      <div className="p-3 md:p-4 border-t border-[var(--color-border-subtle)] space-y-2 flex-shrink-0">
-        {(mode === 'create' && creationStep === 'configure') || mode === 'edit' ? (
-          <>
+      <div className="fusion-panel-footer">
+        <div className="fusion-panel-footer-actions fusion-panel-footer-actions--stacked">
+          {(mode === 'create' && creationStep === 'configure') || mode === 'edit' ? (
+            <>
+              <Button
+                onClick={handleSave}
+                variant="primary"
+                className="flex items-center justify-center gap-2 text-sm w-full"
+                title={selectedRule ? 'Save Changes' : 'Create Rule'}
+              >
+                <Save size={14} className="md:w-4 md:h-4" />
+                <span className="hidden md:inline">{selectedRule ? 'Save Changes' : 'Create'}</span>
+                <span className="md:hidden">{selectedRule ? 'Save' : 'Create'}</span>
+              </Button>
+              <Button onClick={handleCancel} variant="secondary" className="w-full flex items-center justify-center gap-2 text-sm" title="Cancel">
+                <span className="hidden md:inline">Cancel</span>
+                <span className="md:hidden"><X size={14} className="md:w-4 md:h-4" /></span>
+              </Button>
+            </>
+          ) : mode === 'view' && selectedRule ? (
+            <Button onClick={handleEdit} variant="primary" className="flex items-center justify-center gap-2 text-sm w-full" title="Edit Rule">
+              <Edit2 size={14} className="md:w-4 md:h-4" />
+              <span className="hidden md:inline">Edit Rule</span>
+              <span className="md:hidden">Edit</span>
+            </Button>
+          ) : (
             <Button
-              onClick={handleSave}
+              onClick={handleCreateNew}
               variant="primary"
-              className="w-full flex items-center justify-center gap-1.5 md:gap-2 text-xs md:text-sm"
-              title={selectedRule ? 'Save Changes' : 'Create Rule'}
+              className="flex items-center justify-center gap-2 text-sm w-full"
+              title="Create New Rule"
             >
-              <Save size={14} className="md:w-4 md:h-4" />
-              <span className="hidden md:inline">{selectedRule ? 'Save Changes' : 'Create'}</span>
-              <span className="md:hidden">{selectedRule ? 'Save' : 'Create'}</span>
+              <Plus size={14} className="md:w-4 md:h-4" />
+              <span className="hidden md:inline">Create New</span>
+              <span className="md:hidden">Create</span>
             </Button>
-            <Button
-              onClick={handleCancel}
-              variant="secondary"
-              className="w-full flex items-center justify-center text-xs md:text-sm"
-              title="Cancel"
-            >
-              <span className="hidden md:inline">Cancel</span>
-              <span className="md:hidden">
-                <X size={14} className="md:w-4 md:h-4" />
-              </span>
-            </Button>
-          </>
-        ) : mode === 'view' && selectedRule ? (
-          <Button
-            onClick={handleEdit}
-            variant="primary"
-            className="w-full flex items-center justify-center gap-1.5 md:gap-2 text-xs md:text-sm"
-            title="Edit Rule"
-          >
-            <Edit2 size={14} className="md:w-4 md:h-4" />
-            <span className="hidden md:inline">Edit Rule</span>
-            <span className="md:hidden">Edit</span>
-          </Button>
-        ) : (
-          <Button
-            onClick={handleCreateNew}
-            variant="primary"
-            className="w-full flex items-center justify-center gap-1.5 md:gap-2 text-xs md:text-sm"
-            title="Create New Rule"
-          >
-            <Plus size={14} className="md:w-4 md:h-4" />
-            <span className="hidden md:inline">Create New</span>
-            <span className="md:hidden">Create</span>
-          </Button>
-        )}
+          )}
+        </div>
       </div>
     </div>
   )

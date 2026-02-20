@@ -772,17 +772,19 @@ export function ZonesPanel({ zones, selectedZoneId, onZoneSelect, onCreateZone, 
       <UngroupedDevicesSection devices={devices} zones={zones} onDeviceMove={onDeviceMove} />
 
       {/* Actions Footer */}
-      <div className="p-3 md:p-4 border-t border-[var(--color-border-subtle)] flex-shrink-0">
-        <Button
-          onClick={handleCreateZone}
-          variant="primary"
-          className="w-full flex items-center justify-center gap-1.5 md:gap-2 text-xs md:text-sm"
-          title="Create New Zone"
-        >
-          <Layers size={14} className="md:w-4 md:h-4" />
-          <span className="hidden md:inline">Create New Zone</span>
-          <span className="md:hidden">Create Zone</span>
-        </Button>
+      <div className="fusion-panel-footer">
+        <div className="fusion-panel-footer-actions fusion-panel-footer-actions--stacked">
+          <Button
+            onClick={handleCreateZone}
+            variant="primary"
+            className="w-full flex items-center justify-center gap-2 text-sm"
+            title="Create New Zone"
+          >
+            <Layers size={14} className="md:w-4 md:h-4" />
+            <span className="hidden md:inline">Create New Zone</span>
+            <span className="md:hidden">Create Zone</span>
+          </Button>
+        </div>
       </div>
 
       {/* Focused Modal */}

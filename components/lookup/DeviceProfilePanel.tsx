@@ -299,65 +299,46 @@ export function DeviceProfilePanel({ device, siteManagerName, onDeviceSelect, on
   if (!device) {
     return (
       <div className="flex flex-col h-full">
-        <div className="flex-1 flex flex-col">
-          {/* Empty State Content */}
+        {/* Header with secondary actions as icon buttons */}
+        <div className="fusion-panel-header">
+          <h2 className="fusion-panel-header-title text-base">Devices</h2>
+          <div className="fusion-panel-header-actions">
+            <button type="button" onClick={onManualEntry} className="fusion-panel-header-action" title="Add device manually">
+              <Plus size={18} />
+            </button>
+            <button type="button" onClick={onQRScan} className="fusion-panel-header-action" title="Scan QR code">
+              <QrCode size={18} />
+            </button>
+            <button type="button" onClick={onImport} className="fusion-panel-header-action" title="Import list">
+              <Upload size={18} />
+            </button>
+            <button type="button" onClick={onExport} className="fusion-panel-header-action" title="Export">
+              <Download size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Empty state content */}
+        <div className="flex-1 flex flex-col min-h-0">
           <PanelEmptyState
             icon={QrCode}
             title="No Device Selected"
             description="Select a device from the list to view detailed information"
           />
+        </div>
 
-          {/* Action Buttons Bar */}
-          <div className="p-3 md:p-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-surface-subtle)]">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button
-                onClick={handleSimulateDiscovery}
-                disabled={isDiscovering}
-                className="px-2 md:px-4 py-2 bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)]/90 border-none rounded-lg text-sm transition-all flex items-center justify-center gap-2 shadow-[var(--shadow-glow-primary)]"
-                title="Discover Devices"
-              >
-                {isDiscovering ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Wifi size={16} />
-                )}
-                <span className="hidden md:inline">{isDiscovering ? 'Discovering...' : 'Discover Devices'}</span>
-              </Button>
-              <button
-                onClick={onManualEntry}
-                className="px-2 md:px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)] transition-all flex items-center justify-center gap-2"
-                title="Add Device Manually"
-              >
-                <Plus size={16} />
-                <span className="hidden md:inline">Add Manual</span>
-              </button>
-              <button
-                onClick={onQRScan}
-                className="px-2 md:px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)] transition-all flex items-center justify-center gap-2"
-                title="Scan QR Code"
-              >
-                <QrCode size={16} />
-                <span className="hidden md:inline">Scan QR</span>
-              </button>
-              <div className="flex-1" />
-              <button
-                onClick={onImport}
-                className="px-2 md:px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-border-strong)] transition-all flex items-center justify-center gap-2"
-                title="Import List"
-              >
-                <Upload size={16} />
-                <span className="hidden md:inline">Import</span>
-              </button>
-              <button
-                onClick={onExport}
-                className="px-2 md:px-4 py-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text)] hover:border-[var(--color-border-strong)] transition-all flex items-center justify-center gap-2"
-                title="Export"
-              >
-                <Download size={16} />
-                <span className="hidden md:inline">Export</span>
-              </button>
-            </div>
-          </div>
+        {/* Single primary CTA in footer */}
+        <div className="fusion-panel-footer">
+          <Button
+            onClick={handleSimulateDiscovery}
+            disabled={isDiscovering}
+            variant="primary"
+            className="w-full flex items-center justify-center gap-2 text-sm"
+            title="Discover Devices"
+          >
+            {isDiscovering ? <Loader2 size={18} className="animate-spin" /> : <Wifi size={18} />}
+            {isDiscovering ? 'Discovering...' : 'Discover Devices'}
+          </Button>
         </div>
       </div>
     )
@@ -465,10 +446,11 @@ export function DeviceProfilePanel({ device, siteManagerName, onDeviceSelect, on
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 flex-shrink-0">
+              <div className="fusion-panel-header-actions">
                 <button
+                  type="button"
                   onClick={() => setShowFocusedModal(true)}
-                  className="p-1.5 rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-surface)] transition-all"
+                  className="fusion-panel-header-action text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
                   title="Open focused view"
                 >
                   <Maximize2 size={14} />
@@ -874,13 +856,10 @@ export function DeviceProfilePanel({ device, siteManagerName, onDeviceSelect, on
         {/* Delete Action - at bottom of scrollable content */}
         {onDelete && (
           <div className="pt-4 mt-4 border-t border-[var(--color-border-subtle)]">
-            <button
-              onClick={() => setIsDeleteModalOpen(true)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20 rounded-lg text-sm font-medium text-[var(--color-danger)] hover:bg-[var(--color-danger)]/20 transition-colors"
-            >
+            <Button onClick={() => setIsDeleteModalOpen(true)} variant="danger" className="w-full flex items-center justify-center gap-2">
               <Trash2 size={14} />
               Delete Device
-            </button>
+            </Button>
           </div>
         )}
       </div>

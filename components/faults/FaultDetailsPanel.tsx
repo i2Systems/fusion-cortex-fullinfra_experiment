@@ -897,27 +897,27 @@ export function FaultDetailsPanel({ fault, devices = [], allFaults = [], onAddNe
       </div>
 
       {/* Actions Footer */}
-      <div className="p-3 md:p-4 border-t border-[var(--color-border-subtle)] space-y-2 flex-shrink-0">
-        <Button className="w-full flex items-center justify-center gap-1.5 md:gap-2 text-xs md:text-sm" variant="primary">
-          <RefreshCw size={14} className="md:w-4 md:h-4" />
-          <span className="hidden sm:inline">Retry Connection</span>
-          <span className="sm:hidden">Retry</span>
-        </Button>
-
-        {onAddNewFault && (
-          <Button
-            onClick={() => {
-              // Pre-select the current device when adding a new fault
-              setSelectedDeviceId(fault.device.id)
-              setShowAddForm(true)
-            }}
-            variant="secondary"
-            className="w-full hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-glow-primary)] flex items-center justify-center gap-2"
-          >
-            <Plus size={16} />
-            Add Related Fault
+      <div className="fusion-panel-footer">
+        <div className="fusion-panel-footer-actions fusion-panel-footer-actions--stacked">
+          <Button className="flex items-center justify-center gap-2 text-sm w-full" variant="primary">
+            <RefreshCw size={14} className="md:w-4 md:h-4" />
+            <span className="hidden sm:inline">Retry Connection</span>
+            <span className="sm:hidden">Retry</span>
           </Button>
-        )}
+          {onAddNewFault && (
+            <Button
+              onClick={() => {
+                setSelectedDeviceId(fault.device.id)
+                setShowAddForm(true)
+              }}
+              variant="secondary"
+              className="w-full flex items-center justify-center gap-2 text-sm"
+            >
+              <Plus size={16} />
+              Add Related Fault
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Focused Modal */}
