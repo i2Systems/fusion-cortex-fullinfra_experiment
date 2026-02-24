@@ -126,8 +126,8 @@ export function MainNav() {
         <AppSwitcher compact={!expanded} />
       </div>
 
-      {/* Navigation Items with Gestalt Grouping */}
-      <div className="flex-1 flex flex-col py-4 overflow-hidden">
+      {/* Navigation Items with Gestalt Grouping - scrollable when viewport is short (e.g. iPad) */}
+      <div className="flex-1 min-h-0 flex flex-col py-4 overflow-y-auto overflow-x-hidden">
         {visibleNavGroups.map((group, groupIndex) => (
           <div
             key={groupIndex}
@@ -182,9 +182,9 @@ export function MainNav() {
         ))}
       </div>
 
-      {/* Bottom: Library, Profile, Settings, then open/close */}
+      {/* Bottom: Library, Profile, Settings, then open/close - shrink-0 so never pushed off */}
       <div
-        className={`flex border-t border-[var(--color-border-subtle)] ${expanded ? 'flex-col gap-1 p-3' : 'flex-col items-center gap-2 p-4'}`}
+        className={`shrink-0 flex border-t border-[var(--color-border-subtle)] ${expanded ? 'flex-col gap-1 p-3' : 'flex-col items-center gap-2 p-4'}`}
         style={motionStyle}
       >
         <Link
@@ -297,9 +297,9 @@ export function MainNav() {
 
   return (
     <>
-      {/* Desktop Navigation - Collapsible, animated width */}
+      {/* Desktop Navigation - Collapsible, animated width; full height so content doesn't push off on tablet */}
       <nav
-        className="hidden md:flex flex-col shrink-0 bg-[var(--color-bg-elevated)] backdrop-blur-xl border-r border-[var(--color-border-subtle)] overflow-hidden"
+        className="hidden md:flex flex-col shrink-0 h-full max-h-screen bg-[var(--color-bg-elevated)] backdrop-blur-xl border-r border-[var(--color-border-subtle)] overflow-hidden"
         style={{
           zIndex: 'var(--z-nav)',
           width: navExpanded ? NAV_WIDTH_EXPANDED : NAV_WIDTH_COLLAPSED,
@@ -327,7 +327,7 @@ export function MainNav() {
             onClick={() => setMobileMenuOpen(false)}
           />
           <nav
-            className="md:hidden fixed top-0 left-0 h-full bg-[var(--color-bg-elevated)] backdrop-blur-xl border-r border-[var(--color-border-subtle)] z-[var(--z-nav)] overflow-hidden"
+            className="md:hidden flex flex-col fixed top-0 left-0 h-full max-h-screen bg-[var(--color-bg-elevated)] backdrop-blur-xl border-r border-[var(--color-border-subtle)] z-[var(--z-nav)] overflow-hidden"
             style={{ width: NAV_WIDTH_EXPANDED }}
           >
             <NavContent expanded={true} setExpanded={setNavExpanded} />

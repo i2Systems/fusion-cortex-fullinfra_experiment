@@ -68,10 +68,11 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
   const currentApp = getCurrentApp(pathname)
   const current = APPS.find((a) => a.id === currentApp)
 
-  // Role-based: Technician sees only Commissioning + Sign (no Products catalog)
+  // Role-based list: only when app menu style is "role". Technician sees Commissioning + Sign (no Products).
   const appsByRole = role === 'Technician'
     ? APPS.filter((a) => a.id !== 'products')
     : APPS
+  const appList = appSwitcherStyle === 'role' ? appsByRole : APPS
 
   // Recent: persist last-visited app for "recent first" ordering
   useEffect(() => {
@@ -93,8 +94,8 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
     }
   }, [currentApp])
   const recentFirstApps = lastUsedAppId
-    ? [...appsByRole].sort((a, b) => (a.id === lastUsedAppId ? -1 : b.id === lastUsedAppId ? 1 : 0))
-    : appsByRole
+    ? [...appList].sort((a, b) => (a.id === lastUsedAppId ? -1 : b.id === lastUsedAppId ? 1 : 0))
+    : appList
 
   useEffect(() => {
     function close(e: MouseEvent) {
@@ -125,7 +126,7 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
           </span>
         )}
         <div className="flex items-center gap-1 flex-wrap">
-          {appsByRole.map((app) => {
+          {appList.map((app) => {
             const Icon = app.icon
             const isActive = currentApp === app.id
             return (
@@ -162,7 +163,7 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
           </span>
         )}
         <div className={`flex flex-col gap-0.5 ${compact ? 'items-center' : ''}`}>
-          {appsByRole.map((app) => {
+          {appList.map((app) => {
             const Icon = app.icon
             const isActive = currentApp === app.id
             return (
@@ -194,8 +195,8 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
 
   // Primary + overflow: one main app prominent; others under "Other apps". Use case: main product vs satellite tools.
   if (appSwitcherStyle === 'primary') {
-    const primaryApp = appsByRole.find((a) => a.id === PRIMARY_APP_ID) ?? appsByRole[0]
-    const otherApps = appsByRole.filter((a) => a.id !== primaryApp.id)
+    const primaryApp = appList.find((a) => a.id === PRIMARY_APP_ID) ?? appList[0]
+    const otherApps = appList.filter((a) => a.id !== primaryApp.id)
     const isOnPrimary = currentApp === primaryApp.id
     return (
       <div className="relative flex-1 min-w-0 flex flex-col gap-1.5" ref={ref}>
@@ -365,7 +366,7 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
           </span>
         )}
         <div className={`flex flex-col gap-0.5 ${compact ? 'items-center' : ''}`}>
-          {appsByRole.map((app) => {
+          {appList.map((app) => {
             const Icon = app.icon
             const isActive = currentApp === app.id
             return (
@@ -435,7 +436,7 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
               </span>
             </div>
             <div className="px-2 pb-3 flex flex-col gap-0.5">
-              {appsByRole.map((app) => {
+              {appList.map((app) => {
                 const Icon = app.icon
                 const isActive = currentApp === app.id
                 return (
