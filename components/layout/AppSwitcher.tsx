@@ -11,7 +11,7 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutGrid, Map, Package, Monitor, MoreHorizontal } from 'lucide-react'
+import { LayoutGrid, Map, Package, Monitor, MoreHorizontal, Home } from 'lucide-react'
 import { useAppearance } from '@/lib/AppearanceContext'
 import { useRole } from '@/lib/auth'
 
@@ -45,7 +45,40 @@ const APPS = [
     icon: Monitor,
     description: 'TV displays, playlists, deployments',
   },
+  {
+    id: 'myi2',
+    label: 'myI2 Systems',
+    href: 'http://local.myi2systems.com/home/home.php',
+    icon: Home,
+    description: 'myI2 Systems home',
+    external: true,
+  },
 ] as const
+
+/** Renders Link for in-app routes or <a> with target="_blank" for external apps. */
+function AppLink({
+  app,
+  children,
+  className,
+  ...rest
+}: {
+  app: (typeof APPS)[number]
+  children: React.ReactNode
+  className?: string
+} & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href' | 'className'>) {
+  if ('external' in app && app.external) {
+    return (
+      <a href={app.href} target="_blank" rel="noopener noreferrer" className={className} {...rest}>
+        {children}
+      </a>
+    )
+  }
+  return (
+    <Link href={app.href} className={className} {...rest}>
+      {children}
+    </Link>
+  )
+}
 
 function getCurrentApp(pathname: string | null): string {
   if (!pathname) return 'commissioning'
@@ -130,9 +163,9 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
             const Icon = app.icon
             const isActive = currentApp === app.id
             return (
-              <Link
+              <AppLink
                 key={app.id}
-                href={app.href}
+                app={app}
                 title={`${app.label} — ${app.description}`}
                 className={`flex shrink-0 items-center justify-center rounded-md transition-colors ${
                   compact ? 'w-9 h-9' : 'w-9 h-9'
@@ -145,7 +178,7 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
                 aria-current={isActive ? 'page' : undefined}
               >
                 <Icon size={18} strokeWidth={2} />
-              </Link>
+              </AppLink>
             )
           })}
         </div>
@@ -167,9 +200,9 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
             const Icon = app.icon
             const isActive = currentApp === app.id
             return (
-              <Link
+              <AppLink
                 key={app.id}
-                href={app.href}
+                app={app}
                 title={`${app.label} — ${app.description}`}
                 className={`flex items-center rounded-md transition-colors ${
                   compact ? 'justify-center w-9 h-9' : 'gap-2 px-3 py-2 min-w-0'
@@ -185,7 +218,7 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
                 {!compact && (
                   <span className="text-sm font-medium truncate min-w-0">{app.label}</span>
                 )}
-              </Link>
+              </AppLink>
             )
           })}
         </div>
@@ -206,8 +239,8 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
           </span>
         )}
         <div className="flex flex-col gap-1">
-          <Link
-            href={primaryApp.href}
+          <AppLink
+            app={primaryApp}
             title={primaryApp.description}
             className={`flex items-center rounded-md transition-colors ${
               compact ? 'justify-center p-2' : 'gap-2 px-3 py-2 min-w-0'
@@ -220,7 +253,7 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
           >
             <primaryApp.icon size={18} strokeWidth={2} className="shrink-0" />
             {!compact && <span className="text-sm font-medium truncate">{primaryApp.label}</span>}
-          </Link>
+          </AppLink>
           {otherApps.length > 0 && (
             <div className="relative">
               <button
@@ -250,9 +283,9 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
                         const Icon = app.icon
                         const isActive = currentApp === app.id
                         return (
-                          <Link
+                          <AppLink
                             key={app.id}
-                            href={app.href}
+                            app={app}
                             onClick={() => setOpen(false)}
                             className={`flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-[var(--color-surface-subtle)] ${
                               isActive ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]' : 'text-[var(--color-text)]'
@@ -261,7 +294,7 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
                           >
                             <Icon size={18} strokeWidth={2} />
                             <span className="text-sm font-medium truncate">{app.label}</span>
-                          </Link>
+                          </AppLink>
                         )
                       })}
                     </div>
@@ -317,9 +350,9 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
                     const isActive = currentApp === app.id
                     const isRecent = app.id === lastUsedAppId
                     return (
-                      <Link
+                      <AppLink
                         key={app.id}
-                        href={app.href}
+                        app={app}
                         onClick={() => setOpen(false)}
                         className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors ${
                           isActive ? 'bg-[var(--color-primary-soft)] border border-[var(--color-primary)]/40' : 'border border-transparent hover:bg-[var(--color-surface-subtle)]'
@@ -344,7 +377,7 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
                           </div>
                           <div className="text-xs text-[var(--color-text-soft)] truncate">{app.description}</div>
                         </div>
-                      </Link>
+                      </AppLink>
                     )
                   })}
                 </div>
@@ -370,9 +403,9 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
             const Icon = app.icon
             const isActive = currentApp === app.id
             return (
-              <Link
+              <AppLink
                 key={app.id}
-                href={app.href}
+                app={app}
                 title={`${app.label} — ${app.description}`}
                 className={`flex items-center rounded-md transition-colors ${
                   compact ? 'justify-center w-9 h-9' : 'gap-2 px-3 py-2 min-w-0'
@@ -386,7 +419,7 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
               >
                 <Icon size={18} strokeWidth={2} className="shrink-0" />
                 {!compact && <span className="text-sm font-medium truncate min-w-0">{app.label}</span>}
-              </Link>
+              </AppLink>
             )
           })}
         </div>
@@ -440,9 +473,9 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
                 const Icon = app.icon
                 const isActive = currentApp === app.id
                 return (
-                  <Link
+                  <AppLink
                     key={app.id}
-                    href={app.href}
+                    app={app}
                     onClick={() => setOpen(false)}
                     className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface)] ${
                       isActive
@@ -472,7 +505,7 @@ export function AppSwitcher({ compact = false }: AppSwitcherProps) {
                         {app.description}
                       </div>
                     </div>
-                  </Link>
+                  </AppLink>
                 )
               })}
             </div>
