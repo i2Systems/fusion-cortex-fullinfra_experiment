@@ -36,6 +36,7 @@ export const metadata: Metadata = {
     'mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-status-bar-style': 'black-translucent',
   },
+  themeColor: '#090b11', // match dark theme bg so standalone / browser UI has no white gap
 }
 
 export const viewport: Viewport = {
@@ -56,6 +57,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="theme-color" content="#090b11" />
         {/* Fonts: single Google Fonts request (preconnect + one stylesheet) */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -64,8 +66,8 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-[100dvh] h-full">
-        <div className="min-h-[100dvh] min-h-full h-full flex flex-col">
+      <body className="min-h-[100dvh] h-full" style={{ minHeight: 'var(--fusion-fill-available)' } as React.CSSProperties}>
+        <div className="min-h-[100dvh] min-h-full h-full flex flex-col" style={{ minHeight: 'var(--fusion-fill-available)' } as React.CSSProperties}>
           <ErrorBoundary section="App">
             <ComposeProviders
               components={[

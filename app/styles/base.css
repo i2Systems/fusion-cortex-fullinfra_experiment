@@ -1,9 +1,12 @@
 @tailwind base;
 
 @layer base {
+
   /* Layout: nav width for fixed elements (bottom drawer); themes may override; MainNav updates on expand/collapse */
   :root {
     --fusion-nav-width: 240px;
+    /* iOS standalone: use for min-height so content fills screen and no white gap at bottom */
+    --fusion-fill-available: -webkit-fill-available;
   }
 
   /* ============================================
@@ -19,19 +22,24 @@
     height: 100%;
     min-height: 100vh;
     min-height: 100dvh;
+    /* iOS standalone (Add to Home Screen): fill available so no white gap at bottom */
+    min-height: -webkit-fill-available;
+    background: var(--color-bg, #0f172a);
   }
 
   body {
     height: 100%;
     min-height: 100vh;
     min-height: 100dvh;
+    min-height: -webkit-fill-available;
     overflow: hidden;
-    /* Prevent body scroll, app handles it; min-height 100dvh so fullscreen fills the screen on iPad */
+    /* Prevent body scroll, app handles it; 100dvh + fill-available for iPad standalone */
   }
 
   body {
     background: linear-gradient(135deg, var(--color-bg) 0%, #0f172a 100%);
     background-attachment: fixed;
+    background-color: var(--color-bg, #0f172a);
     color: var(--color-text);
     font-family: var(--font-family-primary, var(--font-sans));
     font-size: var(--font-size-base);
