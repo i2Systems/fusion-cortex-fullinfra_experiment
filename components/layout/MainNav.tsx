@@ -297,9 +297,9 @@ export function MainNav() {
 
   return (
     <>
-      {/* Desktop Navigation - Collapsible, animated width; full height so content doesn't push off on tablet */}
+      {/* Desktop Navigation - Collapsible; min-h-0 so flex-1 middle scrolls and bottom (open/close) stays visible on iPad */}
       <nav
-        className="hidden md:flex flex-col shrink-0 h-full max-h-screen bg-[var(--color-bg-elevated)] backdrop-blur-xl border-r border-[var(--color-border-subtle)] overflow-hidden"
+        className="hidden md:flex flex-col shrink-0 min-h-0 h-full max-h-[100dvh] bg-[var(--color-bg-elevated)] backdrop-blur-xl border-r border-[var(--color-border-subtle)] overflow-hidden"
         style={{
           zIndex: 'var(--z-nav)',
           width: navExpanded ? NAV_WIDTH_EXPANDED : NAV_WIDTH_COLLAPSED,

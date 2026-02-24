@@ -9,7 +9,7 @@
  * (Reduced from 13 to 8 providers via consolidation)
  */
 
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { TRPCProvider } from '@/lib/trpc/Provider'
 import { AuthProvider } from '@/lib/auth'
@@ -31,6 +31,17 @@ export const metadata: Metadata = {
   icons: {
     icon: '/icon.svg',
   },
+  other: {
+    'apple-mobile-web-app-capable': 'yes',
+    'mobile-web-app-capable': 'yes',
+    'apple-mobile-web-app-status-bar-style': 'black-translucent',
+  },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover', // safe-area-inset-* for notches; better full-screen on iPad
 }
 
 export default function RootLayout({
@@ -41,6 +52,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* iPad / PWA: full-screen capable, safe area for notches */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         {/* Fonts: single Google Fonts request (preconnect + one stylesheet) */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

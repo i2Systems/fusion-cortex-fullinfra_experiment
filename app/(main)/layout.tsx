@@ -29,7 +29,16 @@ export default function MainLayout({
 }) {
   return (
     <SearchProvider>
-      <div className="flex h-screen w-screen overflow-hidden">
+      {/* h-[100dvh] so on iPad/iOS the layout fits the visible viewport (browser chrome doesn't push nav bottom off); safe-area for notches when viewport-fit=cover */}
+      <div
+        className="flex w-screen overflow-hidden min-h-[100vh] min-h-[100dvh] h-[100dvh] max-h-[100dvh]"
+        style={{
+          paddingTop: 'env(safe-area-inset-top)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingRight: 'env(safe-area-inset-right)',
+        }}
+      >
         {/* Left Navigation - Persistent, minimal icons */}
         <MainNav />
 
