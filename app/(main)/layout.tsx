@@ -29,9 +29,9 @@ export default function MainLayout({
 }) {
   return (
     <SearchProvider>
-      {/* h-[100dvh] so on iPad/iOS the layout fits the visible viewport (browser chrome doesn't push nav bottom off); safe-area for notches when viewport-fit=cover */}
+      {/* Fill viewport / fullscreen: flex-1 min-h-0 so this fills the root wrapper and stays edge-to-edge on iPad fullscreen; safe-area for notches */}
       <div
-        className="flex w-screen overflow-hidden min-h-[100vh] min-h-[100dvh] h-[100dvh] max-h-[100dvh]"
+        className="flex flex-1 min-h-0 w-screen overflow-hidden h-full"
         style={{
           paddingTop: 'env(safe-area-inset-top)',
           paddingBottom: 'env(safe-area-inset-bottom)',

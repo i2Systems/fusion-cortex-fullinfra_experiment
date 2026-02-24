@@ -5,7 +5,8 @@ import { Maximize, Minimize } from 'lucide-react'
 
 /**
  * Fullscreen toggle for tablet/iPad: uses Fullscreen API to hide browser chrome.
- * Shown on touch-friendly viewports; in standalone (Add to Home Screen) the browser bar is already minimal.
+ * Tap again (or the header button) to exit; the system "Done"/X is from iOS and cannot be hidden.
+ * For a fully chromeless experience, use "Add to Home Screen" for standalone mode.
  */
 export function FullscreenToggle() {
   const [isFullscreen, setIsFullscreen] = useState(false)

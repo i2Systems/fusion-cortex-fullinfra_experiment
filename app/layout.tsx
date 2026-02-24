@@ -64,29 +64,31 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>
-        <ErrorBoundary section="App">
-          <ComposeProviders
-            components={[
-              TRPCProvider,
-              AppearanceProvider,  // Theme + Font + I18n + AdvancedSettings
-              AuthProvider,        // Auth + Role
-              ToastProvider,
-              NotificationProvider,
-              ConfirmProvider,
-            ]}
-          >
-            {process.env.NEXT_PUBLIC_SKIP_HYDRATION === '1' ? (
-              <>{children}</>
-            ) : (
-              <StateHydration>
-                {children}
-              </StateHydration>
-            )}
-            <ToastContainer />
-            <InitialLoadOverlay />
-          </ComposeProviders>
-        </ErrorBoundary>
+      <body className="min-h-[100dvh] h-full">
+        <div className="min-h-[100dvh] min-h-full h-full flex flex-col">
+          <ErrorBoundary section="App">
+            <ComposeProviders
+              components={[
+                TRPCProvider,
+                AppearanceProvider,  // Theme + Font + I18n + AdvancedSettings
+                AuthProvider,        // Auth + Role
+                ToastProvider,
+                NotificationProvider,
+                ConfirmProvider,
+              ]}
+            >
+              {process.env.NEXT_PUBLIC_SKIP_HYDRATION === '1' ? (
+                <>{children}</>
+              ) : (
+                <StateHydration>
+                  {children}
+                </StateHydration>
+              )}
+              <ToastContainer />
+              <InitialLoadOverlay />
+            </ComposeProviders>
+          </ErrorBoundary>
+        </div>
       </body>
     </html>
   )
