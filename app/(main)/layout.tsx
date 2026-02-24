@@ -42,8 +42,8 @@ export default function MainLayout({
         {/* Left Navigation - Persistent, minimal icons */}
         <MainNav />
 
-        {/* Main Content Area */}
-        <div className="flex flex-1 flex-col min-w-0">
+        {/* Main Content Area - bg so no white sliver above drawer on iPad standalone */}
+        <div className="flex flex-1 flex-col min-w-0 bg-[var(--color-bg)]">
           {/* Main Working Surface + Right Panel */}
           <div className="flex flex-1 min-h-0 relative">
             {/* Primary Content Area */}

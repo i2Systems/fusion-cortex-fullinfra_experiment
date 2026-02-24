@@ -115,7 +115,11 @@ export function BottomDrawer({ children }: BottomDrawerProps) {
         transition-[left,height] duration-300 ease-out
         ${isExpanded ? 'h-64' : 'h-12'}
       `}
-      style={{ zIndex: 'var(--z-drawer)' }}
+      style={{
+        zIndex: 'var(--z-drawer)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        boxSizing: 'content-box',
+      }}
     >
       {/* Drawer Header - Always visible */}
       <button
