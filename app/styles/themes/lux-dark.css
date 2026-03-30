@@ -1,0 +1,112 @@
+/* ============================================
+     LUX DARK THEME
+     Exact Figma-generated tokens from the LUX Design System.
+     Source: packages/lux-ui/src/styles/lux-tokens.css (.dark)
+             packages/lux-ui/src/styles/lux-theme.css (.dark)
+     ============================================ */
+[data-theme="lux-dark"] {
+    /* Backgrounds — LUX base surfaces (dark) */
+    --color-bg: #141414;              /* --base-surface-1 (.dark) */
+    --color-bg-elevated: #1b1b1b;     /* --base-surface-2 (.dark) */
+    --color-surface: rgba(20, 20, 20, 0.85);   /* surface-1 with opacity for glass context */
+    --color-surface-subtle: #303030;  /* --base-fill-1 (.dark) */
+
+    /* Borders — LUX base borders (dark) */
+    --color-border-subtle: #3d3d3d;   /* --base-border-1 (.dark) */
+    --color-border-strong: #747474;   /* --base-border-2 (.dark) */
+
+    /* Primary brand — LUX state-brand-active (dark) = indigo-600 */
+    --color-primary: #a6b4fc;          /* --state-brand-active (.dark) */
+    --color-primary-soft: rgba(166, 180, 252, 0.15);
+    --color-primary-hover: #828df8;    /* --state-brand-hover (.dark) */
+    --color-primary-strong: #6467f2;   /* --state-brand-selected (.dark) */
+
+    /* Accent & Status — exact LUX semantic tokens (dark) */
+    --color-accent: #a6b4fc;           /* --accent-default (.dark) */
+    --color-danger: #ff7575;           /* --state-danger-active (.dark) */
+    --color-danger-soft: rgba(255, 117, 117, 0.15);
+    --color-danger-text: #ff7575;      /* --state-danger-active (.dark) */
+    --color-success: #85efac;          /* --state-success-active (.dark) */
+    --color-warning: #facc14;          /* --colors-yellow-500 (.dark) */
+    --color-info: #2e88f6;             /* --colors-blue-500 mapped in chart */
+
+    /* Zone palette */
+    --color-zone-primary: var(--color-primary);
+    --color-zone-accent: var(--color-accent);
+    --color-zone-success: var(--color-success);
+    --color-zone-warning: var(--color-warning);
+    --color-zone-danger: var(--color-danger);
+    --color-zone-info: var(--color-info);
+
+    /* Group palette — dark-mode LUX primitives */
+    --color-group-1: #a6b4fc;          /* indigo-600 (.dark) */
+    --color-group-2: #ff7575;          /* red-600 (.dark) */
+    --color-group-3: #85efac;          /* green (.dark) */
+    --color-group-4: #facc14;          /* yellow-500 (.dark) */
+    --color-group-5: #828df8;          /* indigo-500 (.dark) */
+    --color-group-6: #2e88f6;          /* blue (.dark) */
+    --color-group-7: #fb7f3c;          /* --state-highlight-active (.dark) */
+    --color-group-8: #a689fa;          /* violet-500 (.dark) */
+
+    /* Overlay & backdrop */
+    --color-backdrop: rgba(0, 0, 0, 0.6);
+
+    /* Text — exact LUX text tokens (dark) */
+    --color-text: #ffffff;                       /* --text-dark-primary (.dark) */
+    --color-text-muted: rgba(255, 255, 255, 0.7); /* --text-dark-secondary (.dark) */
+    --color-text-soft: rgba(255, 255, 255, 0.36);  /* --text-dark-tertiary (.dark) */
+    --color-text-on-primary: #141414;            /* --text-light-primary (.dark) */
+
+    /* Tooltip */
+    --color-tooltip-bg: rgba(20, 20, 20, 0.96);  /* surface-1 opaque */
+    --color-tooltip-border: #3d3d3d;              /* --base-border-1 (.dark) */
+    --color-tooltip-text: #ffffff;                /* --text-dark-primary (.dark) */
+    --color-tooltip-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); /* --shadows-default (.dark) */
+
+    /* Canvas-specific */
+    --color-fixture: #6467f2;           /* --state-brand-selected (.dark) */
+    --color-canvas-border: rgba(61, 61, 61, 0.4);  /* border-1 with alpha */
+    --color-canvas-stroke-dark: rgba(0, 0, 0, 0.3);
+    --color-canvas-selection-inner: rgba(255, 255, 255, 0.8);
+    --color-canvas-selection-fill: rgba(166, 180, 252, 0.2);
+    --color-canvas-selection-stroke: rgba(166, 180, 252, 0.9);
+    --color-canvas-selection-shadow: rgba(166, 180, 252, 0.6);
+
+    /* Shadows — using --shadows-default (.dark) = rgba(0,0,0,0.3) */
+    --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --shadow-strong: 0 16px 40px rgba(0, 0, 0, 0.4);
+
+    /* Glows — focus rings using accent-default (.dark) #a6b4fc */
+    --shadow-glow-primary: 0 0 0 2px rgba(166, 180, 252, 0.3);
+    --shadow-glow-accent: 0 0 0 2px rgba(166, 180, 252, 0.2);
+    --shadow-glow-hover: 0 0 0 3px rgba(166, 180, 252, 0.25);
+
+    /* Glow effects */
+    --glow-primary: 0 0 0 2px rgba(166, 180, 252, 0.25);
+    --glow-modal: 0 24px 48px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(61, 61, 61, 0.3);
+    --glow-accent: 0 0 0 2px rgba(166, 180, 252, 0.2);
+    --glow-strong: 0 32px 64px rgba(0, 0, 0, 0.5);
+
+    /* Radius — exact LUX radi tokens */
+    --radius-xs: 2px;   /* --radi-1 */
+    --radius-sm: 4px;   /* --radi-2 */
+    --radius-md: 6px;   /* --radi-3 */
+    --radius-lg: 8px;   /* --radi-4 (DEFAULT) */
+    --radius-xl: 12px;  /* --radi-6 */
+    --radius-2xl: 16px; /* --radi-7 */
+
+    /* Glass — LUX blur tokens */
+    --glass-blur: 24px;  /* --blur-7 */
+    --glass-blur-strong: 40px;  /* --blur-8 */
+    --glass-opacity: 0.75;
+    --glass-opacity-strong: 0.9;
+
+    /* Glass surfaces */
+    --color-surface-glass: rgba(20, 20, 20, 0.8);   /* surface-1 */
+    --color-surface-glass-elevated: rgba(27, 27, 27, 0.88);  /* surface-2 */
+}
+
+[data-theme="lux-dark"] body {
+    background: #141414;  /* --base-surface-1 (.dark) */
+}

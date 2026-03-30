@@ -1,0 +1,215 @@
+/* ============================================
+     LUX LIGHT THEME
+     Exact Figma-generated tokens from the LUX Design System.
+     Source: packages/lux-ui/src/styles/lux-tokens.css (:root)
+             packages/lux-ui/src/styles/lux-theme.css (:root)
+     ============================================ */
+[data-theme="lux-light"] {
+    /* Backgrounds — LUX base surfaces (light) */
+    --color-bg: #ffffff;               /* --base-surface-1 */
+    --color-bg-elevated: #fcfcfc;      /* --base-surface-2 */
+    --color-surface: #ffffff;          /* --base-surface-1 */
+    --color-surface-subtle: #f4f4f5;  /* --base-fill-1 / --bg-muted */
+
+    /* Borders — LUX base borders (light) */
+    --color-border-subtle: #e1e1e2;   /* --base-border-1 */
+    --color-border-strong: #a1a1aa;   /* --base-border-2 */
+
+    /* Primary brand — LUX state-brand-active (light) = indigo-600 */
+    --color-primary: #5048e5;          /* --state-brand-active */
+    --color-primary-soft: rgba(80, 72, 229, 0.1);
+    --color-primary-hover: #6b6ef8;    /* --state-brand-hover */
+    --color-primary-strong: #3a2fb2;   /* --colors-indigo-700 */
+
+    /* Accent & Status — exact LUX semantic tokens (light) */
+    --color-accent: #8c96fc;           /* --accent-default */
+    --color-danger: #dc2828;           /* --state-danger-active */
+    --color-danger-soft: rgba(220, 40, 40, 0.1);
+    --color-danger-text: #b11b1b;      /* --colors-red-700 */
+    --color-success: #149041;          /* --state-success-active */
+    --color-warning: #d9a508;          /* --colors-yellow-500 */
+    --color-info: #3479e9;             /* --colors-blue-500 */
+
+    /* Zone palette */
+    --color-zone-primary: var(--color-primary);
+    --color-zone-accent: var(--color-accent);
+    --color-zone-success: var(--color-success);
+    --color-zone-warning: var(--color-warning);
+    --color-zone-danger: var(--color-danger);
+    --color-zone-info: var(--color-info);
+
+    /* Group palette */
+    --color-group-1: #5048e5;          /* indigo-600 */
+    --color-group-2: #dc2828;          /* red-600 */
+    --color-group-3: #149041;          /* green-600 */
+    --color-group-4: #d9a508;          /* yellow-500 */
+    --color-group-5: #8c96fc;          /* indigo-400 / accent */
+    --color-group-6: #3479e9;          /* blue-500 */
+    --color-group-7: #e8502a;          /* --state-highlight-active */
+    --color-group-8: #a046f6;          /* purple-500 */
+
+    /* Overlay & backdrop */
+    --color-backdrop: rgba(20, 20, 20, 0.48); /* --colors-alpha-dark-500 */
+
+    /* Text — exact LUX text tokens (light) */
+    --color-text: #1a1a1a;                      /* --text-dark-primary */
+    --color-text-muted: rgba(26, 26, 26, 0.7);  /* --text-dark-secondary */
+    --color-text-soft: rgba(20, 20, 20, 0.36);  /* --text-dark-tertiary */
+    --color-text-on-primary: #ffffff;            /* --text-light-primary */
+
+    /* Tooltip */
+    --color-tooltip-bg: #ffffff;        /* --base-surface-1 */
+    --color-tooltip-border: #e1e1e2;    /* --base-border-1 */
+    --color-tooltip-text: #1a1a1a;      /* --text-dark-primary */
+    --color-tooltip-shadow: 0 4px 6px -1px rgba(29, 29, 32, 0.08);
+
+    /* Canvas-specific */
+    --color-fixture: #3a2fb2;           /* indigo-700 */
+    --color-canvas-border: rgba(0, 0, 0, 0.12);
+    --color-canvas-stroke-dark: rgba(0, 0, 0, 0.2);
+    --color-canvas-selection-inner: rgba(0, 0, 0, 0.6);
+    --color-canvas-selection-fill: rgba(80, 72, 229, 0.15);
+    --color-canvas-selection-stroke: rgba(80, 72, 229, 0.9);
+    --color-canvas-selection-shadow: rgba(80, 72, 229, 0.5);
+
+    /* Shadows */
+    --shadow-soft: 0 1px 2px rgba(29, 29, 32, 0.06);
+    --shadow-md: 0 4px 6px -1px rgba(29, 29, 32, 0.08);
+    --shadow-strong: 0 10px 25px -5px rgba(29, 29, 32, 0.1);
+
+    /* Glows — focus rings using accent-default */
+    --shadow-glow-primary: 0 0 0 2px rgba(140, 150, 252, 0.3);  /* --accent-default */
+    --shadow-glow-accent: 0 0 0 2px rgba(140, 150, 252, 0.2);
+    --shadow-glow-hover: 0 0 0 4px rgba(140, 150, 252, 0.15);
+
+    /* Glow effects */
+    --glow-primary: 0 0 0 3px rgba(140, 150, 252, 0.15);
+    --glow-modal: 0 20px 25px -5px rgba(29, 29, 32, 0.1), 0 0 0 1px rgba(225, 225, 226, 0.5);
+    --glow-accent: 0 0 0 3px rgba(140, 150, 252, 0.12);
+    --glow-strong: 0 25px 50px -12px rgba(29, 29, 32, 0.2);
+
+    /* Radius — exact LUX radi tokens */
+    --radius-xs: 2px;   /* --radi-1 */
+    --radius-sm: 4px;   /* --radi-2 */
+    --radius-md: 6px;   /* --radi-3 */
+    --radius-lg: 8px;   /* --radi-4 (DEFAULT) */
+    --radius-xl: 12px;  /* --radi-6 */
+    --radius-2xl: 16px; /* --radi-7 */
+
+    /* Glass */
+    --glass-blur: 24px;  /* --blur-7 */
+    --glass-blur-strong: 40px;  /* --blur-8 */
+    --glass-opacity: 0.85;
+    --glass-opacity-strong: 0.95;
+
+    /* Glass surfaces */
+    --color-surface-glass: rgba(255, 255, 255, 0.85);
+    --color-surface-glass-elevated: rgba(252, 252, 252, 0.92);
+}
+
+[data-theme="lux-light"] body {
+    background: #ffffff;  /* --base-surface-1 */
+}
+
+/* ============================================
+   STATUS TOKEN OVERRIDES — Light Mode Contrast
+   Using exact LUX color primitives
+   ============================================ */
+
+/* Online / Active / Success — green-600 (#149041) */
+[data-theme="lux-light"] .token-status-online,
+[data-theme="lux-light"] .token-status-active,
+[data-theme="lux-light"] .token-status-success,
+[data-theme="lux-light"] .token-warranty-in-warranty {
+    background: rgba(20, 144, 65, 0.08);
+    color: #137236;        /* green-700 */
+    border: 1px solid rgba(20, 144, 65, 0.2);
+}
+
+/* Offline / Disabled — gray-600 (#52525b) */
+[data-theme="lux-light"] .token-status-offline,
+[data-theme="lux-light"] .token-status-disabled,
+[data-theme="lux-light"] .token-status-inactive,
+[data-theme="lux-light"] .token-status-not-assigned {
+    background: rgba(122, 122, 131, 0.06); /* gray-500 */
+    color: #52525b;        /* gray-600 */
+    border: 1px solid rgba(122, 122, 131, 0.15);
+}
+
+/* Error / Danger — red-600 (#dc2828) */
+[data-theme="lux-light"] .token-status-error,
+[data-theme="lux-light"] .token-status-danger,
+[data-theme="lux-light"] .token-status-missing,
+[data-theme="lux-light"] .token-warranty-out-of-warranty {
+    background: rgba(220, 40, 40, 0.06);
+    color: #b11b1b;        /* red-700 */
+    border: 1px solid rgba(220, 40, 40, 0.15);
+}
+
+/* Warning — yellow-500 (#d9a508) */
+[data-theme="lux-light"] .token-status-warning,
+[data-theme="lux-light"] .token-warranty-near-end {
+    background: rgba(217, 165, 8, 0.08);
+    color: #935806;        /* yellow-700 */
+    border: 1px solid rgba(217, 165, 8, 0.15);
+}
+
+/* Info — blue-500 (#3479e9) */
+[data-theme="lux-light"] .token-status-info {
+    background: rgba(52, 121, 233, 0.06);
+    color: #173fab;        /* blue-700 */
+    border: 1px solid rgba(52, 121, 233, 0.15);
+}
+
+/* Data & Type tokens */
+[data-theme="lux-light"] .token-type-rule {
+    background: rgba(122, 122, 131, 0.04);
+    color: #52525b;
+    border: 1px solid rgba(122, 122, 131, 0.15);
+}
+
+[data-theme="lux-light"] .token-type-override {
+    background: rgba(232, 80, 42, 0.08);   /* --state-highlight-active */
+    color: #b53e21;         /* orange-700 */
+    border: 1px solid rgba(232, 80, 42, 0.2);
+}
+
+[data-theme="lux-light"] .token-type-schedule {
+    background: rgba(80, 72, 229, 0.06);
+    color: #3a2fb2;         /* indigo-700 */
+    border: 1px solid rgba(80, 72, 229, 0.15);
+}
+
+[data-theme="lux-light"] .token-type-fixture {
+    background: rgba(236, 75, 156, 0.06);   /* pink-500 */
+    color: #9f144d;         /* pink-700 */
+    border: 1px solid rgba(236, 75, 156, 0.15);
+}
+
+[data-theme="lux-light"] .token-type-motion-sensor {
+    background: rgba(232, 80, 42, 0.06);
+    color: #b53e21;         /* orange-700 */
+    border: 1px solid rgba(232, 80, 42, 0.15);
+}
+
+[data-theme="lux-light"] .token-type-light-sensor {
+    background: rgba(20, 144, 65, 0.06);
+    color: #137236;         /* green-700 */
+    border: 1px solid rgba(20, 144, 65, 0.15);
+}
+
+/* Signal / Battery data tokens */
+[data-theme="lux-light"] .token-data-signal-high,
+[data-theme="lux-light"] .token-data-battery-high {
+    color: #137236;         /* green-700 */
+}
+
+[data-theme="lux-light"] .token-data-signal-medium,
+[data-theme="lux-light"] .token-data-battery-medium {
+    color: #935806;         /* yellow-700 */
+}
+
+[data-theme="lux-light"] .token-data-signal-low,
+[data-theme="lux-light"] .token-data-battery-low {
+    color: #b11b1b;         /* red-700 */
+}

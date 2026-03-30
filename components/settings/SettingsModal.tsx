@@ -329,6 +329,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                               <option value="business-fluent">Business Fluent</option>
                               <option value="on-brand">On Brand</option>
                               <option value="on-brand-glass">On Brand Glass</option>
+                              <option value="lux-light">LUX Light</option>
+                              <option value="lux-dark">LUX Dark</option>
                             </select>
                           </div>
                           <div>
@@ -348,6 +350,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                               <option value="business-fluent">Business Fluent</option>
                               <option value="on-brand">On Brand</option>
                               <option value="on-brand-glass">On Brand Glass</option>
+                              <option value="lux-light">LUX Light</option>
+                              <option value="lux-dark">LUX Dark</option>
                             </select>
                           </div>
                         </div>
@@ -463,6 +467,30 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             className="rounded"
                           />
                           <span className="text-sm text-[var(--color-text)]">On Brand Glass</span>
+                        </label>
+                        <label htmlFor="settings-theme-lux-light" className="flex items-center gap-3 p-3 bg-[var(--color-surface-subtle)] rounded-lg cursor-pointer hover:bg-[var(--color-surface)] transition-colors">
+                          <input
+                            id="settings-theme-lux-light"
+                            type="radio"
+                            name="theme"
+                            value="lux-light"
+                            checked={theme === 'lux-light'}
+                            onChange={() => setTheme('lux-light')}
+                            className="rounded"
+                          />
+                          <span className="text-sm text-[var(--color-text)]">LUX Light</span>
+                        </label>
+                        <label htmlFor="settings-theme-lux-dark" className="flex items-center gap-3 p-3 bg-[var(--color-surface-subtle)] rounded-lg cursor-pointer hover:bg-[var(--color-surface)] transition-colors">
+                          <input
+                            id="settings-theme-lux-dark"
+                            type="radio"
+                            name="theme"
+                            value="lux-dark"
+                            checked={theme === 'lux-dark'}
+                            onChange={() => setTheme('lux-dark')}
+                            className="rounded"
+                          />
+                          <span className="text-sm text-[var(--color-text)]">LUX Dark</span>
                         </label>
                       </div>
                     </div>

@@ -20,8 +20,8 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 // ============================================================================
 
 // Theme types
-export type Theme = 'dark' | 'light' | 'high-contrast' | 'warm-night' | 'warm-day' | 'glass-neumorphism' | 'business-fluent' | 'on-brand' | 'on-brand-glass'
-const VALID_THEMES: Theme[] = ['dark', 'light', 'high-contrast', 'warm-night', 'warm-day', 'glass-neumorphism', 'business-fluent', 'on-brand', 'on-brand-glass']
+export type Theme = 'dark' | 'light' | 'high-contrast' | 'warm-night' | 'warm-day' | 'glass-neumorphism' | 'business-fluent' | 'on-brand' | 'on-brand-glass' | 'lux-light' | 'lux-dark'
+const VALID_THEMES: Theme[] = ['dark', 'light', 'high-contrast', 'warm-night', 'warm-day', 'glass-neumorphism', 'business-fluent', 'on-brand', 'on-brand-glass', 'lux-light', 'lux-dark']
 
 // Font types
 export type FontFamily = 'system' | 'syne' | 'ibm-plex' | 'inter' | 'poppins' | 'space-grotesk' | 'work-sans' | 'manrope' | 'outfit' | 'lexend' | 'atkinson-hyperlegible'
