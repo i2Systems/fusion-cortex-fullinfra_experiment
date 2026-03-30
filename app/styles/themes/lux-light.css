@@ -213,3 +213,21 @@
 [data-theme="lux-light"] .token-data-battery-low {
     color: #b11b1b;         /* red-700 */
 }
+
+/* ============================================
+   COMPONENT SHAPE OVERRIDES
+   Fusion shares `var(--radius-md)` across buttons and inputs.
+   However, LUX uses drastically different radii for each.
+   ============================================ */
+
+/* LUX Buttons are pill-shaped */
+[data-theme="lux-light"] .fusion-button {
+    border-radius: 180px; /* --radi-13 */
+}
+
+/* LUX Inputs/Selects use 10px (--radi-5) */
+[data-theme="lux-light"] input.rounded-md,
+[data-theme="lux-light"] select.rounded-md,
+[data-theme="lux-light"] textarea.rounded-md {
+    border-radius: 10px; /* --radi-5 */
+}
